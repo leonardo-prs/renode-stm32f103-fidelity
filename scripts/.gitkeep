@@ -1,0 +1,4 @@
+# Scripts auxiliares para build, flash e dump de memória.
+# Conteúdo previsto (ver AGENTS.md tarefas k):
+#   flash_stlink.sh       # wrapper openocd -f interface/stlink.cfg ...
+#   dump_sram.sh          # wrapper gdb-multiarch para extrair buffer DWT

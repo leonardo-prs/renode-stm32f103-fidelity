@@ -1,0 +1,9 @@
+# Configurações do simulador Renode.
+# Conteúdo previsto (não criado ainda, ver AGENTS.md tarefas k e l):
+#   stm32f103_hsi8.repl   # platform compartilhada — clock dos 14 timers,
+#                          # systickFrequency=1MHz, dwt.frequency=8MHz,
+#                          # tag RCC_CR=0x00000083
+#   sandbox.resc          # 1 por cenário — carrega ELF, sobe GDB :3333,
+#   scenario_a.resc       # inicia simulação
+#   scenario_b.resc
+#   PLAN.md               # diffs e justificativas do .repl

@@ -1,0 +1,21 @@
+# ────────────────────────────────────────────────────────────────────────────
+# .clangd — GERADO por CMake (configure_file). NÃO editar manualmente.
+# ────────────────────────────────────────────────────────────────────────────
+#
+# Aponta clangd para o compile_commands.json gerado pelo build atual.
+# O CMake substitui @CMAKE_BINARY_DIR@ no configure.
+#
+# Workflow:
+#   1. cmake -B build/<cenario> -DSCENARIO=<X> ...
+#   2. ninja -C build/<cenario>
+#   3. Abrir o editor — clangd lê este .clangd e acha os include paths.
+#
+# Mudou o nome do build dir (e.g. build/sandbox-debug em vez de
+# build/sandbox)? Reconfigure. O .clangd é regerado automaticamente.
+#
+# Este arquivo está em .gitignore (gerado por CMake) e em .ignore com
+# !.clangd para que o opencode possa lê-lo.
+# ────────────────────────────────────────────────────────────────────────────
+
+CompileFlags:
+  CompilationDatabase: @CMAKE_BINARY_DIR@

@@ -1,0 +1,9 @@
+# Opencode: arquivos em .gitignore que o agente pode ler.
+# Use '!' (sintaxe ripgrep) para un-ignorar. Mantemos AGENTS.md
+# local (não vai pro repo) para dar contexto ao agente, mas
+# permitimos que opencode leia mesmo assim.
+!AGENTS.md
+
+# .clangd é gerado por CMake (configure_file) a cada configure.
+# Não vai pro repo (.gitignore) mas o opencode pode ler.
+!.clangd
