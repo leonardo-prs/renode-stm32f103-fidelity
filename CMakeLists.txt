@@ -75,9 +75,9 @@ add_executable(${CMAKE_PROJECT_NAME}
     ${APP_SOURCE}
 )
 
-# ── Include path: nosso src/inc/ (sempre disponível) ──
+# ── Include path: nosso inc/ na raiz (sempre disponível) ──
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
-    ${CMAKE_SOURCE_DIR}/src/inc
+    ${CMAKE_SOURCE_DIR}/inc
 )
 
 # ── Compiler hardening no nosso código (não toca vendor) ──

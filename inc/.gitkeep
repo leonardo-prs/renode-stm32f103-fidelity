@@ -1,0 +1,4 @@
+# Headers do nosso código ficam aqui.
+# inc/ é incluído por padrão pelo CMakeLists.txt da raiz.
+# Use para protótipos compartilhados entre múltiplos .c em src/
+# e para headers de módulos em lib/ (lib/dwt/dwt.h etc).

@@ -1,3 +1,0 @@
-# Headers do nosso código ficam aqui.
-# src/inc/ é incluído por padrão pelo CMakeLists.txt da raiz.
-# Use para protótipos compartilhados entre múltiplos .c em src/.
