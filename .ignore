@@ -7,3 +7,7 @@
 # .clangd é gerado por CMake (configure_file) a cada configure.
 # Não vai pro repo (.gitignore) mas o opencode pode ler.
 !.clangd
+
+# Diretório de builds; permitir leitura pelo opencode.
+!build/
+!build/**

@@ -67,13 +67,13 @@ if(NOT EXISTS "${APP_SOURCE}")
         "Cenários disponíveis: sandbox.c, scenario_a.c, scenario_b.c")
 endif()
 
-# ── CubeMX-gerado: INTERFACE lib com paths, defines, sources do vendor ──
-add_subdirectory(cmake/stm32cubemx)
-
 # ── Executable: nosso .c do cenário + main.c do CubeMX ──
 add_executable(${CMAKE_PROJECT_NAME}
     ${APP_SOURCE}
 )
+
+# ── CubeMX-gerado: INTERFACE lib com paths, defines, sources do vendor ──
+add_subdirectory(cmake/stm32cubemx)
 
 # ── Include path: nosso inc/ na raiz (sempre disponível) ──
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
@@ -97,7 +97,7 @@ target_link_options(${CMAKE_PROJECT_NAME} PRIVATE
 )
 
 # ── Link com a lib CubeMX (traz Core, Drivers, system, startup, linker) ──
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
+target_link_libraries(${CMAKE_PROJECT_NAME}
     stm32cubemx
     STM32_Drivers
     m   # newlib libm

@@ -1,0 +1,35 @@
+# sandbox.resc — STM32F103C8T6 sandbox (HSI 8 MHz) no Renode headless
+# Uso:
+#   renode --disable-xwt -e "s @renode/sandbox.resc"
+# ou dentro do monitor:
+#   (monitor) s @renode/sandbox.resc
+
+using sysbus
+mach create "stm32f103_hsi8"
+
+# Plataforma custom HSI 8 MHz (ver renode/stm32f103_hsi8.repl + PLAN.md)
+machine LoadPlatformDescription @renode/stm32f103_hsi8.repl
+
+# Verbosidade moderada (0=silent, 3=debug)
+logLevel 3
+
+# ELF do cenário SANDBOX (blink PC13 busy-wait 200000 __NOP)
+# CAMINHO RELATIVO AO CWD (raiz do projeto). Renode resolve relativo ao .resc
+# quando prefixado com @; mantemos @ para consistência com docs Renode.
+sysbus LoadELF @build/sandbox/firmware.elf
+
+# Opcional: expor GPIO C para inspeção do LED PC13 (ativo-baixo)
+# O analyzer UART não é necessário aqui (sandbox não usa USART), mas deixamos
+# usart1 visível caso queira `showAnalyzer usart1` manualmente.
+
+# GDB server em :3333 (mesma porta do OpenOCD para compatibilidade com launch.json)
+machine StartGdbServer 3333
+
+# Mostra estado inicial antes do start (útil para debug de LoadELF)
+log "=== sandbox.resc: ELF carregado, iniciando emulação ==="
+
+start
+
+# Dica: inspecionar LED via monitor Python:
+#   sysbus.gpioPortC State  (ou sysbus.gpioC se aliased)
+#   cpu PC  /  cpu IsHalted
