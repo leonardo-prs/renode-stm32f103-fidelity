@@ -25,6 +25,31 @@ de margens aceitáveis.
   > e a integração com Windows. O [Determinate Nix][det-nix] resolve isso
   > e configura o daemon Nix corretamente para WSL2.
 
+- **direnv** (auto-ativação do ambiente Nix ao entrar na pasta) — via `apt`:
+
+  ```bash
+  # 1. Instalar
+  sudo apt update && sudo apt install -y direnv
+
+  # 2. Hook no shell (bash) — persiste entre sessões
+  #    DIRENV_LOG_FORMAT="" silencia o dump de 50+ vars ao entrar na pasta
+  grep -q 'DIRENV_LOG_FORMAT' ~/.bashrc || echo 'export DIRENV_LOG_FORMAT=""' >> ~/.bashrc
+  grep -q 'direnv hook bash' ~/.bashrc || echo 'eval "$(direnv hook bash)"' >> ~/.bashrc
+
+  # 3. Ativar no shell atual (ou feche e reabra o terminal)
+  export DIRENV_LOG_FORMAT=""
+  eval "$(direnv hook bash)"
+
+  # 4. Autorizar o .envrc deste projeto (uma vez por clone)
+  direnv allow
+  ```
+
+  > Depois disso, basta `cd` na raiz do projeto e o shell Nix carrega
+  > sozinho (banner `STM32F103 Renode Fidelity — dev shell`). Para
+  > confirmar: `which arm-none-eabi-gcc` deve apontar para
+  > `/nix/store/.../bin/arm-none-eabi-gcc`. Sem `direnv`, use
+  > `nix develop` manualmente.
+
 [det-nix]: https://determinate.systems/
 
 ---
@@ -32,7 +57,8 @@ de margens aceitáveis.
 ## Quickstart
 
 ```bash
-# 1. Entrar no ambiente (cria flake.lock na 1ª vez; pode demorar alguns min)
+# 1. Entrar no ambiente — com direnv já configurado acima, é automático ao dar cd.
+#    Sem direnv, entre manualmente (cria flake.lock na 1ª vez; pode demorar alguns min):
 nix develop
 
 # 2. Build do cenário sandbox (gera firmware.elf)

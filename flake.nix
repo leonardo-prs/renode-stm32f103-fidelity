@@ -34,19 +34,20 @@
 #  ponto de vista do Nix. Ver README.md para detalhes da configuração WSL2.
 #
   #  ┌─────────────────────────────────────────────────────────────────────────┐
-  #  │ CANAL: nixpkgs-unstable                                                 │
+  #  │ CANAL: nixos-26.05 (stable)                                               │
   #  └─────────────────────────────────────────────────────────────────────────┘
-  #  Diferente da maioria dos projetos, aqui usamos `nixpkgs-unstable` em vez
-  #  de uma release fixa (ex: nixos-25.05). POR QUÊ:
+  #  Usamos `nixos-26.05` (stable 2026.05). POR QUÊ:
   #
-  #    - Renode 1.16.1 só está em unstable (em 25.05 está congelado em 1.15.3).
-  #    - gcc-arm-embedded 15.2 (latest stable com suporte C18/C23) só em unstable.
+  #    - Renode 1.16.1 está disponível em nixos-26.05 stable (ver
+  #      https://search.nixos.org/packages?channel=26.05&query=renode),
+  #      não sendo mais necessário recorrer a nixpkgs-unstable.
+  #    - gcc-arm-embedded 15.2, cmake 4.1 etc também estão em 26.05.
   #    - O toolchain inteiro fica coerente: uma única resolução de versões.
   #
-  #  IMPORTANTE: o nome do pacote em nixpkgs-unstable é um ALIAS. Em algum
-  #  momento futuro, o time do nixpkgs pode trocar o ponteiro de 15.2 para
-  #  outra versão, sem aviso. Para um TCC empírico, reprodutibilidade é
-  #  fundamental — por isso COMMITAMOS o `flake.lock`, que pinna o hash exato
+  #  Migração: projeto anteriormente em nixpkgs-unstable (Renode 1.16.1 só
+  #  existia em unstable em 25.05). Com 26.05, migramos para o canal stable.
+  #
+  #  Reprodutibilidade continua via `flake.lock`, que pinna o hash exato
   #  do nixpkgs e de cada derivação. Enquanto ninguém rodar `nix flake update`,
   #  todos os devs (e a CI) obtêm exatamente as mesmas versões byte-a-byte.
   #
@@ -119,10 +120,10 @@
   # Pense como "package.json dependencies". Cada input vira uma variável
   # disponível dentro de `outputs`.
   inputs = {
-    # nixpkgs: a "biblioteca" de pacotes do Nix (50.000+ pkgs). Branch
-    # `nixpkgs-unstable` = ponta, com pacotes sempre recentes. Ver bloco
-    # no header deste arquivo sobre por que unstable aqui.
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    # nixpkgs: a "biblioteca" de pacotes do Nix (50.000+ pkgs). Canal
+    # `nixos-26.05` = stable 2026.05. Ver bloco no header sobre a
+    # migração de unstable para 26.05.
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
   };
 
   # ── OUTPUTS ───────────────────────────────────────────────────────────────
@@ -211,18 +212,33 @@
         stm32cubemx
       ];
 
+      # ── buildTools: subconjunto mínimo para COMPILAR firmware ──────────
+      # Contiene apenas o necessário para `cmake` + `ninja` produzir o ELF.
+      # Excluye renode/stm32cubemx (e o resto de `tools`) para que `nix develop`
+      # não construa pacotes opcionales quebrados. `default` usa esta lista.
+      buildTools = with pkgs; [
+        gcc-arm-embedded
+        cmake
+        ninja
+        pkg-config
+      ];
+
     in
     {
       # ── DEVSHELLS ──────────────────────────────────────────────────────
       # Aqui saímos do `let ... in` e declaramos o que a flake expõe.
       # `devShells` é o campo padrão Nix para shells de desenvolvimento;
       # `nix develop` e `direnv` leem dele automaticamente.
-      devShells = {
+      #
+      # `devShells` é PER-SYSTEM: a chave de primeiro nível é o sistema
+      # (`x86_64-linux`), e só então vem o nome do shell (`default`).
+      # Sem a chave de sistema, `nix develop` não encontra o shell.
+      devShells.x86_64-linux = {
 
-        # ── SHELL ÚNICO (default) ───────────────────────────────────────
+        # ── SHELL DEFAULT (build mínimo) ────────────────────────────────
         # `nix develop` (sem args) e `direnv` (via `.envrc: use flake`)
-        # entram aqui. Tem TUDO: toolchain ARM, build system, flash,
-        # debug, simulação, IDE, CubeMX.
+        # entram aqui. Contiene apenas `buildTools` (toolchain ARM + build
+        # system) para compilar firmware sem construir renode/stm32cubemx.
         #
         # `mkShell` é a função que cria um shell de desenvolvimento.
         # Aceita `packages` (lista de derivações a colocar no PATH do
@@ -230,57 +246,33 @@
         default = pkgs.mkShell {
           name = "stm32-renode-fidelity";
 
-          packages = tools;
+          packages = buildTools;
 
-          # Mensagem de boas-vindas + verificações de versão + dicas.
-          # `''...''` é string multi-linha em Nix (permite ${...} interpolação).
+          # Cabeçalho mínimo + help curto (direnv log silenciado via .envrc).
           shellHook = ''
-            echo ""
-            echo "════════════════════════════════════════════════════════════════"
-            echo "  STM32F103 Renode Fidelity — dev shell"
-            echo "════════════════════════════════════════════════════════════════"
-            echo ""
-            echo "  Host    : $(uname -srm)"
-            echo "  Channel : nixpkgs-unstable (ver flake.lock)"
-            echo ""
-            echo "  Ferramentas (versão instalada via Nix):"
-            printf "    %-22s " "arm-none-eabi-gcc"; command -v arm-none-eabi-gcc >/dev/null && arm-none-eabi-gcc --version | head -1 || echo "FALTA"
-            printf "    %-22s " "cmake";            command -v cmake            >/dev/null && cmake --version            | head -1 || echo "FALTA"
-            printf "    %-22s " "ninja";            command -v ninja            >/dev/null && ninja --version            | head -1 || echo "FALTA"
-            printf "    %-22s " "openocd";          command -v openocd          >/dev/null && openocd --version          | head -1 || echo "FALTA"
-            printf "    %-22s " "arm-none-eabi-gdb"; command -v arm-none-eabi-gdb >/dev/null && arm-none-eabi-gdb --version | head -1 || echo "FALTA"
-            printf "    %-22s " "renode";           command -v renode           >/dev/null && renode --version           | head -1 || echo "FALTA"
-            printf "    %-22s " "clangd";           command -v clangd           >/dev/null && clangd --version           | head -1 || echo "FALTA"
-            printf "    %-22s " "python3";          command -v python3          >/dev/null && python3 --version          | head -1 || echo "FALTA"
-            if command -v stm32cubemx >/dev/null; then
-              printf "    %-22s " "stm32cubemx";      echo "OK ($(command -v stm32cubemx))"
-            else
-              printf "    %-22s " "stm32cubemx";      echo "FALTA"
-            fi
-            echo ""
-            echo "  Comandos úteis:"
-            echo "    Configurar build:"
-            echo "      cmake -B build/sandbox -DSCENARIO=SANDBOX -G Ninja \\"
-            echo "            -DCMAKE_TOOLCHAIN_FILE=cmake/gcc-arm-none-eabi.cmake"
-            echo "    Compilar:"
-            echo "      ninja -C build/sandbox"
-            echo "    Flash + debug (ST-Link):"
-            echo "      openocd -f interface/stlink.cfg -f target/stm32f1x.cfg \\"
-            echo "             -c 'program build/sandbox/firmware.elf verify reset exit'"
-            echo "    Simular (Renode):"
-            echo "      renode renode/sandbox.resc"
-            echo "    Editar .ioc:"
-            echo "      stm32cubemx"
-            echo ""
-            echo "  PATH precedence: nix-profile prependido → apt é shadowed."
-            echo "  Confirme:        which arm-none-eabi-gcc"
-            echo ""
-            echo "  Para sair: exit"
-            echo "════════════════════════════════════════════════════════════════"
-            echo ""
+            echo "stm32-renode-fidelity — nix:build"
+            echo "  cmake -B build/sandbox -DSCENARIO=SANDBOX -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/gcc-arm-none-eabi.cmake"
+            echo "  ninja -C build/sandbox          # compilar"
+            echo "  nix develop .#full              # renode/openocd/cubemx"
           '';
         };
 
+        # ── SHELL FULL (todo incluído) ──────────────────────────────────
+        # `nix develop full` entra aqui. Tem TUDO: toolchain ARM, build
+        # system, flash, debug, simulação, IDE, CubeMX. Usa `tools`.
+        full = pkgs.mkShell {
+          name = "stm32-renode-fidelity-full";
+
+          packages = tools;
+
+          shellHook = ''
+            echo "stm32-renode-fidelity — nix:full"
+            echo "  cmake -B build/sandbox -DSCENARIO=SANDBOX -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/gcc-arm-none-eabi.cmake"
+            echo "  ninja -C build/sandbox          # compilar"
+            echo "  renode renode/sandbox.resc      # simular"
+            echo "  openocd -f interface/stlink.cfg -f target/stm32f1x.cfg -c \"program build/sandbox/firmware.elf verify reset exit\"  # flash"
+          '';
+        };
       };
     };
 }
