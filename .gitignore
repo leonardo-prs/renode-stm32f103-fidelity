@@ -31,12 +31,7 @@ compile_commands.json
 *~
 .DS_Store
 Thumbs.db
-
-# ── Opencode ──
-.opencode/
-
-# ── Agent context (local apenas; opencode lê via .ignore) ──
-AGENTS.md
+.ignore
 
 # ── Gerado por CMake (configure_file) ──
 .clangd

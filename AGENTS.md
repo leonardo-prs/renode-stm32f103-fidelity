@@ -8,6 +8,19 @@ em firmware bare metal. Três artefatos compiláveis: `sandbox` (teste
 genérico), `scenario_a` (TIM2 + NVIC + GPIO + DWT), `scenario_b`
 (USART1 115200 8N1).
 
+## Separação de ambientes — código vs. TCC escrito
+
+> **Este repositório é somente código e simulação.** Toda documentação,
+> contexto/bibliografia e desenvolvimento dos textos entregáveis do TCC vive
+> em **`C:\Users\Leonardo\projects\tcc`** (WSL: `/mnt/c/Users/Leonardo/projects/tcc`).
+> Acesso liberado via `.opencode/opencode.jsonc` (`external_directory` restrito a
+> `/mnt/c/Users/Leonardo/projects/tcc/**` — nada além disso em `C:\`). Não criar
+> `docs/` ou `context/` aqui; usar o `tcc/` do Windows.
+
+- **Fica aqui (Nix, versionado):** `Core/`, `Drivers/`, `src/`, `inc/`, `lib/`, `renode/`, `scripts/`, `cmake/`, `startup_*`, `*.ld`, `*.ioc`, `flake.nix`, `CMakeLists.txt`.
+- **Fica em `tcc/` (Windows, fora do Nix):** `docs/` (justificativa, plano), `context/` (bibliography, renode-docs, technical-literature), `contexto/`, `referencias/`, `latex/`, `normas/`, `_arquivo/`, monografia.
+- `docs/` e `context/` foram **removidos deste repo** em 2025-08-31 após port verificado (hashes `b60a48cd` / `629a59c1`, `12M` idêntico, 44 arquivos).
+
 ## Questão central
 
 > Em quais cenários e até qual nível de recurso de hardware o Renode
@@ -94,6 +107,8 @@ renode-stm32f103-fidelity/
   user change is kept". Modifica à vontade.
 - **Nosso (`src/`, `inc/`, `lib/`, `renode/`, `scripts/`, `flake.nix`):**
   manualmente mantido.
+- **`.opencode/opencode.jsonc`:** permissão `external_directory` para `/mnt/c/Users/Leonardo/projects/tcc/**` — não ampliar para `/mnt/c/**` sem pedir.
+- **Proibido criar aqui:** `docs/`, `context/` — vivem em `tcc/` do Windows (ver Separação acima). Qualquer doc novo vai para `/mnt/c/Users/Leonardo/projects/tcc/docs/` ou `context/`.
 - **`AGENTS.md`:** local, gitignored, mas legível pelo agente via `.ignore`.
 - **`.clangd`:** gerado por CMake via `configure_file(cmake/clangd.in)` a
   cada configure. Não editar manualmente; mudar o nome do build dir exige
@@ -195,11 +210,10 @@ principal (`__WFI()` no caso dos cenários A/B).
       de bytes (0x55/0xAA)
 - [ ] `lib/dwt/`, `lib/clock_init/`, etc. — criado sob demanda quando
       2+ cenários precisarem do mesmo código
-- [ ] Portar bibliografia/manuais como `context/` submodule (NÃO versionado
-      com o projeto principal — só dependência de desenvolvimento):
-      Yiu, Coleman, Baldassari, Buttazzo, H&P, PM0056, RM0008, docs Renode
+- [x] Portado em 2025-08-31 para `C:\Users\Leonardo\projects\tcc\context/` (WSL: `/mnt/c/Users/Leonardo/projects/tcc/context/`):
+      Yiu, Coleman, Baldassari, Buttazzo, H&P, PM0056, RM0008, docs Renode — **não** criar `context/` aqui
 - [ ] Escrever `docs/decisoes-metricas-cenarios.md` e
-      `docs/metodologia-cenario-a.md` do zero (não portadas do legado)
+      `docs/metodologia-cenario-a.md` do zero (não portadas do legado) — **em `C:\Users\Leonardo\projects\tcc\docs/`**
 - [ ] Coletar dados HW e Renode, comparar quantitativamente
 - [ ] `README.md` — quickstart para clone+build (criar quando o smoke test passar)
 
@@ -207,6 +221,9 @@ principal (`__WFI()` no caso dos cenários A/B).
 
 - `renode/PLAN.md` — diffs e justificativas do `.repl`
 - `renode/<cenario>.resc` — scripts de simulação
-- `docs/decisoes-metricas-cenarios.md` — metodologia completa, métricas
-- `docs/metodologia-cenario-a.md` — protocolo de medição
+- `C:\Users\Leonardo\projects\tcc\docs\decisoes-metricas-cenarios.md` — metodologia completa, métricas
+- `C:\Users\Leonardo\projects\tcc\docs\metodologia-cenario-a.md` — protocolo de medição
+- `C:\Users\Leonardo\projects\tcc\docs\justificativa-metodologia.md` — fundamentação já portada (b60a48cd)
+- `C:\Users\Leonardo\projects\tcc\docs\plano-execucao-cenarios.md` — plano já portado (629a59c1)
+- `C:\Users\Leonardo\projects\tcc\context\` — bibliografia e manuais (12M)
 - `README.md` — quickstart para humanos
