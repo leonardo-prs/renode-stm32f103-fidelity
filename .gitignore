@@ -38,3 +38,10 @@ Thumbs.db
 
 # ── Logs ──
 *.log
+
+# ── Ruído do CubeMX (regen) — nunca commitar ──
+**/Backup/
+*.bak
+
+# ── Symlink local p/ o TCC no Windows (específico da máquina) ──
+/tcc
