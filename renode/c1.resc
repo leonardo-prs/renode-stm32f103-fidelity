@@ -1,0 +1,34 @@
+# c1.resc — Cenário C1 (HSI 8 MHz) no Renode headless
+# Uso:
+#   renode --disable-xwt -e "s @renode/c1.resc"
+# ou dentro do monitor:
+#   (monitor) s @renode/c1.resc
+#
+# Mapeamento firmware: c1 <-> src/c1_core.c (demais: cN <-> src/cN_*.c,
+# ELF em build/cN/firmware.elf para N=1..4).
+
+using sysbus
+mach create "c1_hsi8"
+
+# Plataforma custom HSI 8 MHz (ver renode/stm32f103_hsi8.repl + PLAN.md)
+machine LoadPlatformDescription @renode/stm32f103_hsi8.repl
+
+# Verbosidade moderada (0=silent, 3=debug) — mesmo nível do sandbox.resc
+logLevel 3
+
+# Quantum global fixo em 1us (ver tcc/docs/plano-execucao-cenarios.md).
+emulation SetGlobalQuantum "0.000001"
+
+# ELF do cenário C1.
+# CAMINHO RELATIVO AO CWD (raiz do projeto). Renode resolve relativo ao .resc
+# quando prefixado com @; mantemos @ para consistência com docs Renode.
+sysbus LoadELF @build/c1/firmware.elf
+
+# GDB server em :3333 (mesma porta do OpenOCD para compatibilidade com launch.json)
+machine StartGdbServer 3333
+
+# Pronto p/ emulação (SEM `start` — gerenciado pela bateria).
+log "=== c1.resc: máquina pronta (SEM start; ver scripts/run_battery.sh) ==="
+
+# SEM `start` de propósito: scripts/run_battery.sh acrescenta perfil + `start`.
+# Manual: renode117 --disable-xwt -e 's @renode/c1.resc' -e 'start'

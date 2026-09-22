@@ -1,0 +1,37 @@
+# c3.resc — Cenário C3 (HSI 8 MHz) no Renode headless
+# Uso:
+#   renode --disable-xwt -e "s @renode/c3.resc"
+# ou dentro do monitor:
+#   (monitor) s @renode/c3.resc
+#
+# Mapeamento firmware: c3 <-> src/c3_*.c (padrão geral: cN <-> src/cN_*.c,
+# ELF em build/cN/firmware.elf para N=1..4).
+
+using sysbus
+mach create "c3_hsi8"
+
+# Plataforma custom HSI 8 MHz (ver renode/stm32f103_hsi8.repl + PLAN.md)
+machine LoadPlatformDescription @renode/stm32f103_hsi8.repl
+
+# Verbosidade moderada (0=silent, 3=debug) — mesmo nível do sandbox.resc
+logLevel 3
+
+# Quantum global 1us como DEFAULT. Em C3 o quantum é variável experimental:
+# o sweep é feito em runtime via `emulation SetGlobalQuantum "<s>"` no monitor
+# (ver tcc/docs/plano-execucao-cenarios.md); não criar um .resc por valor.
+emulation SetGlobalQuantum "0.000001"
+
+# ELF do cenário C3.
+# CAMINHO RELATIVO AO CWD (raiz do projeto). Renode resolve relativo ao .resc
+# quando prefixado com @; mantemos @ para consistência com docs Renode.
+sysbus LoadELF @build/c3/firmware.elf
+
+# GDB server em :3333 (mesma porta do OpenOCD para compatibilidade com launch.json)
+machine StartGdbServer 3333
+
+# Pronto p/ emulação (SEM `start` — gerenciado pela bateria).
+log "=== c3.resc: máquina pronta (SEM start; ver scripts/run_battery.sh) ==="
+
+# SEM `start` de propósito: scripts/run_battery.sh acrescenta perfil
+# (quantum E(Q) via -e) + `start`. Q default no arquivo: 1us.
+# Manual: renode117 --disable-xwt -e 's @renode/c3.resc' -e 'start'

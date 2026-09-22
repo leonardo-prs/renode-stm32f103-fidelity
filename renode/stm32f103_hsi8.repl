@@ -1,13 +1,12 @@
-// stm32f103_hsi8.repl — STM32F103C8T6 customizado para HSI 8 MHz (sem HSE/PLL)
-// Base: Renode 1.16.1 platforms/cpus/stm32f103.repl (copiado e customizado)
-// Mudanças vs base documentadas em renode/PLAN.md.
-// Target: Blue Pill STM32F103C8T6, 64 KB Flash @0x08000000, 20 KB SRAM @0x20000000, Cortex-M3.
+// stm32f103_hsi8.repl — Blue Pill STM32F103C8T6, HSI 8 MHz (sem HSE/PLL)
+// Base: Renode 1.17.0 platforms/cpus/stm32f103.repl + customs HSI (ver renode/PLAN.md).
+// Target: 64 KB Flash @0x08000000, 20 KB SRAM @0x20000000, Cortex-M3.
 
-// ── Memórias ──────────────────────────────────────────────────────────────
-// Flash alias em 0x00000000 (BOOT0) + endereço real 0x08000000 (64 KB).
-// SRAM 20 KB @0x20000000. Tamanhos reais do C8T6 — base original usava 256 MB genérico.
+fsmcBank1: Memory.MappedMemory @ sysbus 0x60000000
+    size: 0x10000000
+
 flash_alias: Memory.MappedMemory @ sysbus 0x00000000
-    size: 0x00010000  // 64 KB aliased
+    size: 0x00010000  // 64 KB aliased (BOOT0)
 
 flash: Memory.MappedMemory @ sysbus 0x08000000
     size: 0x00010000  // 64 KB
@@ -15,51 +14,50 @@ flash: Memory.MappedMemory @ sysbus 0x08000000
 sram: Memory.MappedMemory @ sysbus 0x20000000
     size: 0x00005000  // 20 KB
 
-fsmcBank1: Memory.MappedMemory @ sysbus 0x60000000
-    size: 0x10000000
+usart1: UART.STM32_UART @ sysbus <0x40013800, +0x100>
+    frequency: 8000000
+    -> nvic@37
+    DMARequest -> dma1@4 | dma1@5
 
-// ── Core + NVIC + DWT ───────────────────────────────────────────────────
-// HSI 8 MHz: systickFrequency = 1 MHz (1 ms tick via LL_Init1msTick(8000000) / 8000),
-// mas Renode usa systickFrequency para clock do SysTick — 1 MHz cobre o tick de 1 kHz.
-// dwt.frequency = 8 MHz (CYCCNT incrementa a cada ciclo de HSI).
+usart2: UART.STM32_UART @ sysbus <0x40004400, +0x100>
+    -> nvic@38
+    DMARequest -> dma1@6 | dma1@7
+
+usart3: UART.STM32_UART @ sysbus <0x40004800, +0x100>
+    -> nvic@39
+    DMARequest -> dma1@2 | dma1@3
+
+usart4: UART.STM32_UART @ sysbus <0x40004C00, +0x100>
+    -> nvic@52
+    DMARequest -> dma2@3 | dma2@5
+
+usart5: UART.STM32_UART @ sysbus <0x40005000, +0x100>
+    -> nvic@53
+
 nvic: IRQControllers.NVIC @ sysbus 0xE000E000
     priorityMask: 0xF0
-    systickFrequency: 1000000
+    systickFrequency: 8000000
     IRQ -> cpu@0
-
-dwt: Miscellaneous.DWT @ sysbus 0xE0001000
-    frequency: 8000000
 
 cpu: CPU.CortexM @ sysbus
     cpuType: "cortex-m3"
     nvic: nvic
 
-// ── UARTs ───────────────────────────────────────────────────────────────
-usart1: UART.STM32_UART @ sysbus <0x40013800, +0x100>
-    -> nvic@37
+dwt: Miscellaneous.DWT @ sysbus 0xE0001000
+    frequency: 8000000
 
-usart2: UART.STM32_UART @ sysbus <0x40004400, +0x100>
-    -> nvic@38
-
-usart3: UART.STM32_UART @ sysbus <0x40004800, +0x100>
-    -> nvic@39
-
-usart4: UART.STM32_UART @ sysbus <0x40004C00, +0x100>
-    -> nvic@52
-
-usart5: UART.STM32_UART @ sysbus <0x40005000, +0x100>
-    -> nvic@53
-
-// ── I2C ─────────────────────────────────────────────────────────────────
-i2c1: I2C.STM32F4_I2C @ sysbus 0x40005400
+i2c1: I2C.STM32F1_I2C @ sysbus 0x40005400
     EventInterrupt -> nvic@31
     ErrorInterrupt -> nvic@32
+    TxDMARequest -> dma1@6
+    RxDMARequest -> dma1@7
 
-i2c2: I2C.STM32F4_I2C @ sysbus 0x40005800
+i2c2: I2C.STM32F1_I2C @ sysbus 0x40005800
     EventInterrupt -> nvic@33
     ErrorInterrupt -> nvic@34
+    TxDMARequest -> dma1@4
+    RxDMARequest -> dma1@5
 
-// ── EXTI ────────────────────────────────────────────────────────────────
 exti: IRQControllers.STM32F4_EXTI @ sysbus 0x40010400
     numberOfOutputLines: 19
     [0-4] -> nvic@[6-10]
@@ -74,130 +72,145 @@ nvicInput40: Miscellaneous.CombinedInput @ none
     numberOfInputs: 6
     -> nvic@40
 
-// ── GPIO ────────────────────────────────────────────────────────────────
 gpioPortA: GPIOPort.STM32F1GPIOPort @ sysbus <0x40010800, +0x400>
     invertedAFPins: [[7, 1]]
-    [0-15] -> exti@[0-15]
 
 gpioPortB: GPIOPort.STM32F1GPIOPort @ sysbus <0x40010C00, +0x400>
     invertedAFPins: [[13, 1], [14, 1], [15, 1], [0, 1], [1, 1]]
-    [0-15] -> exti@[0-15]
 
 gpioPortC: GPIOPort.STM32F1GPIOPort @ sysbus <0x40011000, +0x400>
-    [0-15] -> exti@[0-15]
 
 gpioPortD: GPIOPort.STM32F1GPIOPort @ sysbus <0x40011400, +0x400>
-    [0-15] -> exti@[0-15]
 
 gpioPortE: GPIOPort.STM32F1GPIOPort @ sysbus <0x40011800, +0x400>
     invertedAFPins: [[8, 1], [10, 1], [12, 1]]
-    [0-15] -> exti@[0-15]
 
 gpioPortF: GPIOPort.STM32F1GPIOPort @ sysbus <0x40011C00, +0x400>
-    [0-15] -> exti@[0-15]
 
 gpioPortG: GPIOPort.STM32F1GPIOPort @ sysbus <0x40012000, +0x400>
-    [0-15] -> exti@[0-15]
 
-// ── Timers (14x) @ 8 MHz ────────────────────────────────────────────────
-// Clock dos 14 timers = 8 MHz (HSI direto, sem PLL). Base era 10 MHz.
 timer1: Timers.STM32_Timer @ sysbus 0x40012c00
     BreakInterrupt -> nvic@24
-    UpdateInterrupt -> nvic@25
-    [TriggerInterrupt, CommutationInterrupt] -> nvic@[26, 26]
-    CaptureCompareInterrupt -> nvic@27
+    UpdateInterrupt -> nvic@25 | dma1@5
+    TriggerInterrupt -> nvic@26 | dma1@4
+    CommutationInterrupt -> nvic@26 | dma1@4
+    CaptureCompareInterrupt -> nvic@27 | dma1@2
     frequency: 8000000
     initialLimit: 0xFFFF
 
 timer2: Timers.STM32_Timer @ sysbus 0x40000000
-    -> nvic@28
+    IRQ -> nvic@28
+    UpdateInterrupt -> dma1@2
     frequency: 8000000
     initialLimit: 0xFFFF
 
 timer3: Timers.STM32_Timer @ sysbus 0x40000400
-    -> nvic@29
+    IRQ -> nvic@29
+    UpdateInterrupt -> dma1@3
+    TriggerInterrupt -> dma1@6
     frequency: 8000000
     initialLimit: 0xFFFF
 
 timer4: Timers.STM32_Timer @ sysbus 0x40000800
-    -> nvic@30
+    IRQ -> nvic@30
+    UpdateInterrupt -> dma1@7
+    [0-2] -> dma1@[1, 4, 5]
     frequency: 8000000
     initialLimit: 0xFFFF
 
 timer5: Timers.STM32_Timer @ sysbus 0x40000C00
-    -> nvic@50
+    IRQ -> nvic@50
+    TriggerInterrupt -> dma2@1
+    UpdateInterrupt -> dma2@2
+    [0-2] -> dma2@[5, 4, 2]
     frequency: 8000000
     initialLimit: 0xFFFF
 
 timer6: Timers.STM32_Timer @ sysbus 0x40001000
-    -> nvic@54
+    IRQ -> nvic@54
+    UpdateInterrupt -> dma2@3
     frequency: 8000000
     initialLimit: 0xFFFF
 
 timer7: Timers.STM32_Timer @ sysbus 0x40001400
-    -> nvic@55
+    IRQ -> nvic@55
+    UpdateInterrupt -> dma2@4
     frequency: 8000000
     initialLimit: 0xFFFF
 
 timer8: Timers.STM32_Timer @ sysbus 0x40013400
     BreakInterrupt -> nvic@43
-    UpdateInterrupt -> nvic@44
-    [TriggerInterrupt, CommutationInterrupt] -> nvic@[45, 45]
+    UpdateInterrupt -> nvic@44 | dma2@1
+    TriggerInterrupt -> nvic@45 | dma2@2
+    CommutationInterrupt -> nvic@45 | dma2@2
     CaptureCompareInterrupt -> nvic@46
+    [0-3] -> dma2@[3, 5, 1, 2]
     frequency: 8000000
     initialLimit: 0xFFFF
 
 timer9: Timers.STM32_Timer @ sysbus 0x40014c00
-    -> nvic@24
+    IRQ -> nvic@24
     frequency: 8000000
     initialLimit: 0xFFFF
 
 timer10: Timers.STM32_Timer @ sysbus 0x40015000
-    -> nvic@25
+    IRQ -> nvic@25
     frequency: 8000000
     initialLimit: 0xFFFF
 
 timer11: Timers.STM32_Timer @ sysbus 0x40015400
-    -> nvic@26
+    IRQ -> nvic@26
     frequency: 8000000
     initialLimit: 0xFFFF
 
 timer12: Timers.STM32_Timer @ sysbus 0x40001800
-    -> nvic@43
+    IRQ -> nvic@43
     frequency: 8000000
     initialLimit: 0xFFFF
 
 timer13: Timers.STM32_Timer @ sysbus 0x40001C00
-    -> nvic@44
+    IRQ -> nvic@44
     frequency: 8000000
     initialLimit: 0xFFFF
 
 timer14: Timers.STM32_Timer @ sysbus 0x40002000
-    -> nvic@45
+    IRQ -> nvic@45
     frequency: 8000000
     initialLimit: 0xFFFF
 
+dma1: DMA.STM32G0DMA @ sysbus 0x40020000
+    numberOfChannels: 7
+    [0-6] -> nvic@[11-17]
+
+dma2: DMA.STM32G0DMA @ sysbus 0x40020400
+    numberOfChannels: 5
+    [0-4] -> nvic@[56-60]
+
 afio: GPIOPort.STM32F1AFIO @ sysbus 0x40010000
     gpioPorts: [gpioPortA, gpioPortB, gpioPortC, gpioPortD, gpioPortE, gpioPortF, gpioPortG]
+    [0-15] -> exti@[0-15]
 
 // Alternate function connections
+// The syntax is:
+//     gpioPort#pinNumber@timerNumber
+// Meaning `1 -> gpioPortA#2@5` connects output 1 to pin 2 of GPIO port A and it receives its signal from timer 5
 timer1:
-    0 -> gpioPortA#08@01 | gpioPortE#09@01 | gpioPortB#13@01 | gpioPortA#07@01 | gpioPortE#08@01
+    0 -> gpioPortA#08@01 | gpioPortE#09@01 | gpioPortB#13@01 | gpioPortA#07@01 | gpioPortE#08@01 | dma1@2
     1 -> gpioPortA#09@01 | gpioPortE#11@01 | gpioPortB#14@01 | gpioPortB#00@01 | gpioPortE#10@01
-    2 -> gpioPortA#10@01 | gpioPortE#13@01 | gpioPortB#15@01 | gpioPortB#01@01 | gpioPortE#12@01
-    3 -> gpioPortA#11@01 | gpioPortE#14@01
+    2 -> gpioPortA#10@01 | gpioPortE#13@01 | gpioPortB#15@01 | gpioPortB#01@01 | gpioPortE#12@01 | dma1@6
+    3 -> gpioPortA#11@01 | gpioPortE#14@01 | dma1@4
 
 timer2:
-    0 -> gpioPortA#00@02 | gpioPortA#15@02
-    1 -> gpioPortA#01@02 | gpioPortB#03@02
-    2 -> gpioPortA#02@02 | gpioPortB#10@02
-    3 -> gpioPortA#03@02 | gpioPortB#11@02
+    0 -> gpioPortA#00@02 | gpioPortA#15@02 | dma1@5
+    1 -> gpioPortA#01@02 | gpioPortB#03@02 | dma1@7
+    2 -> gpioPortA#02@02 | gpioPortB#10@02 | dma1@1
+    3 -> gpioPortA#03@02 | gpioPortB#11@02 | dma1@7
 
 timer3:
-    0 -> gpioPortA#06@03 | gpioPortB#04@03 | gpioPortC#06@03
+    0 -> gpioPortA#06@03 | gpioPortB#04@03 | gpioPortC#06@03 | dma1@6
     1 -> gpioPortA#07@03 | gpioPortB#05@03 | gpioPortC#07@03
-    2 -> gpioPortB#00@03 | gpioPortC#08@03
-    3 -> gpioPortB#01@03 | gpioPortC#09@03
+    2 -> gpioPortB#00@03 | gpioPortC#08@03 | dma1@2
+    3 -> gpioPortB#01@03 | gpioPortC#09@03 | dma1@3
 
 timer4:
     0 -> gpioPortB#06@04 | gpioPortD#12@04
@@ -206,7 +219,7 @@ timer4:
     3 -> gpioPortB#09@04 | gpioPortD#15@04
 
 timer5:
-    3 -> gpioPortA#03@05
+    3 -> gpioPortA#03@05 | dma2@1
 
 timer9:
     0 -> gpioPortA#02@09 | gpioPortE#05@09
@@ -224,10 +237,64 @@ timer13:
 timer14:
     0 -> gpioPortA#07@14 | gpioPortF#09@14
 
-// ── sysbus Tags (fidelidade HSI) ───────────────────────────────────────
-// RCC_CR reset value = 0x00000083 (HSION | HSIRDY). Base Renode usava 0x0A020083
-// (PLL/HSE bits fictícios). HSI 8 MHz puro: HSITRIM=16 (0x10) + HSICAL etc.
-// Usamos debug region para expor RCC sem Python peripheral.
+gpioPortA:
+    0 -> timer2@00
+    1 -> timer2@01
+    2 -> timer2@02 | timer9@00
+    3 -> timer2@03 | timer5@03 | timer9@01
+    6 -> timer3@00 | timer13@00
+    7 -> timer1@00 | timer3@01 | timer14@00
+    8 -> timer1@00
+    9 -> timer1@01
+    10 -> timer1@02
+    11 -> timer1@03
+    15 -> timer2@00
+
+gpioPortB:
+    0 -> timer1@01 | timer3@02
+    1 -> timer1@02 | timer3@03
+    3 -> timer2@01
+    4 -> timer3@00
+    5 -> timer3@01
+    6 -> timer4@00
+    7 -> timer4@01
+    8 -> timer4@02 | timer10@00
+    9 -> timer4@03 | timer11@00
+    10 -> timer2@02
+    11 -> timer2@03
+    13 -> timer1@00
+    14 -> timer1@01
+    15 -> timer1@02
+
+gpioPortC:
+    6 -> timer3@00
+    7 -> timer3@01
+    8 -> timer3@02
+    9 -> timer3@03
+
+gpioPortD:
+    12 -> timer4@00
+    13 -> timer4@01
+    14 -> timer4@02
+    15 -> timer4@03
+
+gpioPortE:
+    5 -> timer9@00
+    6 -> timer9@01
+    8 -> timer1@00
+    9 -> timer1@00
+    10 -> timer1@01
+    11 -> timer1@01
+    12 -> timer1@02
+    13 -> timer1@02
+    14 -> timer1@03
+
+gpioPortF:
+    6 -> timer10@00
+    7 -> timer11@00
+    8 -> timer13@00
+    9 -> timer14@00
+
 sysbus:
     init:
         Tag <0x40021000, 0x40021003> "RCC_CR" 0x00000083

@@ -44,27 +44,50 @@ message(STATUS "Build type : ${CMAKE_BUILD_TYPE}")
 message(STATUS "Project    : ${CMAKE_PROJECT_NAME}")
 message(STATUS "════════════════════════════════════════════════")
 
-# ── SCENARIO flag (SANDBOX | A | B) ──
+# ── SCENARIO flag (SANDBOX | A | B | C1 | C2 | C3 | C4) ──
 # Define qual cenário compilar. Determina:
-#   - qual arquivo em src/ é linkado
+#   - qual arquivo em src/ é linkado (mapeamento abaixo)
 #   - qual bloco é ativado em Core/Src/main.c via SCENARIO_<X> define
 #
-# Cenários disponíveis: SANDBOX (src/sandbox.c), A (src/scenario_a.c),
-#                       B (src/scenario_b.c)
-set(SCENARIO "" CACHE STRING "Cenário a compilar: SANDBOX | A | B")
+# Cenários disponíveis: SANDBOX (src/sandbox.c), A, B (legado),
+#   C1 (src/c1_core.c), C2 (src/c2_irq_baseline.c),
+#   C3 (src/c3_irq_arbitration.c), C4 (src/c4_usart.c)
+set(SCENARIO "" CACHE STRING "Cenário a compilar: SANDBOX | A | B | C1 | C2 | C3 | C4")
 if(NOT SCENARIO)
     message(FATAL_ERROR
-        "Defina -DSCENARIO=SANDBOX|A|B\n"
-        "Exemplo: cmake -B build/sandbox -DSCENARIO=SANDBOX")
+        "Defina -DSCENARIO=SANDBOX|A|B|C1|C2|C3|C4\n"
+        "Exemplo: cmake -B build/c1 -DSCENARIO=C1")
 endif()
 string(TOLOWER "${SCENARIO}" SCENARIO_LOWER)
 add_compile_definitions(SCENARIO_${SCENARIO})
 
-set(APP_SOURCE "${CMAKE_SOURCE_DIR}/src/${SCENARIO_LOWER}.c")
+# Mapeamento cenário → arquivo. C1..C4 usam nomes descritivos (ver
+# tcc/docs/plano-execucao-cenarios.md); legado usa ${lower}.c direto.
+if(SCENARIO STREQUAL "C1")
+    set(APP_SOURCE "${CMAKE_SOURCE_DIR}/src/c1_core.c")
+elseif(SCENARIO STREQUAL "C2")
+    set(APP_SOURCE "${CMAKE_SOURCE_DIR}/src/c2_irq_baseline.c")
+elseif(SCENARIO STREQUAL "C3")
+    set(APP_SOURCE "${CMAKE_SOURCE_DIR}/src/c3_irq_arbitration.c")
+elseif(SCENARIO STREQUAL "C4")
+    set(APP_SOURCE "${CMAKE_SOURCE_DIR}/src/c4_usart.c")
+elseif(SCENARIO STREQUAL "ECHO")
+    # Peer de echo p/ o C4 no Renode (infra de teste, ver src/echo_peer.c).
+    set(APP_SOURCE "${CMAKE_SOURCE_DIR}/src/echo_peer.c")
+else()
+    set(APP_SOURCE "${CMAKE_SOURCE_DIR}/src/${SCENARIO_LOWER}.c")
+endif()
 if(NOT EXISTS "${APP_SOURCE}")
     message(FATAL_ERROR
         "Arquivo de cenário não encontrado: ${APP_SOURCE}\n"
-        "Cenários disponíveis: sandbox.c, scenario_a.c, scenario_b.c")
+        "Cenários disponíveis: sandbox.c, scenario_a.c, scenario_b.c, c1_core.c, c2_irq_baseline.c, c3_irq_arbitration.c, c4_usart.c")
+endif()
+
+# ── Variante C2_BUSY_LOOP (C2 V2: loop ocupado vs __WFI) ──
+# Uso: cmake -B build/c2busy -DSCENARIO=C2 -DC2_BUSY_LOOP=ON
+option(C2_BUSY_LOOP "C2: loop principal ocupado em vez de __WFI()" OFF)
+if(SCENARIO STREQUAL "C2" AND C2_BUSY_LOOP)
+    add_compile_definitions(C2_BUSY_LOOP)
 endif()
 
 # ── Executable: nosso .c do cenário + main.c do CubeMX ──

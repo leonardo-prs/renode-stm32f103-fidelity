@@ -39,6 +39,10 @@ Thumbs.db
 # ── Logs ──
 *.log
 
+# ── Datasets de coleta (bins brutos GDB + CSVs; reproduzíveis via rerun,
+#     mas caros em wall-clock — nunca commitar, nunca em /tmp volátil) ──
+/data/
+
 # ── Ruído do CubeMX (regen) — nunca commitar ──
 **/Backup/
 *.bak

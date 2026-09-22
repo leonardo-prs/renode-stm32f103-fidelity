@@ -1,0 +1,31 @@
+# c2busy.resc — Cenário C2 variante V2 busy-loop (HSI 8 MHz) no Renode headless
+# Uso:
+#   renode --disable-xwt -e "s @renode/c2busy.resc"
+#
+# Mesmo firmware-base do C2, compilado com -DC2_BUSY_LOOP=ON
+# (build/c2busy). Compara latência WFI (V1) vs loop ocupado (V2).
+
+using sysbus
+mach create "c2busy_hsi8"
+
+# Plataforma custom HSI 8 MHz (ver renode/stm32f103_hsi8.repl + PLAN.md)
+machine LoadPlatformDescription @renode/stm32f103_hsi8.repl
+
+# Verbosidade moderada (0=silent, 3=debug) — mesmo nível do sandbox.resc
+logLevel 3
+
+# Quantum global fixo em 1us (ver tcc/docs/plano-execucao-cenarios.md).
+emulation SetGlobalQuantum "0.000001"
+
+# ELF da variante V2 (busy-loop). Relativo ao CWD (raiz do projeto).
+sysbus LoadELF @build/c2busy/firmware.elf
+
+# GDB server em :3333 (mesma porta do OpenOCD para compatibilidade com launch.json)
+machine StartGdbServer 3333
+
+# Pronto p/ emulação (SEM `start` — gerenciado pela bateria).
+log "=== c2busy.resc: máquina pronta (SEM start; ver scripts/run_battery.sh) ==="
+
+# SEM `start` de propósito: scripts/run_battery.sh acrescenta perfil + `start`.
+# (Único .resc extra além de um-por-cenário: ELF distinto build/c2busy.)
+# Manual: renode117 --disable-xwt -e 's @renode/c2busy.resc' -e 'start'

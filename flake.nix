@@ -55,14 +55,16 @@
   #  Para inspecionar o que está travado: `nix flake metadata`.
 #
 #  ┌─────────────────────────────────────────────────────────────────────────┐
-#  │ UM ÚNICO SHELL — TUDO INCLUÍDO                                         │
+#  │ UM ÚNICO SHELL — TUDO INCLUÍDO (SEM CUBEMX)                           │
 #  └─────────────────────────────────────────────────────────────────────────┘
 #  Diferente de projetos maiores, esta flake expõe APENAS UM `devShells.default`
-#  com TODAS as ferramentas necessárias (incluindo STM32CubeMX). Justificativa:
-#  o fluxo de trabalho deste TCC alterna frequentemente entre "compilar
-#  firmware" e "ajustar o .ioc no CubeMX" — separar em dois shells seria
-#  fricção sem benefício. O custo de puxar o CubeMX (~1.5 GB adicionais no
-#  /nix/store) é aceitável para um projeto MVP.
+#  com TODAS as ferramentas necessárias (toolchain ARM, build, openocd,
+#  renode, python3, clang-tools). Justificativa: o fluxo de trabalho deste
+#  TCC alterna frequentemente entre "compilar firmware" e "rodar simulação" —
+#  separar em dois shells seria fricção sem benefício.
+#
+#  O `stm32cubemx` foi REMOVIDO do Nix (2026-09): pesado, proprietário, e o
+#  `.ioc` está congelado pós-regen. Ver nota na lista `tools`.
 #
 #  ┌─────────────────────────────────────────────────────────────────────────┐
 #  │ COMO USAR                                                              │
@@ -74,7 +76,8 @@
 #             -DCMAKE_TOOLCHAIN_FILE=cmake/gcc-arm-none-eabi.cmake
 #      $ ninja -C build/sandbox
 #    Editar o .ioc:
-#      $ stm32cubemx                # GUI aparece (via WSLg no WSL2)
+#      → fora do Nix, com o instalador oficial da ST (cubemx removido
+#        da flake em 2026-09; `.ioc` congelado pós-regen).
 #    Sair:
 #      $ exit
 #
@@ -146,13 +149,11 @@
       #       Se você está em outro host, este flake não te serve.
       #
       #   config.allowUnfree = true;
-      #     → stm32cubemx é binário proprietário da ST Microelectronics.
-      #       nixpkgs marca como `unfree` e se recusa a construir. Esta
-      #       linha libera. É seguro pois confiamos explicitamente na
-      #       fonte (ST oficial, hash pinned no package.nix).
+      #     → REMOVIDO junto com o `stm32cubemx` (2026-09): era o único
+      #       pacote `unfree` (binário proprietário da ST). Sem ele,
+      #       todos os pacotes são livres e o nixpkgs constrói sem flag.
       pkgs = import nixpkgs {
         system = "x86_64-linux";
-        config.allowUnfree = true;
       };
 
       # ── Lista de ferramentas (em ordem: toolchain, build, debug, sim) ──
@@ -193,6 +194,10 @@
         # a que o projeto precisa (ver AGENTS.md).
         renode
 
+        # Renode 1.17.0 (tarball oficial, ver renode117 acima): runs A/B
+        # contra 1.16.1 com o MESMO elf.
+        renode117
+
         # Análise: python3 para scripts em `scripts/` (futuro dump_sram.sh,
         # gdb pretty-printers). `clang-tools` é o meta-pacote que produz
         # os binários `clangd`, `clang-tidy`, `clang-format` etc. (o LSP
@@ -204,24 +209,39 @@
         python3
         llvmPackages_latest.clang-tools
 
-        # Configurador gráfico: GUI Java da ST para editar/regenerar o
-        # `.ioc`. Requer display:
-        #   - Linux nativo: X11/Wayland local, ou X11 forwarding via SSH.
-        #   - WSL2: GUI nativa via WSLg (Win11) — sem config extra.
-        #   - Sem display: shell funciona, GUI não abre.
-        stm32cubemx
+        # NOTE (2026-09): `stm32cubemx` REMOVIDO de propósito — pesado
+        # (~1.5 GB), proprietário, e o `.ioc` está congelado pós-regen.
+        # Para reeditar o `.ioc`, usar o instalador oficial da ST fora do
+        # Nix. Se um dia for distribuir via Nix, ressuscitar o split
+        # `default`/`full` (ver histórico do git).
       ];
 
-      # ── buildTools: subconjunto mínimo para COMPILAR firmware ──────────
-      # Contiene apenas o necessário para `cmake` + `ninja` produzir o ELF.
-      # Excluye renode/stm32cubemx (e o resto de `tools`) para que `nix develop`
-      # não construa pacotes opcionales quebrados. `default` usa esta lista.
-      buildTools = with pkgs; [
-        gcc-arm-embedded
-        cmake
-        ninja
-        pkg-config
-      ];
+      # ── renode117: Renode 1.17.0 via tarball oficial ────────────────────
+      # nixpkgs (26.05 e unstable em 2026-09-22) ainda empacota 1.16.1.
+      # Empacotamos o portable release oficial com hash pinned (update =
+      # trocar version+hash). `renode` (1.16.1, nixpkgs) segue canônico:
+      # resc/docs inalterados. `renode117` (este) serve p/ runs
+      # diferenciais A/B com o MESMO elf (versão é variável controlada;
+      # revalidação em tcc/tmp/log.md). Supõe host Ubuntu x86_64
+      # (interpreter /lib64 do tarball; flake já é WSL2-oriented).
+      # Headless não precisa de GTK.
+      renode117tree = pkgs.stdenv.mkDerivation rec {
+        pname = "renode-bin";
+        version = "1.17.0";
+        src = pkgs.fetchurl {
+          url = "https://github.com/renode/renode/releases/download/v${version}/renode-${version}.linux-portable.tar.gz";
+          hash = "sha256-S6fGi1niRH8YjvS0sRL8zNKAJYLEYL7tzrY7hOVgWl8=";
+        };
+        dontConfigure = true;
+        dontBuild = true;
+        installPhase = ''
+          mkdir -p $out
+          cp -r . $out/
+        '';
+      };
+      renode117 = pkgs.writeShellScriptBin "renode117" ''
+        exec ${renode117tree}/renode "$@"
+      '';
 
     in
     {
@@ -235,10 +255,10 @@
       # Sem a chave de sistema, `nix develop` não encontra o shell.
       devShells.x86_64-linux = {
 
-        # ── SHELL DEFAULT (build mínimo) ────────────────────────────────
+        # ── SHELL DEFAULT (único — tudo incluído, sem CubeMX) ──────────
         # `nix develop` (sem args) e `direnv` (via `.envrc: use flake`)
-        # entram aqui. Contiene apenas `buildTools` (toolchain ARM + build
-        # system) para compilar firmware sem construir renode/stm32cubemx.
+        # entram aqui. Contém `tools` completo: toolchain ARM, build
+        # system, openocd, renode, python3, clang-tools.
         #
         # `mkShell` é a função que cria um shell de desenvolvimento.
         # Aceita `packages` (lista de derivações a colocar no PATH do
@@ -246,27 +266,12 @@
         default = pkgs.mkShell {
           name = "stm32-renode-fidelity";
 
-          packages = buildTools;
+          packages = tools;
 
           # Cabeçalho mínimo + help curto (direnv log silenciado via .envrc).
           shellHook = ''
-            echo "stm32-renode-fidelity — nix:build"
-            echo "  cmake -B build/sandbox -DSCENARIO=SANDBOX -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/gcc-arm-none-eabi.cmake"
-            echo "  ninja -C build/sandbox          # compilar"
-            echo "  nix develop .#full              # renode/openocd/cubemx"
-          '';
-        };
-
-        # ── SHELL FULL (todo incluído) ──────────────────────────────────
-        # `nix develop full` entra aqui. Tem TUDO: toolchain ARM, build
-        # system, flash, debug, simulação, IDE, CubeMX. Usa `tools`.
-        full = pkgs.mkShell {
-          name = "stm32-renode-fidelity-full";
-
-          packages = tools;
-
-          shellHook = ''
-            echo "stm32-renode-fidelity — nix:full"
+            echo "stm32-renode-fidelity — nix:default (toolchain + renode, sem cubemx)"
+            echo "  renode117 --version       # 1.17.0 p/ runs diferenciais A/B"
             echo "  cmake -B build/sandbox -DSCENARIO=SANDBOX -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/gcc-arm-none-eabi.cmake"
             echo "  ninja -C build/sandbox          # compilar"
             echo "  renode renode/sandbox.resc      # simular"

@@ -1,0 +1,41 @@
+# c4.resc — Cenário C4 dual-machine + UART hub (HSI 8 MHz) no Renode headless
+# Uso:
+#   renode --disable-xwt -e "s @renode/c4.resc"
+#
+# Loopback do C4 no Renode: sem wire TX→RX intrínseco no modelo, o caminho
+# canônico é um UART hub entre DUAS máquinas em virtual-time:
+#   machine-0 "c4dut"  = DUT (build/c4/firmware.elf, GDB :3333)
+#   machine-1 "c4peer" = echo passivo (build/echo/firmware.elf, sem GDB)
+# Entrega do hub é em virtual-time com atraso ≤ quantum (1us = 8c @8MHz),
+# caracterizado na análise (ver renode/PLAN.md + tcc/tmp/log.md). No HW o
+# par é um jumper passivo — diferença metodológica declarada.
+#
+# Mapeamento firmware: c4 <-> src/c4_usart.c, peer <-> src/echo_peer.c.
+
+using sysbus
+
+# ── machine-0: DUT ──
+mach create "c4dut"
+machine LoadPlatformDescription @renode/stm32f103_hsi8.repl
+logLevel 3
+emulation SetGlobalQuantum "0.000001"
+sysbus LoadELF @build/c4/firmware.elf
+machine StartGdbServer 3333
+
+# ── machine-1: peer de echo ──
+mach create "c4peer"
+machine LoadPlatformDescription @renode/stm32f103_hsi8.repl
+sysbus LoadELF @build/echo/firmware.elf
+
+# ── UART hub DUT <-> peer (auto-start no `start`) ──
+emulation CreateUARTHub "c4hub"
+mach set 0
+connector Connect sysbus.usart1 c4hub
+mach set 1
+connector Connect sysbus.usart1 c4hub
+mach set 0
+
+log "=== c4.resc: DUT+peer+hub prontos (SEM start; ver scripts/run_battery.sh) ==="
+
+# SEM `start` de propósito: scripts/run_battery.sh acrescenta `start`.
+# Manual: renode117 --disable-xwt -e 's @renode/c4.resc' -e 'start'

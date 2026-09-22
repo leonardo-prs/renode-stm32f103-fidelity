@@ -105,18 +105,28 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   /* ── Dispatch de cenário ──────────────────────────────────────────────
-   * O build define -DSCENARIO_<X> (SANDBOX | A | B) via flag -DSCENARIO=*.
-   * Este bloco é o ÚNICO ponto modificado neste arquivo. Ele sobrevive
-   * a "Generate Code" do CubeMX porque está entre USER CODE BEGIN/END.
+   * O build define -DSCENARIO_<X> (SANDBOX | A | B | C1..C4) via flag
+   * -DSCENARIO=*. Este bloco é o ÚNICO ponto modificado neste arquivo.
+   * Ele sobrevive a "Generate Code" do CubeMX porque está entre
+   * USER CODE BEGIN/END.
    *
    * Cada cenário vive em src/<cenario>.c e exporta uma função
    * <cenario>_main(). Esta função não retorna — o cenário controla o
    * loop principal e entra em __WFI() entre eventos.
+   *
+   * ISOLAMENTO: os MX_*_Init() acima são incondicionais (região gerada,
+   * não editável). Cada cX_main() começa quarentenando os periféricos
+   * que não usa (NVIC_DisableIRQ + clock gate) — ver cada src/c*.c.
    * ──────────────────────────────────────────────────────────────────── */
 
   extern void sandbox_main(void);
   extern void scenario_a_main(void);
   extern void scenario_b_main(void);
+  extern void c1_core_main(void);
+  extern void c2_irq_baseline_main(void);
+  extern void c3_irq_arbitration_main(void);
+  extern void c4_usart_main(void);
+  extern void echo_peer_main(void);
 
 #if defined(SCENARIO_SANDBOX)
   sandbox_main();
@@ -124,8 +134,18 @@ int main(void)
   scenario_a_main();
 #elif defined(SCENARIO_B)
   scenario_b_main();
+#elif defined(SCENARIO_C1)
+  c1_core_main();
+#elif defined(SCENARIO_C2)
+  c2_irq_baseline_main();
+#elif defined(SCENARIO_C3)
+  c3_irq_arbitration_main();
+#elif defined(SCENARIO_C4)
+  c4_usart_main();
+#elif defined(SCENARIO_ECHO)
+  echo_peer_main();
 #else
-  #error "No SCENARIO_* defined. Build com -DSCENARIO=SANDBOX|A|B"
+  #error "No SCENARIO_* defined. Build com -DSCENARIO=SANDBOX|A|B|C1|C2|C3|C4"
 #endif
 
   /* sandbox.c e scenario_a.c entram em loop infinito via __WFI();

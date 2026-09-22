@@ -17,11 +17,11 @@ Reproduzir fielmente o **reset state** do STM32F103C8T6 (RM0008 §7): HSI RC em 
 - **Por quê:** No hardware real, `SystemClock_Config()` mantém `SYSCLK = HSI = 8 MHz`, `APB1/APB2 prescaler = /1`, logo `TIMxCLK = 8 MHz` (RM0008 §8, CubeMX `RCC_TIMCLK = 8 MHz`). A base usava 10 MHz arbitrário (exemplo Renode para APB).
 - **Impacto:** Cenário A (TIM2 PSC=799 ARR=999 → 100 ms) depende disso. Erro de 20% se mantiver 10 MHz.
 
-### 2. SysTick: 72 MHz → **1 MHz**
+### 2. SysTick: 72 MHz → **8 MHz** (corrigido 2026-09-22; era 1 MHz)
 
 - **Base:** `nvic.systickFrequency: 72000000` (72 MHz, i.e., SYSCLK hipotético com PLL).
-- **Custom:** `systickFrequency: 1000000` (1 MHz).
-- **Por quê:** Firmware chama `LL_Init1msTick(8000000)` → `SysTick->LOAD = 8000-1` para 1 ms @ 8 MHz. `HAL_Delay` / `SysTick_Handler` espera tick de 1 kHz. `systickFrequency` no Renode é o clock de entrada do SysTick (antes do divisor `LOAD`). A base usava 72 MHz (valor típico HSE 8 MHz × PLL ×9). Para HSI 8 MHz o correto é `8000000` Hz ou, por convenção Renode, `1000000` (1 µs resolution resulta em ticks corretos quando `LOAD=8000`? Renode modela SysTick como `frequency / (LOAD+1)`). Testado: 1 MHz + configuração CubeMX resulta em 1 kHz efetivo. Alternativa `8000000` também funciona, mas `1000000` é mais legível e alinhado ao `dwt.frequency` = HSI.
+- **Custom:** `systickFrequency: 8000000` (clock de entrada do SysTick = HSI).
+- **Por quê:** Firmware chama `LL_Init1msTick(8000000)` → `SysTick->LOAD = 8000-1` para 1 ms @ 8 MHz: `(LOAD+1)/freq = 8000/8MHz = 1ms` por construção. O valor anterior (1 MHz) deixava o tick 8× lento — inócuo na prática (cenários C1–C4 desligam o SysTick; sandbox não o usa), mas a plataforma mentia. Corrigido na auditoria de knobs (ver `tcc/tmp/log.md`).
 - **Referência:** `Core/Src/main.c: LL_Init1msTick(8000000);`.
 
 ### 3. DWT CYCCNT: inexistente → **8 MHz**
@@ -80,3 +80,44 @@ Reproduzir fielmente o **reset state** do STM32F103C8T6 (RM0008 §7): HSI RC em 
 - [ ] `renode/scenario_a.resc` e `scenario_b.resc` (mesma plataforma, ELFs diferentes)
 - [ ] `scripts/flash_stlink.sh` / `dump_sram.sh`
 - [ ] smoke test HW vs sim com métricas quantitativas (jitter, drift)
+
+## Cenários C1–C4 (2026-09-22, atualizado após runs)
+
+Infra de simulação para a suíte de fidelidade C1–C4. Mesma plataforma
+(`renode/stm32f103_hsi8.repl`, HSI 8 MHz) do sandbox; só o ELF muda.
+Estrutura dos `.resc` espelha `renode/sandbox.resc`.
+
+| resc | máquina(s) | ELF | fonte |
+|------|---------|-----|-------|
+| `renode/c1.resc` | `c1_hsi8` | `@build/c1/firmware.elf` | `src/c1_core.c` |
+| `renode/c2.resc` | `c2_hsi8` | `@build/c2/firmware.elf` | `src/c2_irq_baseline.c` (V1 WFI) |
+| `renode/c2busy.resc` | `c2busy_hsi8` | `@build/c2busy/firmware.elf` | mesmo, `-DC2_BUSY_LOOP=ON` (V2) |
+| `renode/c3.resc` | `c3_hsi8` | `@build/c3/firmware.elf` | `src/c3_irq_arbitration.c` (Q default 1us; sweep E(Q) via resc em /tmp, ver Quantum) |
+| `renode/c4.resc` | `c4dut` + `c4peer` + hub `c4hub` | `@build/c4/firmware.elf` + `@build/echo/firmware.elf` | `src/c4_usart.c` + `src/echo_peer.c` |
+
+(Uso: `renode --disable-xwt -e "s @renode/cN.resc"`; builds `build/c1|c2|c2busy|c3|c4|echo`. SCENARIO=ECHO no CMakeLists só p/ o peer.)
+
+### Quantum
+
+Default `emulation SetGlobalQuantum "0.000001"` (1us) em C1/C2/C4 (fixo).
+Em **C3 o quantum é variável experimental E(Q)**: perfis via `-e` na chamada
+NÃO são confiáveis (produziram buffers bit-idênticos — overrides ignorados);
+gerar resc temporário em `/tmp` com a linha in-file (mecanismo comprovado).
+Sweep documentado: 1us/10us/100us/1ms (ver relatório + `tcc/tmp/log.md`).
+
+### logLevel
+
+`logLevel 3` em todos (mesmo nível do `sandbox.resc`: 0=silent, 3=debug).
+Nota operacional: com stdout redirecionado p/ arquivo, as linhas INFO após
+`System bus created` não têm flush — log parado + CPU 100% = emulação
+correndo, NÃO travamento. Verificar progresso via GDB (`:3333`) ou monitor
+(`:1234`), nunca pelo arquivo de log (lição em `tcc/tmp/log.md`).
+
+### C4 loopback: DECIDIDO — UART hub dual-machine (2026-09-22)
+
+Firmware C4 é loopback-agnóstico (mesmo ELF nos dois mundos). Modelo
+STM32_UART sem wire TX→RX; socket/PTY destruiria o timing (RTT wall-clock).
+Solução canônica Renode: `emulation CreateUARTHub "c4hub"` + machine-1
+`echo_peer` (polling RX→TX, `src/echo_peer.c`, sem GDB) — entrega em
+virtual-time com atraso ≤ quantum (8c), caracterizado na análise.
+Diferença metodológica vs jumper passivo do HW declarada aqui e no log.

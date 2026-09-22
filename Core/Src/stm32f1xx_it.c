@@ -207,7 +207,17 @@ void TIM2_IRQHandler(void)
 
   /* USER CODE END TIM2_IRQn 0 */
   /* USER CODE BEGIN TIM2_IRQn 1 */
-
+  /* Hooks de cenário: handlers CubeMX são STRONG (não weak), logo a lógica
+   * ISR vive em src/c*.c e é chamada daqui. Só um SCENARIO_* linka por ELF.
+   * O hook é a 1ª instrução do handler → offset constante entre amostras
+   * (cancela em deltas). Protótipos em cada src/c*.c (-Wmissing-prototypes). */
+#if defined(SCENARIO_C2)
+  extern void c2_tim2_hook(void);
+  c2_tim2_hook();
+#elif defined(SCENARIO_C3)
+  extern void c3_tim2_hook(void);
+  c3_tim2_hook();
+#endif
   /* USER CODE END TIM2_IRQn 1 */
 }
 
@@ -220,7 +230,10 @@ void TIM3_IRQHandler(void)
 
   /* USER CODE END TIM3_IRQn 0 */
   /* USER CODE BEGIN TIM3_IRQn 1 */
-
+#if defined(SCENARIO_C3)
+  extern void c3_tim3_hook(void);
+  c3_tim3_hook();
+#endif
   /* USER CODE END TIM3_IRQn 1 */
 }
 
@@ -233,7 +246,10 @@ void USART1_IRQHandler(void)
 
   /* USER CODE END USART1_IRQn 0 */
   /* USER CODE BEGIN USART1_IRQn 1 */
-
+#if defined(SCENARIO_C4)
+  extern void c4_usart1_hook(void);
+  c4_usart1_hook();
+#endif
   /* USER CODE END USART1_IRQn 1 */
 }
 
