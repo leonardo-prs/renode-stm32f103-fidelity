@@ -16,16 +16,16 @@
 #   c1m8 = C1 perfil idealizado (MIPS=8, Q=12.5us), MESMO ELF build/c1.
 #   c3q* = sweep de quantum E(Q), MESMO ELF build/c3.
 #
-# Env: RENODE_BIN (default renode117), OUTDIR (default tcc/data/raw),
+# Env: RENODE_BIN (default renode, 1.17.0 via flake), OUTDIR (default tcc/data/raw),
 #      GDB_PORT (3333), MON_PORT (1234), DUMP_TIMEOUT_S (300; C4 quer ~900).
 # Paralelo: MON_PORT+GDB_PORT distintos por run (matriz no log);
 # nunca kill global com runs paralelos (kill_renode só p/ uso manual).
 set -u
 
-RENODE_BIN="${RENODE_BIN:-$(command -v renode117 2>/dev/null || echo /nix/store/7fljdb9myarf9rnv3d7ydsvmsb5wx490-renode117/bin/renode117)}"
-# Fallback absoluto: a sessao shell persistente perde o PATH do direnv entre
-# chamadas; o fallback garante que o runner sempre ache o 1.17 (atualizar
-# o hash se o flake mudar a derivation).
+RENODE_BIN="${RENODE_BIN:-renode}"
+# Rodar dentro de `nix develop` (ou `nix develop -c scripts/run_battery.sh`)
+# para que `renode` seja o 1.17.0 do flake.
+command -v "$RENODE_BIN" >/dev/null || { echo "ERRO: '$RENODE_BIN' fora do PATH (rodar em nix develop)" >&2; exit 1; }
 OUTDIR="${OUTDIR:-tcc/data/raw}"
 export GDB_PORT="${GDB_PORT:-3333}"
 MON_PORT="${MON_PORT:-1234}"

@@ -38,10 +38,9 @@
   #  └─────────────────────────────────────────────────────────────────────────┘
   #  Usamos `nixos-26.05` (stable 2026.05). POR QUÊ:
   #
-  #    - Renode 1.16.1 está disponível em nixos-26.05 stable (ver
-  #      https://search.nixos.org/packages?channel=26.05&query=renode),
-  #      não sendo mais necessário recorrer a nixpkgs-unstable.
-  #    - gcc-arm-embedded 15.2, cmake 4.1 etc também estão em 26.05.
+  #    - gcc-arm-embedded 15.2, cmake 4.1 etc estão em 26.05.
+  #    - Renode: o 26.05 só tem 1.16.1; usamos 1.17.0 via override do
+  #      `renode-bin` (ver `renode` no `let`), sem precisar de unstable.
   #    - O toolchain inteiro fica coerente: uma única resolução de versões.
   #
   #  Migração: projeto anteriormente em nixpkgs-unstable (Renode 1.16.1 só
@@ -189,14 +188,10 @@
         #      padrão em nixpkgs recente; não usamos nenhum dos dois.
         openocd
 
-        # Simulador: Renode emula o STM32 inteiro em software, expondo
-        # o mesmo servidor GDB na porta 3333. Versão 1.16.1 — exatamente
-        # a que o projeto precisa (ver AGENTS.md).
+        # Simulador: Renode 1.17.0 (override do `renode-bin`, ver `renode`
+        # abaixo do `tools`). Emula o STM32 inteiro em software, expondo
+        # o mesmo servidor GDB na porta 3333.
         renode
-
-        # Renode 1.17.0 (tarball oficial, ver renode117 acima): runs A/B
-        # contra 1.16.1 com o MESMO elf.
-        renode117
 
         # Análise: python3 para scripts em `scripts/` (futuro dump_sram.sh,
         # gdb pretty-printers). `clang-tools` é o meta-pacote que produz
@@ -216,32 +211,28 @@
         # `default`/`full` (ver histórico do git).
       ];
 
-      # ── renode117: Renode 1.17.0 via tarball oficial ────────────────────
-      # nixpkgs (26.05 e unstable em 2026-09-22) ainda empacota 1.16.1.
-      # Empacotamos o portable release oficial com hash pinned (update =
-      # trocar version+hash). `renode` (1.16.1, nixpkgs) segue canônico:
-      # resc/docs inalterados. `renode117` (este) serve p/ runs
-      # diferenciais A/B com o MESMO elf (versão é variável controlada;
-      # revalidação em tcc/tmp/log.md). Supõe host Ubuntu x86_64
-      # (interpreter /lib64 do tarball; flake já é WSL2-oriented).
-      # Headless não precisa de GTK.
-      renode117tree = pkgs.stdenv.mkDerivation rec {
-        pname = "renode-bin";
+      # ── renode: Renode 1.17.0 via override do `renode-bin` do nixpkgs ───
+      # nixpkgs (26.05 e unstable em 2026-09) ainda empacota 1.16.1, que
+      # NÃO carrega o nosso .repl (falta `I2C.STM32F1_I2C`). Reusamos a
+      # receita binária oficial `renode-bin` (autoPatchelfHook + wrapper
+      # com dotnet runtime 8 + PYTHONPATH/GTK do Nix), trocando só a
+      # versão e o tarball. Roda em qualquer Linux (inclusive NixOS),
+      # sem depender de /lib64 nem de libs do host.
+      #
+      # A partir da 1.17 o release `linux-dotnet.tar.gz` passou a se
+      # chamar `linux.tar.gz` (framework-dependent, net8.0 — o mesmo
+      # runtime que `renode-bin` já injeta).
+      #
+      # Atualizar: trocar `version` e `hash` (o hash novo aparece no erro
+      # do primeiro build, ou via `nix store prefetch-file <url>`).
+      # Quando o nixpkgs empacotar >= 1.17, basta usar `pkgs.renode-bin`.
+      renode = pkgs.renode-bin.overrideAttrs (finalAttrs: _: {
         version = "1.17.0";
         src = pkgs.fetchurl {
-          url = "https://github.com/renode/renode/releases/download/v${version}/renode-${version}.linux-portable.tar.gz";
-          hash = "sha256-S6fGi1niRH8YjvS0sRL8zNKAJYLEYL7tzrY7hOVgWl8=";
+          url = "https://github.com/renode/renode/releases/download/v${finalAttrs.version}/renode-${finalAttrs.version}.linux.tar.gz";
+          hash = "sha256-1kz/3kjnIGS6nof/NOGGy3qo2PKW3sm7vNaot2rn/XY=";
         };
-        dontConfigure = true;
-        dontBuild = true;
-        installPhase = ''
-          mkdir -p $out
-          cp -r . $out/
-        '';
-      };
-      renode117 = pkgs.writeShellScriptBin "renode117" ''
-        exec ${renode117tree}/renode "$@"
-      '';
+      });
 
     in
     {
@@ -271,7 +262,6 @@
           # Cabeçalho mínimo + help curto (direnv log silenciado via .envrc).
           shellHook = ''
             echo "stm32-renode-fidelity — nix:default (toolchain + renode, sem cubemx)"
-            echo "  renode117 --version       # 1.17.0 p/ runs diferenciais A/B"
             echo "  cmake -B build/sandbox -DSCENARIO=SANDBOX -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/gcc-arm-none-eabi.cmake"
             echo "  ninja -C build/sandbox          # compilar"
             echo "  renode renode/sandbox.resc      # simular"

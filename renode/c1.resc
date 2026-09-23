@@ -31,4 +31,4 @@ machine StartGdbServer 3333
 log "=== c1.resc: máquina pronta (SEM start; ver scripts/run_battery.sh) ==="
 
 # SEM `start` de propósito: scripts/run_battery.sh acrescenta perfil + `start`.
-# Manual: renode117 --disable-xwt -e 's @renode/c1.resc' -e 'start'
+# Manual: renode --disable-xwt -e 's @renode/c1.resc' -e 'start'

@@ -34,4 +34,4 @@ log "=== c3.resc: máquina pronta (SEM start; ver scripts/run_battery.sh) ==="
 
 # SEM `start` de propósito: scripts/run_battery.sh acrescenta perfil
 # (quantum E(Q) via -e) + `start`. Q default no arquivo: 1us.
-# Manual: renode117 --disable-xwt -e 's @renode/c3.resc' -e 'start'
+# Manual: renode --disable-xwt -e 's @renode/c3.resc' -e 'start'

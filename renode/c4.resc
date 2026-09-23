@@ -38,4 +38,4 @@ mach set 0
 log "=== c4.resc: DUT+peer+hub prontos (SEM start; ver scripts/run_battery.sh) ==="
 
 # SEM `start` de propósito: scripts/run_battery.sh acrescenta `start`.
-# Manual: renode117 --disable-xwt -e 's @renode/c4.resc' -e 'start'
+# Manual: renode --disable-xwt -e 's @renode/c4.resc' -e 'start'
