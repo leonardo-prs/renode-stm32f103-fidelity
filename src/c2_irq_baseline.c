@@ -4,8 +4,11 @@
  *
  * Stack: HSI 8 MHz, STM32 LL only, no HAL, no printf. Bare-metal C17 GNU
  * for STM32F103C8T6 (Cortex-M3). TIM2 timing (PSC=7, ARR=999) is set by
- * CubeMX MX_TIM2_Init(); nominal period = 1000 timer ticks = 8000 CPU
- * cycles @8 MHz.
+ * tim_1khz_init() (lib/periph.c); nominal period = 1000 timer ticks = 8000
+ * CPU cycles @8 MHz.
+ *
+ * Peripherals ON: TIM2 only (+ DWT). NVIC: TIM2_IRQn only, priority 2.
+ * Build variant C2_BUSY_LOOP -> build/c2busy/firmware.elf.
  *
  * Buffer layout: c2_results[2048] holds 1024 interleaved pairs —
  *   [2k]   = DWT CYCCNT sampled at ISR entry (first instruction),
@@ -20,10 +23,8 @@
  * (deterministic single-event latency; V1 sleep vs V2 busy-loop load).
  */
 
-#include "main.h"
-#include "tim.h"
-#include "stm32f1xx_ll_tim.h"
-#include "stm32f1xx_ll_bus.h"
+#include "board.h"
+#include "periph.h"                     /* tim_1khz_init() */
 
 /* GDB-visible results: 1024 interleaved (CYCCNT, TIM2->CNT) pairs. */
 volatile uint32_t c2_results[2048U];
@@ -34,13 +35,26 @@ volatile uint8_t  c2_done = 0U;
 static volatile uint32_t g_idx  = 0U;
 static volatile uint32_t g_sink = 0U;
 
-/* File-scope prototypes (required by -Wmissing-prototypes). */
-void c2_tim2_hook(void);
-void c2_irq_baseline_main(void);
+/* File-scope prototypes (required by -Wmissing-prototypes).
+ * noinline: handler and hook used to live in different TUs; keep the call. */
+void c2_tim2_hook(void) __attribute__((noinline));
+void TIM2_IRQHandler(void);
+
+/**
+ * @brief TIM2 update IRQ (overrides the weak alias in the startup file).
+ *
+ * Kept as handler -> hook (one call level) to preserve the exact code path
+ * of the pre-migration build (CubeMX stm32f1xx_it.c called c2_tim2_hook()
+ * from TIM2_IRQHandler), so data collected before/after remain comparable.
+ */
+void TIM2_IRQHandler(void)
+{
+    c2_tim2_hook();
+}
 
 /**
  * @brief Minimal TIM2 update ISR body, called from TIM2_IRQHandler
- *        (Core/Src/stm32f1xx_it.c USER CODE, first instruction of handler).
+ *        (first instruction of handler).
  */
 void c2_tim2_hook(void)
 {
@@ -64,21 +78,19 @@ void c2_tim2_hook(void)
 }
 
 /**
- * @brief C2 entry — called by Core/Src/main.c under SCENARIO_C2.
+ * @brief C2 entry (build/c2/firmware.elf, build/c2busy/firmware.elf).
  *        Never returns.
  */
-void c2_irq_baseline_main(void)
+int main(void)
 {
-    /* ── Quarantine unused peripherals (MX_*_Init is unconditional) ── */
-    NVIC_DisableIRQ(TIM3_IRQn);
-    NVIC_ClearPendingIRQ(TIM3_IRQn);
-    LL_APB1_GRP1_DisableClock(LL_APB1_GRP1_PERIPH_TIM3);
+    board_init();
 
-    NVIC_DisableIRQ(USART1_IRQn);
-    NVIC_ClearPendingIRQ(USART1_IRQn);
-    LL_APB2_GRP1_DisableClock(LL_APB2_GRP1_PERIPH_USART1);
+    /* ── Only peripheral of this scenario: TIM2 @1 kHz, IRQ prio 2 ── */
+    tim_1khz_init(TIM2);
+    NVIC_SetPriority(TIM2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 2, 0));
+    NVIC_EnableIRQ(TIM2_IRQn);
 
-    /* SysTick off: C2 measures bare TIM2 reactivity, no 1 ms tick noise. */
+    /* SysTick off (defensive; reset state): no 1 ms tick noise. */
     SysTick->CTRL = 0U;
 
     /* ── DWT cycle counter on ── */
@@ -100,7 +112,7 @@ void c2_irq_baseline_main(void)
     c2_n    = 0U;
     c2_done = 0U;
 
-    /* ── Arm TIM2 @1 kHz (IT enable is idempotent; do not rely on MX) ── */
+    /* ── Arm TIM2 @1 kHz (UIF already set by UG in LL_TIM_Init: clear first) ── */
     NVIC_ClearPendingIRQ(TIM2_IRQn);
     LL_TIM_ClearFlag_UPDATE(TIM2);
     LL_TIM_EnableIT_UPDATE(TIM2);

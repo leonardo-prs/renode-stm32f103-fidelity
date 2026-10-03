@@ -13,35 +13,23 @@
  * faz dump desta máquina). Polling puro, sem IRQs: determinístico.
  */
 
-#include "main.h"                       /* CMSIS + MX_UNUSED */
-#include "usart.h"                      /* MX_USART1_UART_Init (CubeMX) */
-#include "stm32f1xx_ll_bus.h"           /* clock gating p/ quarentena */
-#include "stm32f1xx_ll_usart.h"         /* LL_USART_* */
+#include "board.h"
+#include "periph.h"                     /* usart1_init_115200_8n1 */
+#include "stm32f1xx_ll_usart.h"
 
 /* Contador observável via GDB (prova de vida do peer). */
 volatile uint32_t echo_n = 0U;
 
-/* Prototype (exigido por -Wmissing-prototypes). */
-void echo_peer_main(void);
-
 /**
- * @brief Entry do peer — chamada por Core/Src/main.c quando SCENARIO_ECHO.
+ * @brief Entry do peer (build/echo/firmware.elf).
  *        Nunca retorna.
  */
-void echo_peer_main(void)
+int main(void)
 {
-    /* Quarentena: timers desligados (este peer só usa USART1). */
-    NVIC_DisableIRQ(TIM2_IRQn);
-    NVIC_ClearPendingIRQ(TIM2_IRQn);
-    NVIC_DisableIRQ(TIM3_IRQn);
-    NVIC_ClearPendingIRQ(TIM3_IRQn);
-    LL_APB1_GRP1_DisableClock(LL_APB1_GRP1_PERIPH_TIM2);
-    LL_APB1_GRP1_DisableClock(LL_APB1_GRP1_PERIPH_TIM3);
+    board_init();
+    usart1_init_115200_8n1();
 
     SysTick->CTRL = 0U;                 /* sem tick */
-
-    /* USART1 já vem configurada 115200 8N1 por MX_USART1_UART_Init()
-     * (UE/TE/RE ligados pelo CubeMX). Nada a fazer aqui. */
 
     for (;;)
     {

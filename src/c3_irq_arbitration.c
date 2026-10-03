@@ -2,9 +2,12 @@
  * @file    src/c3_irq_arbitration.c
  * @brief   C3 — NVIC arbitration: TIM2 (HIGH) x TIM3 (LOW), STM32F103C8T6.
  *
- * Compilado quando SCENARIO=C3. Entry `c3_irq_arbitration_main()` chamada por
- * Core/Src/main.c; hooks `c3_tim2_hook()` / `c3_tim3_hook()` chamados de
- * stm32f1xx_it.c (TIM2_IRQHandler / TIM3_IRQHandler, 1a instrucao do handler).
+ * Executavel build/c3/firmware.elf. Entry `main()`; hooks `c3_tim2_hook()` /
+ * `c3_tim3_hook()` chamados de TIM2_IRQHandler / TIM3_IRQHandler (definidos
+ * neste arquivo, 1a instrucao do handler).
+ *
+ * Perifericos ligados: SOMENTE TIM2 e TIM3 (+ DWT). NVIC: TIM2_IRQn e
+ * TIM3_IRQn. Nenhuma USART, SysTick no estado de reset (off).
  *
  * Stack: HSI 8 MHz (reset state, sem HSE/PLL). Ambos os timers a 1 kHz
  * (PSC=7, ARR=999 -> periodo 1000 ticks x 8 ciclos = 8000 ciclos CPU).
@@ -58,10 +61,8 @@
  *   (C) late-arrival implementation-defined — sweep K + mascaramentos D1/D2.
  */
 
-#include "main.h"
-#include "tim.h"
-#include "stm32f1xx_ll_tim.h"
-#include "stm32f1xx_ll_bus.h"
+#include "board.h"
+#include "periph.h"                  /* tim_1khz_init() */
 
 /* ── Config ─────────────────────────────────────────────────────────────── */
 #define C3_CAP_PAIRS    1024u        /* pares (cyc,meta) cabiveis em c3_results */
@@ -101,10 +102,13 @@ static volatile uint8_t  g_id3;      /* seletor de id do hook TIM3 (por fase) */
 
 static const uint32_t C3_K_TICKS[C3_NK] = { 2u, 4u, 8u, 16u, 32u, 48u, 64u, 96u, 125u };
 
-/* ── Prototipos (exigidos por -Wmissing-prototypes) ─────────────────────── */
-void c3_irq_arbitration_main(void);
-void c3_tim2_hook(void);
-void c3_tim3_hook(void);
+/* ── Prototipos (exigidos por -Wmissing-prototypes) ─────────────────────────
+ * noinline nos hooks: antes viviam em outra TU (stm32f1xx_it.c chamava o
+ * hook); mantem o mesmo caminho handler -> hook em qualquer nivel de -O. */
+void c3_tim2_hook(void) __attribute__((noinline));
+void c3_tim3_hook(void) __attribute__((noinline));
+void TIM2_IRQHandler(void);
+void TIM3_IRQHandler(void);
 
 static void record(uint8_t id);
 static void recordRaw(uint32_t cyc, uint8_t id);
@@ -181,7 +185,19 @@ static void waitPendingTIM2(uint32_t timeout_cyc)
     }
 }
 
-/* ── Hooks (chamados da stm32f1xx_it.c, 1a instrucao do handler) ────────── */
+/* ── IRQ handlers (sobrescrevem os aliases weak do startup) ─────────────── */
+
+void TIM2_IRQHandler(void)
+{
+    c3_tim2_hook();
+}
+
+void TIM3_IRQHandler(void)
+{
+    c3_tim3_hook();
+}
+
+/* ── Hooks (chamados dos handlers acima, 1a instrucao do handler) ──────── */
 
 void c3_tim2_hook(void)
 {
@@ -205,16 +221,18 @@ void c3_tim3_hook(void)
 
 /* ── Entry (nao retorna) ────────────────────────────────────────────────── */
 
-void c3_irq_arbitration_main(void)
+int main(void)
 {
     uint32_t ki;
 
-    /* Quarentena: so USART1 e estranho a C3 (NVIC + clock gate APB2). */
-    NVIC_DisableIRQ(USART1_IRQn);
-    NVIC_ClearPendingIRQ(USART1_IRQn);
-    LL_APB2_GRP1_DisableClock(LL_APB2_GRP1_PERIPH_USART1);
+    board_init();
 
-    /* Mata SysTick de 1 ms do CubeMX: jitter fora do protocolo. */
+    /* Unicos perifericos deste cenario: TIM2 e TIM3 @1 kHz. Prioridades e
+     * habilitacao no NVIC sao feitas abaixo (mesma sequencia de antes). */
+    tim_1khz_init(TIM2);
+    tim_1khz_init(TIM3);
+
+    /* SysTick off (defensivo; estado de reset): jitter fora do protocolo. */
     SysTick->CTRL = 0u;
 
     /* DWT CYCCNT como base de tempo (NOCYCCNT -> park 0xFE). */
@@ -245,7 +263,7 @@ void c3_irq_arbitration_main(void)
     NVIC_SetPriority(TIM3_IRQn, 12);
     NVIC_EnableIRQ(TIM2_IRQn);
     NVIC_EnableIRQ(TIM3_IRQn);
-    LL_TIM_EnableIT_UPDATE(TIM2);    /* defensivo: CubeMX nao liga DIER.UIE */
+    LL_TIM_EnableIT_UPDATE(TIM2);    /* tim_1khz_init nao liga DIER.UIE */
     LL_TIM_EnableIT_UPDATE(TIM3);
 
     /* ── Fase A1: baseline TIM3-alone, 64 amostras, id1 ── */

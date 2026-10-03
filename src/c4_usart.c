@@ -2,10 +2,13 @@
  * @file    src/c4_usart.c
  * @brief   C4 — USART1 115200 8N1 loopback fidelity (H4).
  *
- * Compilado quando SCENARIO=C4 (→ c4_usart_main, via Core/Src/main.c).
+ * Executável build/c4/firmware.elf (entry main()).
  * Stack: HSI 8 MHz (reset state), LL apenas, sem HAL, sem printf.
- * Hook c4_usart1_hook() chamado de USART1_IRQHandler (stm32f1xx_it.c,
- * bloco USER CODE sob SCENARIO_C4, 1ª instrução do handler).
+ * Hook c4_usart1_hook() chamado de USART1_IRQHandler (definido neste
+ * arquivo, 1ª instrução do handler).
+ *
+ * Periféricos ligados: SOMENTE USART1 (+GPIOA PA9/PA10) e TIM2 (contador
+ * de carga cooperativa da fase 2, SEM IRQ). NVIC: só USART1_IRQn (prio 8).
  *
  * ── H4 ─────────────────────────────────────────────────────────────────
  * O Renode entrega bytes USART1 corretos (funcional) E espaçamento
@@ -63,11 +66,8 @@
  * ─────────────────────────────────────────────────────────────────────
  */
 
-#include "main.h"
-#include "usart.h"
-#include "stm32f1xx_ll_usart.h"
-#include "stm32f1xx_ll_tim.h"
-#include "stm32f1xx_ll_bus.h"
+#include "board.h"
+#include "periph.h"                     /* usart1_init_115200_8n1, tim_1khz_init */
 
 /* ── Símbolos públicos (extração via GDB) ─────────────────────────── */
 volatile uint32_t c4_results[2048];
@@ -95,8 +95,16 @@ static volatile uint32_t g_uif     = 0U;  /* poll-hits de UIF na fase 2 */
 #define C4_TIMEOUT_PH2_CYC   (80000000UL)
 
 /* ── Protótipos (antes da definição: -Wmissing-prototypes) ────────── */
-void c4_usart_main(void);
-void c4_usart1_hook(void);
+void USART1_IRQHandler(void);
+void c4_usart1_hook(void) __attribute__((noinline));
+
+/**
+ * @brief USART1 IRQ handler (overrides weak symbol from startup).
+ */
+void USART1_IRQHandler(void)
+{
+    c4_usart1_hook();
+}
 
 /* Byte esperado do índice i: alternância 0x55/0xAA (transição por bit). */
 static uint8_t c4_pattern(uint32_t i)
@@ -178,24 +186,27 @@ void c4_usart1_hook(void)
  *
  * Fase 1a: TX por polling (1024 B), RX por IRQ com timestamp.
  * Fase 1b: TX+RX por IRQ (até 10000 B totais).
- * Fase 2:  TIM2 ligado (MX PSC=7/ARR=999, IRQ desabilitada) como carga
+ * Fase 2:  TIM2 ligado (PSC=7/ARR=999, IRQ desabilitada) como carga
  *          cooperativa + RXNE preemptivo (até 20000 B totais); main faz
  *          poll do UIF entre wakeups.
  * Timeout em qualquer espera → c4_done = 0xFD (resultados parciais
  * ainda preenchidos).
  */
-void c4_usart_main(void)
+int main(void)
 {
     uint32_t t0;
     uint8_t  done_code = 1U;
 
-    /* ── Quarentena: só USART1 + TIM2-contador (fase 2) vivem ── */
-    NVIC_DisableIRQ(TIM3_IRQn);
-    LL_APB1_GRP1_DisableClock(LL_APB1_GRP1_PERIPH_TIM3); /* TIM3 fora */
-    NVIC_DisableIRQ(TIM2_IRQn);          /* TIM2: NVIC fora até o fim */
-    LL_TIM_DisableCounter(TIM2);         /* contador parado (fases 1a/1b) */
+    board_init();
+
+    /* ── Periféricos deste cenário: USART1 e TIM2 (carga fase 2) ── */
+    usart1_init_115200_8n1();
+    tim_1khz_init(TIM2);
+    LL_TIM_DisableCounter(TIM2);
     LL_TIM_DisableIT_UPDATE(TIM2);
     LL_TIM_ClearFlag_UPDATE(TIM2);
+    NVIC_DisableIRQ(TIM2_IRQn);
+
     SysTick->CTRL = 0UL;                 /* SysTick fora */
 
     c4_dwt_init();
@@ -208,7 +219,8 @@ void c4_usart_main(void)
     }
     NVIC_ClearPendingIRQ(USART1_IRQn);
     LL_USART_EnableIT_RXNE(USART1);      /* RX por IRQ nas 3 fases */
-    NVIC_EnableIRQ(USART1_IRQn);         /* MX já habilitou (prio 8); garante */
+    NVIC_SetPriority(USART1_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 8, 0));
+    NVIC_EnableIRQ(USART1_IRQn);
 
     /* ── Fase 1a: TX polling (1024 B), RX IRQ + timestamp ── */
     g_phase = 1U;

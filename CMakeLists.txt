@@ -1,110 +1,83 @@
 cmake_minimum_required(VERSION 3.22)
 
-#
 # ════════════════════════════════════════════════════════════════════════════
-# ROOT CMAKE — USER-OWNED, preservado pelo CubeMX em regen
+# STM32F103 Renode Fidelity Evaluation — CMake Root Orchestrator
 # ════════════════════════════════════════════════════════════════════════════
-#
-# O CubeMX documenta este arquivo como "one-time generated, user change
-# is kept after project regeneration". Modifica à vontade.
-#
-# O que o CubeMX SOBRESCREVE em regen:
-#   - cmake/stm32cubemx/CMakeLists.txt    (sources, defines, includes do .ioc)
-#   - cmake/gcc-arm-none-eabi.cmake      (toolchain file)
-#   - Core/, Drivers/, startup, linker   (código gerado)
-#
-# O que o CubeMX NÃO toca:
-#   - Este CMakeLists.txt
-#   - src/, inc/, lib/, renode/, scripts/, flake.nix
-#
-# Se regen via CubeMX quebrar o build (raro — só em mudança de toolchain
-# ou project name), restaura do git:
-#   git checkout HEAD -- CMakeLists.txt
+# Arquitetura desacoplada: arquivos ST/CMSIS congelados em vendor/,
+# init comum e periféricos sob demanda em lib/, e cada cenário com seu
+# próprio main() em src/, compilando de forma independente e isolada.
 # ════════════════════════════════════════════════════════════════════════════
 
-# ── Compiler settings (override CubeMX's C11 com C17 GNU) ──
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 
-# ── Build type (default Debug) ──
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type" FORCE)
 endif()
 
-# ── Project name ──
-set(CMAKE_PROJECT_NAME stm32-renode-fidelity)
-project(${CMAKE_PROJECT_NAME} LANGUAGES C ASM)
+project(stm32-renode-fidelity LANGUAGES C ASM)
 
-# ── Export compile_commands.json para clangd ──
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
 message(STATUS "════════════════════════════════════════════════")
-message(STATUS "Build type : ${CMAKE_BUILD_TYPE}")
 message(STATUS "Project    : ${CMAKE_PROJECT_NAME}")
+message(STATUS "Build type : ${CMAKE_BUILD_TYPE}")
 message(STATUS "════════════════════════════════════════════════")
 
-# ── SCENARIO flag (SANDBOX | A | B | C1 | C2 | C3 | C4) ──
-# Define qual cenário compilar. Determina:
-#   - qual arquivo em src/ é linkado (mapeamento abaixo)
-#   - qual bloco é ativado em Core/Src/main.c via SCENARIO_<X> define
-#
-# Cenários disponíveis: SANDBOX (src/sandbox.c), A, B (legado),
-#   C1 (src/c1_core.c), C2 (src/c2_irq_baseline.c),
-#   C3 (src/c3_irq_arbitration.c), C4 (src/c4_usart.c)
-set(SCENARIO "" CACHE STRING "Cenário a compilar: SANDBOX | A | B | C1 | C2 | C3 | C4")
-if(NOT SCENARIO)
-    message(FATAL_ERROR
-        "Defina -DSCENARIO=SANDBOX|A|B|C1|C2|C3|C4\n"
-        "Exemplo: cmake -B build/c1 -DSCENARIO=C1")
-endif()
-string(TOLOWER "${SCENARIO}" SCENARIO_LOWER)
-add_compile_definitions(SCENARIO_${SCENARIO})
-
-# Mapeamento cenário → arquivo. C1..C4 usam nomes descritivos (ver
-# tcc/docs/plano-execucao-cenarios.md); legado usa ${lower}.c direto.
-if(SCENARIO STREQUAL "C1")
-    set(APP_SOURCE "${CMAKE_SOURCE_DIR}/src/c1_core.c")
-elseif(SCENARIO STREQUAL "C2")
-    set(APP_SOURCE "${CMAKE_SOURCE_DIR}/src/c2_irq_baseline.c")
-elseif(SCENARIO STREQUAL "C3")
-    set(APP_SOURCE "${CMAKE_SOURCE_DIR}/src/c3_irq_arbitration.c")
-elseif(SCENARIO STREQUAL "C4")
-    set(APP_SOURCE "${CMAKE_SOURCE_DIR}/src/c4_usart.c")
-elseif(SCENARIO STREQUAL "ECHO")
-    # Peer de echo p/ o C4 no Renode (infra de teste, ver src/echo_peer.c).
-    set(APP_SOURCE "${CMAKE_SOURCE_DIR}/src/echo_peer.c")
-else()
-    set(APP_SOURCE "${CMAKE_SOURCE_DIR}/src/${SCENARIO_LOWER}.c")
-endif()
-if(NOT EXISTS "${APP_SOURCE}")
-    message(FATAL_ERROR
-        "Arquivo de cenário não encontrado: ${APP_SOURCE}\n"
-        "Cenários disponíveis: sandbox.c, scenario_a.c, scenario_b.c, c1_core.c, c2_irq_baseline.c, c3_irq_arbitration.c, c4_usart.c")
-endif()
-
-# ── Variante C2_BUSY_LOOP (C2 V2: loop ocupado vs __WFI) ──
-# Uso: cmake -B build/c2busy -DSCENARIO=C2 -DC2_BUSY_LOOP=ON
-option(C2_BUSY_LOOP "C2: loop principal ocupado em vez de __WFI()" OFF)
-if(SCENARIO STREQUAL "C2" AND C2_BUSY_LOOP)
-    add_compile_definitions(C2_BUSY_LOOP)
-endif()
-
-# ── Executable: nosso .c do cenário + main.c do CubeMX ──
-add_executable(${CMAKE_PROJECT_NAME}
-    ${APP_SOURCE}
+# ── Vendor Definitions and Includes (INTERFACE) ──
+add_library(vendor_headers INTERFACE)
+target_compile_definitions(vendor_headers INTERFACE
+    STM32F103xB
+    USE_FULL_LL_DRIVER
+    HSE_VALUE=8000000
+    HSE_STARTUP_TIMEOUT=100
+    LSE_STARTUP_TIMEOUT=5000
+    LSE_VALUE=32768
+    HSI_VALUE=8000000
+    LSI_VALUE=40000
+    VDD_VALUE=3300
+    PREFETCH_ENABLE=1
+    $<$<CONFIG:Debug>:DEBUG>
+)
+target_include_directories(vendor_headers INTERFACE
+    ${CMAKE_SOURCE_DIR}/vendor/cmsis/include
+    ${CMAKE_SOURCE_DIR}/vendor/cmsis/device
+    ${CMAKE_SOURCE_DIR}/vendor/stm32f1xx_ll/inc
 )
 
-# ── CubeMX-gerado: INTERFACE lib com paths, defines, sources do vendor ──
-add_subdirectory(cmake/stm32cubemx)
+# ── Vendor Library (OBJECT) ──
+# Contém código gerado pela ST / CMSIS / Newlib stubs com warnings desabilitados (-w).
+add_library(vendor_ll OBJECT
+    vendor/system_stm32f1xx.c
+    vendor/sysmem.c
+    vendor/syscalls.c
+    vendor/startup_stm32f103xb.s
+    vendor/stm32f1xx_ll/src/stm32f1xx_ll_gpio.c
+    vendor/stm32f1xx_ll/src/stm32f1xx_ll_pwr.c
+    vendor/stm32f1xx_ll/src/stm32f1xx_ll_exti.c
+    vendor/stm32f1xx_ll/src/stm32f1xx_ll_tim.c
+    vendor/stm32f1xx_ll/src/stm32f1xx_ll_dma.c
+    vendor/stm32f1xx_ll/src/stm32f1xx_ll_rcc.c
+    vendor/stm32f1xx_ll/src/stm32f1xx_ll_utils.c
+    vendor/stm32f1xx_ll/src/stm32f1xx_ll_usart.c
+)
+target_link_libraries(vendor_ll PUBLIC vendor_headers)
+target_compile_options(vendor_ll PRIVATE -w)
 
-# ── Include path: nosso inc/ na raiz (sempre disponível) ──
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
+# ── Board & Peripheral Support Library (OBJECT) ──
+# Inicialização mínima comum (board.c) e periféricos sob demanda (periph.c).
+# Compilado com flags estritos do projeto.
+add_library(board OBJECT
+    lib/board.c
+    lib/periph.c
+)
+target_link_libraries(board PUBLIC vendor_headers)
+target_include_directories(board PUBLIC
+    ${CMAKE_SOURCE_DIR}/lib
     ${CMAKE_SOURCE_DIR}/inc
 )
-
-# ── Compiler hardening no nosso código (não toca vendor) ──
-target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE
+target_compile_options(board PRIVATE
     -Wall
     -Wextra
     -Wmissing-prototypes
@@ -112,34 +85,70 @@ target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE
     -ffunction-sections
     -fdata-sections
 )
-# -Werror fica DEPOIS que o toolchain validar (vendor tem warnings legítimos)
 
-# ── Linker hardening ──
-target_link_options(${CMAKE_PROJECT_NAME} PRIVATE
-    -Wl,--gc-sections
-)
+# ── Helper para registrar cenários ──
+function(add_scenario target_name source_file)
+    set(extra_defs ${ARGN})
+    add_executable(${target_name} ${source_file})
 
-# ── Link com a lib CubeMX (traz Core, Drivers, system, startup, linker) ──
-target_link_libraries(${CMAKE_PROJECT_NAME}
-    stm32cubemx
-    STM32_Drivers
-    m   # newlib libm
-)
+    target_link_libraries(${target_name} PRIVATE
+        board
+        vendor_ll
+        m
+    )
+    target_include_directories(${target_name} PRIVATE
+        ${CMAKE_SOURCE_DIR}/lib
+        ${CMAKE_SOURCE_DIR}/inc
+    )
+    target_compile_options(${target_name} PRIVATE
+        -Wall
+        -Wextra
+        -Wmissing-prototypes
+        -Wstrict-prototypes
+        -ffunction-sections
+        -fdata-sections
+    )
+    if(extra_defs)
+        target_compile_definitions(${target_name} PRIVATE ${extra_defs})
+    endif()
 
-# ── Output naming ──
-set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES
-    OUTPUT_NAME "firmware"
-)
+    set_target_properties(${target_name} PROPERTIES
+        OUTPUT_NAME "firmware"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${target_name}"
+        ADDITIONAL_CLEAN_FILES "${CMAKE_BINARY_DIR}/${target_name}/firmware.map;${CMAKE_BINARY_DIR}/${target_name}/firmware.bin"
+    )
 
-# ── Limpar .map com `ninja clean` ──
-set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES
-    ADDITIONAL_CLEAN_FILES "${CMAKE_PROJECT_NAME}.map"
-)
+    target_link_options(${target_name} PRIVATE
+        -Wl,--gc-sections
+        "-Wl,-Map=${CMAKE_BINARY_DIR}/${target_name}/firmware.map"
+    )
+
+    # Gera binário e exibe tamanho após o build
+    add_custom_command(TARGET ${target_name} POST_BUILD
+        COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:${target_name}> "${CMAKE_BINARY_DIR}/${target_name}/firmware.bin"
+        COMMAND ${CMAKE_SIZE} $<TARGET_FILE:${target_name}>
+        COMMENT "Gerando firmware.bin e calculando tamanho para ${target_name}"
+    )
+
+    # Sincroniza para build/${target_name}/firmware.elf na raiz (compatibilidade com resc e scripts)
+    add_custom_command(TARGET ${target_name} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/build/${target_name}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:${target_name}>" "${CMAKE_SOURCE_DIR}/build/${target_name}/firmware.elf"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_BINARY_DIR}/${target_name}/firmware.bin" "${CMAKE_SOURCE_DIR}/build/${target_name}/firmware.bin"
+        COMMENT "Sincronizando ${target_name} -> build/${target_name}/"
+    )
+endfunction()
+
+# ── Alvos dos Cenários ──
+add_scenario(sandbox src/sandbox.c)
+add_scenario(c1 src/c1_core.c)
+add_scenario(c2 src/c2_irq_baseline.c)
+add_scenario(c2busy src/c2_irq_baseline.c C2_BUSY_LOOP)
+add_scenario(c3 src/c3_irq_arbitration.c)
+add_scenario(c4 src/c4_usart.c)
+add_scenario(echo src/echo_peer.c)
 
 # ── Gera .clangd automaticamente (aponta para compile_commands.json) ──
-# O template cmake/clangd.in é processado a cada configure. clangd lê
-# .clangd na raiz e usa CompilationDatabase para encontrar os flags.
-# Mudou o nome do build dir? Reconfigure.
 configure_file(
     ${CMAKE_SOURCE_DIR}/cmake/clangd.in
     ${CMAKE_SOURCE_DIR}/.clangd

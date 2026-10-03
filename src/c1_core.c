@@ -46,11 +46,10 @@
  * eliminacao em qualquer -O) mas afeta ambos os lados por igual.
  */
 
-#include "main.h"                       /* CMSIS (DWT/CoreDebug/__disable_irq) + LED_BUILTIN_* */
-#include "stm32f1xx_ll_bus.h"           /* LL_APB1/APB2 clock gating */
-#include "stm32f1xx_ll_gpio.h"          /* LL_GPIO_Set/ResetOutputPin */
+#include "board.h"                      /* CMSIS (DWT/CoreDebug/__disable_irq) + LED_BUILTIN_* */
+#include "periph.h"                     /* led_init() */
 
-/* --- Exported contract (nomes exatos; GDB dump + main.c dependem) --- */
+/* --- Exported contract (nomes exatos; GDB dump depende) --- */
 volatile uint32_t c1_results[700];
 volatile uint32_t c1_n;
 volatile uint8_t  c1_done;
@@ -65,7 +64,6 @@ static const uint32_t s_ctab[4] = {     /* Flash: tabela literal (B5) */
 };
 
 /* --- Prototypes (exigidos por -Wmissing-prototypes; todo handler-free file) --- */
-void c1_core_main(void);
 static uint32_t b7_callee(uint32_t x);
 
 /* Callee B7: noinline para que cada iteracao pague call+ret de verdade. */
@@ -75,23 +73,18 @@ static uint32_t b7_callee(uint32_t x)
 }
 
 /**
- * @brief Entry C1 — chamada por Core/Src/main.c quando SCENARIO_C1.
+ * @brief Entry C1 (build/c1/firmware.elf).
  *        Nunca retorna (IRQs mascaradas; GDB externo faz halt p/ dump).
+ *
+ * Perifericos ligados: SOMENTE GPIOC (PC13, usado pelo bloco B8).
+ * Nenhuma IRQ habilitada no NVIC; SysTick no estado de reset (off).
  */
-void c1_core_main(void)
+int main(void)
 {
-    /* Quarentena: perifericos de outros cenarios desligados p/ nao gerar IRQ/clock. */
-    NVIC_DisableIRQ(TIM2_IRQn);
-    NVIC_ClearPendingIRQ(TIM2_IRQn);
-    NVIC_DisableIRQ(TIM3_IRQn);
-    NVIC_ClearPendingIRQ(TIM3_IRQn);
-    LL_APB1_GRP1_DisableClock(LL_APB1_GRP1_PERIPH_TIM2);
-    LL_APB1_GRP1_DisableClock(LL_APB1_GRP1_PERIPH_TIM3);
-    NVIC_DisableIRQ(USART1_IRQn);
-    NVIC_ClearPendingIRQ(USART1_IRQn);
-    LL_APB2_GRP1_DisableClock(LL_APB2_GRP1_PERIPH_USART1);
+    board_init();
+    led_init();
 
-    SysTick->CTRL = 0U;                 /* sem tick durante a calibracao */
+    SysTick->CTRL = 0U;                 /* defensivo: sem tick durante a calibracao */
 
     /* DWT: habilita traco + contador de ciclos, zera. */
     CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
