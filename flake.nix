@@ -34,17 +34,14 @@
 #  ponto de vista do Nix. Ver README.md para detalhes da configuração WSL2.
 #
   #  ┌─────────────────────────────────────────────────────────────────────────┐
-  #  │ CANAL: nixos-26.05 (stable)                                               │
+  #  │ CANAL: nixpkgs-unstable                                                 │
   #  └─────────────────────────────────────────────────────────────────────────┘
-  #  Usamos `nixos-26.05` (stable 2026.05). POR QUÊ:
+  #  Usamos `nixpkgs-unstable`. POR QUÊ:
   #
-  #    - gcc-arm-embedded 15.2, cmake 4.1 etc estão em 26.05.
-  #    - Renode: o 26.05 só tem 1.16.1; usamos 1.17.0 via override do
-  #      `renode-bin` (ver `renode` no `let`), sem precisar de unstable.
-  #    - O toolchain inteiro fica coerente: uma única resolução de versões.
-  #
-  #  Migração: projeto anteriormente em nixpkgs-unstable (Renode 1.16.1 só
-  #  existia em unstable em 25.05). Com 26.05, migramos para o canal stable.
+  #    - gcc-arm-embedded 15.2, cmake 4.1 etc.
+  #    - Renode: versão 1.17.0 disponível nativamente como `pkgs.renode`
+  #      (suporta `I2C.STM32F1_I2C` sem necessidade de override manual via GitHub).
+  #    - O toolchain inteiro fica coerente e travado via `flake.lock`.
   #
   #  Reprodutibilidade continua via `flake.lock`, que pinna o hash exato
   #  do nixpkgs e de cada derivação. Enquanto ninguém rodar `nix flake update`,
@@ -123,9 +120,8 @@
   # disponível dentro de `outputs`.
   inputs = {
     # nixpkgs: a "biblioteca" de pacotes do Nix (50.000+ pkgs). Canal
-    # `nixos-26.05` = stable 2026.05. Ver bloco no header sobre a
-    # migração de unstable para 26.05.
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
+    # `nixpkgs-unstable` contém Renode 1.17.0 oficial (`pkgs.renode`).
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
   };
 
   # ── OUTPUTS ───────────────────────────────────────────────────────────────
@@ -188,9 +184,8 @@
         #      padrão em nixpkgs recente; não usamos nenhum dos dois.
         openocd
 
-        # Simulador: Renode 1.17.0 (override do `renode-bin`, ver `renode`
-        # abaixo do `tools`). Emula o STM32 inteiro em software, expondo
-        # o mesmo servidor GDB na porta 3333.
+        # Simulador: Renode 1.17.0 oficial do nixpkgs-unstable (`pkgs.renode`).
+        # Emula o STM32 inteiro em software, expondo o servidor GDB na porta 3333.
         renode
 
         # Análise: python3 para scripts em `scripts/` (futuro dump_sram.sh,
@@ -210,29 +205,6 @@
         # Nix. Se um dia for distribuir via Nix, ressuscitar o split
         # `default`/`full` (ver histórico do git).
       ];
-
-      # ── renode: Renode 1.17.0 via override do `renode-bin` do nixpkgs ───
-      # nixpkgs (26.05 e unstable em 2026-09) ainda empacota 1.16.1, que
-      # NÃO carrega o nosso .repl (falta `I2C.STM32F1_I2C`). Reusamos a
-      # receita binária oficial `renode-bin` (autoPatchelfHook + wrapper
-      # com dotnet runtime 8 + PYTHONPATH/GTK do Nix), trocando só a
-      # versão e o tarball. Roda em qualquer Linux (inclusive NixOS),
-      # sem depender de /lib64 nem de libs do host.
-      #
-      # A partir da 1.17 o release `linux-dotnet.tar.gz` passou a se
-      # chamar `linux.tar.gz` (framework-dependent, net8.0 — o mesmo
-      # runtime que `renode-bin` já injeta).
-      #
-      # Atualizar: trocar `version` e `hash` (o hash novo aparece no erro
-      # do primeiro build, ou via `nix store prefetch-file <url>`).
-      # Quando o nixpkgs empacotar >= 1.17, basta usar `pkgs.renode-bin`.
-      renode = pkgs.renode-bin.overrideAttrs (finalAttrs: _: {
-        version = "1.17.0";
-        src = pkgs.fetchurl {
-          url = "https://github.com/renode/renode/releases/download/v${finalAttrs.version}/renode-${finalAttrs.version}.linux.tar.gz";
-          hash = "sha256-1kz/3kjnIGS6nof/NOGGy3qo2PKW3sm7vNaot2rn/XY=";
-        };
-      });
 
     in
     {

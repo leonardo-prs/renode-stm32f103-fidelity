@@ -47,13 +47,12 @@ states (a 24 MHz+ seria uma armadilha).
 
 - **Toolchain:** Nix flake (`nixpkgs/nixpkgs-unstable`). Shell único
   (`nix develop` → `default`) com **tudo** necessário:
-  `gcc-arm-embedded` 15.2 (C11/C17/C18/C23, inclui `arm-none-eabi-gdb`),
-  `cmake` 4.1, `ninja` 1.13, `openocd` 0.12, `renode` 1.17.0 (override do `renode-bin` no flake),
-  `python3` 3.14, `clang-tools` 22.1 (clangd + clang-tidy),
-  `pkg-config` 0.29, `stm32cubemx` 6.17 (GUI). **Apenas x86_64-linux**.
-  O nixpkgs só empacota Renode 1.16.1, que não carrega o nosso `.repl`
-  (falta `I2C.STM32F1_I2C`); por isso o flake faz override do `renode-bin`
-  para o tarball oficial 1.17.0. Não existe mais `renode117` nem 1.16.1.
+  `gcc-arm-embedded` 15.3 (C11/C17/C18/C23, inclui `arm-none-eabi-gdb`),
+  `cmake` 4.4, `ninja` 1.13, `openocd` 0.12, `renode` 1.17.0 (`pkgs.renode`),
+  `python3`, `clang-tools` (clangd + clang-tidy),
+  `pkg-config`. **Apenas x86_64-linux**.
+  Renode 1.17.0 está disponível nativamente no canal unstable do nixpkgs
+  (suporta `I2C.STM32F1_I2C`), dispensando overrides customizados.
   Sem `gdb` standalone — `arm-none-eabi-gdb` (mesma toolchain, target
   consistente) já vem no `gcc-arm-embedded`.
   Ver `README.md` para instalação (recomendado: Determinate Nix).

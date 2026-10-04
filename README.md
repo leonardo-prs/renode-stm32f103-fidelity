@@ -89,7 +89,7 @@ stm32cubemx    # GUI aparece
 | `pkg-config`        | 0.29                               | Lib metadata                      |
 | `openocd`           | 0.12                               | Flash + GDB server                |
 | `arm-none-eabi-gdb` | (incluso no gcc-arm-embedded 15.2) | Source-level debug ARM            |
-| `renode`            | 1.17.0 (override `renode-bin`)     | Simulador do MCU                  |
+| `renode`            | 1.17.0                             | Simulador do MCU                  |
 | `python3`           | 3.14                               | Scripts auxiliares                |
 | `clang-tools`       | 22.1 (clangd, clang-tidy, …)       | LSP / análise estática            |
 | `stm32cubemx`       | 6.17                               | GUI para editar `.ioc`            |
