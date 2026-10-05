@@ -22,8 +22,8 @@ sysbus LoadELF @build/sandbox/firmware.elf
 # O analyzer UART não é necessário aqui (sandbox não usa USART), mas deixamos
 # usart1 visível caso queira `showAnalyzer usart1` manualmente.
 
-# GDB server em :3333 (mesma porta do OpenOCD para compatibilidade com launch.json)
-machine StartGdbServer 3333
+# GDB server em :3334 (OpenOCD/HW usa :3333 — portas separadas p/ coexistir)
+machine StartGdbServer 3334
 
 # Mostra estado inicial antes do start (útil para debug de LoadELF)
 log "=== sandbox.resc: ELF carregado, iniciando emulação ==="

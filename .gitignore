@@ -13,18 +13,23 @@ result-*
 *.a
 *.d
 *.su
+__pycache__/
+*.pyc
 
-# ── CMake ──
+# ── CMake (gerados) ──
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
-CMakeScripts/
 CMakeUserPresets.json
-Makefile
 compile_commands.json
 
 # ── IDE / editor ──
-.vscode/
+# .vscode/ É versionada: config VS Code (extensions.json da suíte Marketplace
+# verificada em 2026-10-05 + settings/tasks/launch portados de .theia/).
+# Workspace pessoal com preferências visuais fica local e não é versionado.
+/*.code-workspace
+# .theia/ (Theia abandonado em 2026-10-05) permanece no disco até a
+# refatoração fina de tasks/launch, depois é removida — AGENTS.md § Pendente.
 .idea/
 *.swp
 *.swo
@@ -36,8 +41,9 @@ Thumbs.db
 # ── Gerado por CMake (configure_file) ──
 .clangd
 
-# ── Logs ──
+# ── Logs e temporários ──
 *.log
+tmp/
 
 # ── Datasets de coleta (bins brutos GDB + CSVs; reproduzíveis via rerun,
 #     mas caros em wall-clock — nunca commitar, nunca em /tmp volátil) ──

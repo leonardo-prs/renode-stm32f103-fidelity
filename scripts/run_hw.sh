@@ -6,7 +6,8 @@
 #   PREFIX: ex. c1hw_r1 (datasets em OUTDIR, default tcc/data/raw)
 #
 # Fluxo por run: flash (program+verify+reset+exit) → daemon openocd em
-# background → dump via dump_sram.sh (GDB :3333, mesmo protocolo do Renode:
+# background → dump via dump_sram.sh (GDB :3333 — OpenOCD; o Renode usa :3334,
+# portas separadas p/ permitir HW e simulador em paralelo).
 # buffer + done=1 + alfor parado) → kill daemon.
 # Pré-requisitos: regra udev do ST-Link instalada (ver tcc/tmp/log.md),
 # jumper PA9->PA10 fitted p/ C4, nenhum openocd/Renode rodando.
@@ -18,7 +19,7 @@ set -u
 CASE="${1:?Uso: $0 CASE PREFIX  (CASE=c1|c2|c2busy|c3|c4)}"
 PREFIX="${2:?Uso: $0 CASE PREFIX}"
 OUTDIR="${OUTDIR:-tcc/data/raw}"
-export GDB_PORT="${GDB_PORT:-3333}"
+export GDB_PORT="${GDB_PORT:-3333}"  # OpenOCD; Renode usa 3334 (.resc + tasks)
 export DUMP_TIMEOUT_S="${DUMP_TIMEOUT_S:-120}"
 
 case "$CASE" in

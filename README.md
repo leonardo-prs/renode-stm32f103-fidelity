@@ -61,21 +61,27 @@ de margens aceitáveis.
 #    Sem direnv, entre manualmente (cria flake.lock na 1ª vez; pode demorar alguns min):
 nix develop
 
-# 2. Build do cenário sandbox (gera firmware.elf)
-cmake -B build/sandbox -DSCENARIO=SANDBOX -G Ninja \
-      -DCMAKE_TOOLCHAIN_FILE=cmake/gcc-arm-none-eabi.cmake
-ninja -C build/sandbox
+# 2. Build via presets (Debug ou Release — alvos: sandbox|c1|c2|c2busy|c3|c4|echo)
+cmake --preset Debug
+cmake --build --preset Debug                    # todos os alvos
+cmake --build --preset Debug --target sandbox   # alvo único
+# Artefatos: build/<preset>/<alvo>/ + cópia sincronizada em build/<alvo>/firmware.elf
 
 # 3. Flash no hardware (ST-Link/V2 + OpenOCD)
 openocd -f interface/stlink.cfg -f target/stm32f1x.cfg \
         -c "program build/sandbox/firmware.elf verify reset exit"
 
 # 4. Simular no Renode (mesmo ELF, sem hardware)
-renode renode/sandbox.resc
-
-# 5. Editar configuração de hardware (.ioc via CubeMX)
-stm32cubemx    # GUI aparece
+renode --disable-xwt -e "s @renode/sandbox.resc"   # GDB server :3334
 ```
+
+> **IDE:** VS Code — workspace config versionada em `.vscode/` (extensions,
+> launch, settings e tasks; suíte de extensões via Marketplace oficial da
+> Microsoft, migrada do Theia/Open VSX em 2026-10-05; detalhes em `AGENTS.md
+> § Ambiente de edição`). O projeto independe de IDE: todo o fluxo (build,
+> sim, coleta, análise) roda via terminal (Nix + presets + scripts). O
+> workflow CubeMX foi descontinuado: os fontes vendor/ estão congelados
+> (ver `vendor/README.md`).
 
 ---
 
@@ -96,6 +102,11 @@ stm32cubemx    # GUI aparece
 
 Todas vêm via `nixpkgs-unstable`, pinadas no `flake.lock`. Para atualizar:
 `nix flake update --commit`.
+
+**Portas GDB:** OpenOCD (hardware) usa `:3333` (default do OpenOCD — ver
+`scripts/run_hw.sh`); Renode usa `:3334` (todos os `.resc`). Assim HW e
+simulador podem rodar em paralelo sem conflito de porta. Monitor Renode:
+`:6512` (via `-P`), permitindo vários runs em paralelo com `-P` distintas.
 
 **PATH precedence:** ao entrar em `nix develop`, o Nix prepende
 `~/.nix-profile/bin` ao PATH, então qualquer binário apt em `/usr/bin` é

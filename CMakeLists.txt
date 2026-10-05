@@ -114,39 +114,54 @@ function(add_scenario target_name source_file)
 
     set_target_properties(${target_name} PROPERTIES
         OUTPUT_NAME "firmware"
-        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${target_name}"
-        ADDITIONAL_CLEAN_FILES "${CMAKE_BINARY_DIR}/${target_name}/firmware.map;${CMAKE_BINARY_DIR}/${target_name}/firmware.bin"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+        ADDITIONAL_CLEAN_FILES "${CMAKE_BINARY_DIR}/firmware.map;${CMAKE_BINARY_DIR}/firmware.bin"
     )
 
     target_link_options(${target_name} PRIVATE
         -Wl,--gc-sections
-        "-Wl,-Map=${CMAKE_BINARY_DIR}/${target_name}/firmware.map"
+        "-Wl,-Map=${CMAKE_BINARY_DIR}/firmware.map"
     )
 
     # Gera binário e exibe tamanho após o build
     add_custom_command(TARGET ${target_name} POST_BUILD
-        COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:${target_name}> "${CMAKE_BINARY_DIR}/${target_name}/firmware.bin"
+        COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:${target_name}> "${CMAKE_BINARY_DIR}/firmware.bin"
         COMMAND ${CMAKE_SIZE} $<TARGET_FILE:${target_name}>
         COMMENT "Gerando firmware.bin e calculando tamanho para ${target_name}"
     )
-
-    # Sincroniza para build/${target_name}/firmware.elf na raiz (compatibilidade com resc e scripts)
-    add_custom_command(TARGET ${target_name} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/build/${target_name}"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:${target_name}>" "${CMAKE_SOURCE_DIR}/build/${target_name}/firmware.elf"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_BINARY_DIR}/${target_name}/firmware.bin" "${CMAKE_SOURCE_DIR}/build/${target_name}/firmware.bin"
-        COMMENT "Sincronizando ${target_name} -> build/${target_name}/"
-    )
 endfunction()
 
-# ── Alvos dos Cenários ──
-add_scenario(sandbox src/sandbox.c)
-add_scenario(c1 src/c1_core.c)
-add_scenario(c2 src/c2_irq_baseline.c)
-add_scenario(c2busy src/c2_irq_baseline.c C2_BUSY_LOOP)
-add_scenario(c3 src/c3_irq_arbitration.c)
-add_scenario(c4 src/c4_usart.c)
-add_scenario(echo src/echo_peer.c)
+# ── Registro de cenários ──────────────────────────────────────────────────
+# Um preset per-cenário = UMA árvore de build (build/<cenario>/) com UM
+# alvo — o firmware sai direto no buildDir (build/<cenario>/firmware.elf),
+# MESMO caminho que .resc, launch.json e scripts consomem. Não existe cópia
+# de sincronização nem árvore original/per-preset.
+if(NOT DEFINED SCENARIO)
+    message(FATAL_ERROR
+        "Defina SCENARIO — use um preset per-cenário (fonte de verdade):\n"
+        "  cmake --preset <cenario> && cmake --build --preset <cenario>\n"
+        "  cenarios: sandbox|c1|c2|c2busy|c3|c4|echo (ver CMakePresets.json)")
+endif()
+
+if(SCENARIO STREQUAL "SANDBOX")
+    add_scenario(sandbox src/sandbox.c)
+elseif(SCENARIO STREQUAL "C1")
+    add_scenario(c1 src/c1_core.c)
+elseif(SCENARIO STREQUAL "C2")
+    add_scenario(c2 src/c2_irq_baseline.c)
+elseif(SCENARIO STREQUAL "C2BUSY")
+    add_scenario(c2busy src/c2_irq_baseline.c C2_BUSY_LOOP)
+elseif(SCENARIO STREQUAL "C3")
+    add_scenario(c3 src/c3_irq_arbitration.c)
+elseif(SCENARIO STREQUAL "C4")
+    add_scenario(c4 src/c4_usart.c)
+elseif(SCENARIO STREQUAL "ECHO")
+    add_scenario(echo src/echo_peer.c)
+else()
+    message(FATAL_ERROR
+        "SCENARIO desconhecido: ${SCENARIO}\n"
+        "  valores: SANDBOX|C1|C2|C2BUSY|C3|C4|ECHO (ver CMakePresets.json)")
+endif()
 
 # ── Gera .clangd automaticamente (aponta para compile_commands.json) ──
 configure_file(

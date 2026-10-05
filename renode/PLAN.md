@@ -110,7 +110,7 @@ Sweep documentado: 1us/10us/100us/1ms (ver relatório + `tcc/tmp/log.md`).
 `logLevel 3` em todos (mesmo nível do `sandbox.resc`: 0=silent, 3=debug).
 Nota operacional: com stdout redirecionado p/ arquivo, as linhas INFO após
 `System bus created` não têm flush — log parado + CPU 100% = emulação
-correndo, NÃO travamento. Verificar progresso via GDB (`:3333`) ou monitor
+correndo, NÃO travamento. Verificar progresso via GDB (`:3334`) ou monitor
 (`:1234`), nunca pelo arquivo de log (lição em `tcc/tmp/log.md`).
 
 ### C4 loopback: DECIDIDO — UART hub dual-machine (2026-09-22)

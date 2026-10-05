@@ -17,7 +17,7 @@
 #   c3q* = sweep de quantum E(Q), MESMO ELF build/c3.
 #
 # Env: RENODE_BIN (default renode, 1.17.0 via flake), OUTDIR (default tcc/data/raw),
-#      GDB_PORT (3333), MON_PORT (1234), DUMP_TIMEOUT_S (300; C4 quer ~900).
+#      GDB_PORT (3334), MON_PORT (6512), DUMP_TIMEOUT_S (300; C4 quer ~900).
 # Paralelo: MON_PORT+GDB_PORT distintos por run (matriz no log);
 # nunca kill global com runs paralelos (kill_renode só p/ uso manual).
 set -u
@@ -27,8 +27,8 @@ RENODE_BIN="${RENODE_BIN:-renode}"
 # para que `renode` seja o 1.17.0 do flake.
 command -v "$RENODE_BIN" >/dev/null || { echo "ERRO: '$RENODE_BIN' fora do PATH (rodar em nix develop)" >&2; exit 1; }
 OUTDIR="${OUTDIR:-tcc/data/raw}"
-export GDB_PORT="${GDB_PORT:-3333}"
-MON_PORT="${MON_PORT:-1234}"
+export GDB_PORT="${GDB_PORT:-3334}"
+MON_PORT="${MON_PORT:-6512}"
 export DUMP_TIMEOUT_S="${DUMP_TIMEOUT_S:-300}"
 
 MODE="run"
@@ -73,10 +73,10 @@ do_dump() {
 do_launch() {
     local log="$OUTDIR/${PREFIX}.log"
     mkdir -p "$OUTDIR"
-    # resc temporário (/tmp) com a porta GDB deste run; repo mantém 3333.
+    # resc temporário (/tmp) com a porta GDB deste run; repo mantém 3334.
     # Portas (monitor+GDB) isolam runs paralelos — sem kill global aqui.
     local tmpresc="/tmp/battery_${PREFIX}.resc"
-    sed "s/StartGdbServer 3333/StartGdbServer $GDB_PORT/" "$RESC" > "$tmpresc"
+    sed "s/StartGdbServer 3334/StartGdbServer $GDB_PORT/" "$RESC" > "$tmpresc"
     setsid nohup "$RENODE_BIN" --disable-xwt -P "$MON_PORT" -e "s @$tmpresc" "${EXTRA[@]}" -e start > "$log" 2>&1 < /dev/null &
     echo "run_battery: $CASE -> $PREFIX (pid $!, mon $MON_PORT, gdb $GDB_PORT, log $log)"
 }

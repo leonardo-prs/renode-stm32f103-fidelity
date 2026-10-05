@@ -24,8 +24,8 @@ emulation SetGlobalQuantum "0.000001"
 # quando prefixado com @; mantemos @ para consistência com docs Renode.
 sysbus LoadELF @build/c1/firmware.elf
 
-# GDB server em :3333 (mesma porta do OpenOCD para compatibilidade com launch.json)
-machine StartGdbServer 3333
+# GDB server em :3334 (OpenOCD/HW usa :3333 — portas separadas p/ coexistir)
+machine StartGdbServer 3334
 
 # Pronto p/ emulação (SEM `start` — gerenciado pela bateria).
 log "=== c1.resc: máquina pronta (SEM start; ver scripts/run_battery.sh) ==="

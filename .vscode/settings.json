@@ -1,0 +1,83 @@
+// ────────────────────────────────────────────────────────────────────────────
+// .vscode/settings.json — configuração do workspace no VS Code.
+// ────────────────────────────────────────────────────────────────────────────
+// Portado de .theia/settings.json (migração Theia → VS Code, 2026-10-05).
+// A fonte de extensões muda: Open VSX → Marketplace oficial da Microsoft —
+// as recomendações agora são .vscode/extensions.json (nativas do VS Code).
+//
+// Todas as ferramentas (cmake, ninja, clangd, arm-none-eabi-gdb, openocd,
+// renode) vêm do dev shell do flake via direnv. Para que clangd e as tasks
+// encontrem os binários, o VS Code deve rodar com o direnv ativo (ou usar a
+// extensão mkhl.direnv, recomendada — aplica o .envrc ao env do workspace).
+// Ver AGENTS.md § Ambiente de edição.
+// ────────────────────────────────────────────────────────────────────────────
+{
+  // ══════════════════════════════════════════════════════════════════════════
+  // clangd: base de compilação vem do CMake (via .clangd gerado)
+  // ══════════════════════════════════════════════════════════════════════════
+  // O path do compile_commands.json NÃO vai aqui: o .clangd (gerado por
+  // configure_file a cada configure) aponta para o binDir do preset atual.
+  // Trocou Debug↔Release? Reconfigure — o .clangd acompanha.
+  "clangd.path": "clangd",
+  "clangd.arguments": [
+    "--background-index",
+    "--header-insertion=never",
+    "--completion-style=detailed",
+    "--function-arg-placeholders=false",
+    "--pch-storage=memory"
+  ],
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // CMake: presets como única fonte de verdade
+  // ══════════════════════════════════════════════════════════════════════════
+  // ms-vscode.cmake-tools NÃO está na suíte (reavaliada 2026-10-06): com
+  // CMakePresets.json presente ela usa o binaryDir do preset (sem árvore
+  // duplicada), mas mantém um SEGUNDO fluxo — "active configure/build preset"
+  // selecionável na status bar — em paralelo ao fluxo único de tasks/scripts.
+  // configureOnOpen=false fica como guard, caso seja instalada manualmente.
+  "cmake.configureOnOpen": false,
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Cortex-Debug (upstream marus25): toolchain do flake
+  // ══════════════════════════════════════════════════════════════════════════
+  // .vscode/launch.json também fixa gdbPath por config (idêntico no upstream;
+  // ${command:...} é suportado no VS Code — refatoração pendente decide).
+  "cortex-debug.gdbPath": "arm-none-eabi-gdb",
+  "cortex-debug.openocdPath": "openocd",
+  "cortex-debug.enableTelemetry": false,
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Editor
+  // ══════════════════════════════════════════════════════════════════════════
+  // Indentação/quebras ficam no .editorconfig (formato neutro, lido pelo
+  // VS Code e por qualquer editor). Aqui só o que o editorconfig não cobre.
+  "editor.formatOnSave": false,
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "files.associations": {
+    "*.repl": "yaml",
+    "*.resc": "shellscript"
+  },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Higiene: build/ e caches fora do watcher/busca (alinhado c/ .gitignore)
+  // ══════════════════════════════════════════════════════════════════════════
+  "files.watcherExclude": {
+    "**/build/**": true,
+    "**/.git/**": true,
+    "**/.jj/**": true,
+    "**/.direnv/**": true,
+    "**/.ruff_cache/**": true,
+    "**/.cache/**": true
+  },
+  "search.exclude": {
+    "**/build/**": true,
+    "**/.jj/**": true,
+    "**/.cache/**": true
+  },
+  "files.exclude": {
+    "**/.direnv": true,
+    "**/.ruff_cache": true,
+    "**/.cache": true
+  }
+}

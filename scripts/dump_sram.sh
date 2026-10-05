@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dump_sram.sh — extrai buffer(s) SRAM do alvo via GDB batch (HW OpenOCD ou Renode :3333).
+# dump_sram.sh — extrai buffer(s) SRAM do alvo via GDB batch (OpenOCD :3333 ou Renode :3334).
 #
 # Uso:
 #   dump_sram.sh ELF OUTDIR PREFIX RESULTS_SYM N_SYM DONE_SYM [AUX_SYM AUXN_SYM]
@@ -12,13 +12,13 @@
 #   DONE_SYM    flag de conclusão (==1 pronto; 0xFD/0xFE = erro de firmware)
 #   AUX_SYM / AUXN_SYM (opcionais, aos pares): segundo buffer → PREFIX_aux.bin
 #
-# Porta GDB: env GDB_PORT (default 3333).
+# Porta GDB: env GDB_PORT (3333 = OpenOCD/HW; 3334 = Renode, ver .resc).
 # Poll de DONE_SYM até 120 s (sleep 1). Exit 2 = erro de firmware,
 # exit 3 = timeout, demais erros exit 1.
 set -u
 
 GDB_BIN="arm-none-eabi-gdb"
-PORT="${GDB_PORT:-3333}"
+PORT="${GDB_PORT:-3333}"  # OpenOCD/HW; para Renode: GDB_PORT=3334
 TIMEOUT_S="${DUMP_TIMEOUT_S:-120}"
 
 usage() {

@@ -1,0 +1,74 @@
+// ────────────────────────────────────────────────────────────────────────────
+// .theia/tasks.json — formato nativo do Theia (@theia/task lê este arquivo).
+// ────────────────────────────────────────────────────────────────────────────
+// Portas: OpenOCD/HW usa :3333 (default OpenOCD); Renode usa :3334 e o
+// monitor telnet :6512 — HW e simulador coexistem (ver renode/PLAN.md).
+//
+// Esquema de build (2026-10-04, correção 2): PRESETS PER-CENÁRIO — um preset
+// = um cenário = UMA árvore (build/<cenario>/) com o firmware direto em
+// build/<cenario>/firmware.elf. NÃO existe build/Debug nem cópia de
+// sincronização. Fonte de verdade: CMakePresets.json; wrapper:
+// scripts/scenario_build.sh (configure idempotente + build).
+//
+// Prefixo `scripts/direnv_exec.sh .` obrigatório: tasks do Theia são lançadas
+// pelo backend (não-shell de login) e o PATH base do WSL não contém
+// /nix/var/nix/profiles/default/bin (adicionado só por /etc/profile.d/nix.sh
+// em shells de login). O `direnv exec .` direto então falava com
+// "environment: nix: command not found" → exit 127 → preLaunchTask abortado.
+// O wrapper garante o nix no PATH antes do direnv (guard: se o nix já está
+// no PATH, não muda nada).
+//
+// Os labels "Build: <alvo> (Debug)" são REFERENCIADOS por .theia/launch.json
+// (preLaunchTask dos configs HW) — não renomear sem atualizar o launch. O
+// build type é Debug (-O0 -g3) fixo no preset base.
+// ────────────────────────────────────────────────────────────────────────────
+{
+  "version": "2.0.0",
+  "tasks": [
+    // ══════════════════════════════════════════════════════════════════════
+    // Build: configure (idempotente) + build por cenário (preset per-cenário)
+    // ══════════════════════════════════════════════════════════════════════
+    { "label": "Build: sandbox (Debug)",  "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/scenario_build.sh", "sandbox"],  "problemMatcher": { "owner": "gcc", "fileLocation": ["relative", "${workspaceFolder}"], "pattern": { "regexp": "^([^\\s:]+\\.(?:c|h|S)):(\\d+):(\\d+):\\s+(?:fatal\\s+)?(error|warning|note):\\s+(.*)$", "file": 1, "line": 2, "column": 3, "severity": 4, "message": 5 } } },
+    { "label": "Build: c1 (Debug)",       "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/scenario_build.sh", "c1"],       "problemMatcher": { "owner": "gcc", "fileLocation": ["relative", "${workspaceFolder}"], "pattern": { "regexp": "^([^\\s:]+\\.(?:c|h|S)):(\\d+):(\\d+):\\s+(?:fatal\\s+)?(error|warning|note):\\s+(.*)$", "file": 1, "line": 2, "column": 3, "severity": 4, "message": 5 } } },
+    { "label": "Build: c2 (Debug)",       "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/scenario_build.sh", "c2"],       "problemMatcher": { "owner": "gcc", "fileLocation": ["relative", "${workspaceFolder}"], "pattern": { "regexp": "^([^\\s:]+\\.(?:c|h|S)):(\\d+):(\\d+):\\s+(?:fatal\\s+)?(error|warning|note):\\s+(.*)$", "file": 1, "line": 2, "column": 3, "severity": 4, "message": 5 } } },
+    { "label": "Build: c2busy (Debug)",   "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/scenario_build.sh", "c2busy"],   "problemMatcher": { "owner": "gcc", "fileLocation": ["relative", "${workspaceFolder}"], "pattern": { "regexp": "^([^\\s:]+\\.(?:c|h|S)):(\\d+):(\\d+):\\s+(?:fatal\\s+)?(error|warning|note):\\s+(.*)$", "file": 1, "line": 2, "column": 3, "severity": 4, "message": 5 } } },
+    { "label": "Build: c3 (Debug)",       "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/scenario_build.sh", "c3"],       "problemMatcher": { "owner": "gcc", "fileLocation": ["relative", "${workspaceFolder}"], "pattern": { "regexp": "^([^\\s:]+\\.(?:c|h|S)):(\\d+):(\\d+):\\s+(?:fatal\\s+)?(error|warning|note):\\s+(.*)$", "file": 1, "line": 2, "column": 3, "severity": 4, "message": 5 } } },
+    { "label": "Build: c4 (Debug)",       "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/scenario_build.sh", "c4"],       "problemMatcher": { "owner": "gcc", "fileLocation": ["relative", "${workspaceFolder}"], "pattern": { "regexp": "^([^\\s:]+\\.(?:c|h|S)):(\\d+):(\\d+):\\s+(?:fatal\\s+)?(error|warning|note):\\s+(.*)$", "file": 1, "line": 2, "column": 3, "severity": 4, "message": 5 } } },
+    { "label": "Build: echo (Debug)",     "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/scenario_build.sh", "echo"],     "problemMatcher": { "owner": "gcc", "fileLocation": ["relative", "${workspaceFolder}"], "pattern": { "regexp": "^([^\\s:]+\\.(?:c|h|S)):(\\d+):(\\d+):\\s+(?:fatal\\s+)?(error|warning|note):\\s+(.*)$", "file": 1, "line": 2, "column": 3, "severity": 4, "message": 5 } } },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Debug prep: build do alvo + Renode headless + espera GDB :3334
+    // (preLaunchTask dos configs Renode em launch.json; o script mata a
+    // instância anterior e espera a porta abrir — ver renode_start.sh)
+    // ══════════════════════════════════════════════════════════════════════
+    { "label": "Debug: prep sandbox",  "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/renode_start.sh", "sandbox",  "--build"], "presentation": { "reveal": "always" }, "problemMatcher": [] },
+    { "label": "Debug: prep c1",       "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/renode_start.sh", "c1",       "--build"], "presentation": { "reveal": "always" }, "problemMatcher": [] },
+    { "label": "Debug: prep c2",       "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/renode_start.sh", "c2",       "--build"], "presentation": { "reveal": "always" }, "problemMatcher": [] },
+    { "label": "Debug: prep c2busy",   "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/renode_start.sh", "c2busy",   "--build"], "presentation": { "reveal": "always" }, "problemMatcher": [] },
+    { "label": "Debug: prep c3",       "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/renode_start.sh", "c3",       "--build"], "presentation": { "reveal": "always" }, "problemMatcher": [] },
+    { "label": "Debug: prep c4",       "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/renode_start.sh", "c4",       "--build"], "presentation": { "reveal": "always" }, "problemMatcher": [] },
+    { "label": "Debug: prep echo",     "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/renode_start.sh", "echo",     "--build"], "presentation": { "reveal": "always" }, "problemMatcher": [] },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Renode: stop (postDebugTask dos configs Renode; best-effort)
+    // ══════════════════════════════════════════════════════════════════════
+    {
+      "label": "Renode: stop",
+      "type": "shell",
+      "command": "scripts/direnv_exec.sh",
+      "args": [".", "scripts/renode_stop.sh"],
+      "problemMatcher": []
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Clean por cenário (cada cenário tem sua árvore build/<cenario>/)
+    // ══════════════════════════════════════════════════════════════════════
+    { "label": "CMake: clean sandbox",  "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "cmake", "--build", "--preset", "sandbox",  "--target", "clean"], "problemMatcher": [] },
+    { "label": "CMake: clean c1",       "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "cmake", "--build", "--preset", "c1",       "--target", "clean"], "problemMatcher": [] },
+    { "label": "CMake: clean c2",       "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "cmake", "--build", "--preset", "c2",       "--target", "clean"], "problemMatcher": [] },
+    { "label": "CMake: clean c2busy",   "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "cmake", "--build", "--preset", "c2busy",   "--target", "clean"], "problemMatcher": [] },
+    { "label": "CMake: clean c3",       "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "cmake", "--build", "--preset", "c3",       "--target", "clean"], "problemMatcher": [] },
+    { "label": "CMake: clean c4",       "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "cmake", "--build", "--preset", "c4",       "--target", "clean"], "problemMatcher": [] },
+    { "label": "CMake: clean echo",     "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "cmake", "--build", "--preset", "echo",     "--target", "clean"], "problemMatcher": [] }
+  ]
+}

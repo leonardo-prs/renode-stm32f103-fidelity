@@ -185,7 +185,8 @@
         openocd
 
         # Simulador: Renode 1.17.0 oficial do nixpkgs-unstable (`pkgs.renode`).
-        # Emula o STM32 inteiro em software, expondo o servidor GDB na porta 3333.
+        # Emula o STM32 inteiro em software, expondo o servidor GDB na porta 3334
+# (:3333 fica reservada para o OpenOCD/HW — portas separadas por design).
         renode
 
         # Análise: python3 para scripts em `scripts/` (futuro dump_sram.sh,

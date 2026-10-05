@@ -1,0 +1,53 @@
+# ────────────────────────────────────────────────────────────────────────────
+# EditorConfig — consistência entre máquinas, WSL/Linux e o Theia IDE.
+# Formato neutro: lido pelo Theia (extensão EditorConfig), VS Code, e
+# ferramentas de lint. Referência: https://editorconfig.org
+# ────────────────────────────────────────────────────────────────────────────
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+# ── C/C++ do projeto (src/, lib/, scripts python de análise em C? não — só C) ──
+# Banners de documentação e flags -Wall/-Wextra: linhas ~100 col.
+[*.{c,h}]
+max_line_length = 100
+
+# ── Nix (convenção da comunidade: 2 espaços) ──
+[*.nix]
+indent_size = 2
+
+# ── Config de editor (JSONC com comentários) e YAML ──
+# .theia/*.json, CMakePresets.json (raiz usa 4; .theia usa 2 — dominante 2)
+[*.{json,jsonc,yml,yaml}]
+indent_size = 2
+
+# ── Renode: .repl é YAML; .resc é shell-like ──
+[*.repl]
+indent_size = 2
+
+[*.resc]
+indent_size = 4
+
+# ── Markdown: preserva espaços finais (quebra de linha com duplo espaço) ──
+[*.md]
+trim_trailing_whitespace = false
+indent_size = 2
+
+# ── Python (scripts de coleta/análise) ──
+[*.py]
+indent_size = 4
+
+# ── Shell (scripts/renode_*.sh, run_*.sh, dump_sram.sh) ──
+[*.sh]
+indent_size = 4
+
+# ── Linker script e startup (vendor/, congelado — mas se regenerar) ──
+[*.{ld,s}]
+indent_size = 4

@@ -2,36 +2,66 @@
     "version": 3,
     "configurePresets": [
         {
-            "name": "default",
+            "name": "base",
             "hidden": true,
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build/${presetName}",
             "toolchainFile": "${sourceDir}/cmake/gcc-arm-none-eabi.cmake",
-            "cacheVariables": {}
-        },
-        {
-            "name": "Debug",
-            "inherits": "default",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug"
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
             }
         },
         {
-            "name": "Release",
-            "inherits": "default",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release"
-            }
+            "name": "sandbox",
+            "inherits": "base",
+            "displayName": "sandbox — blink LED PC13 (smoke test)",
+            "cacheVariables": { "SCENARIO": "SANDBOX" }
+        },
+        {
+            "name": "c1",
+            "inherits": "base",
+            "displayName": "c1 — núcleo/baseline (Cenário A)",
+            "cacheVariables": { "SCENARIO": "C1" }
+        },
+        {
+            "name": "c2",
+            "inherits": "base",
+            "displayName": "c2 — IRQ baseline (Cenário A)",
+            "cacheVariables": { "SCENARIO": "C2" }
+        },
+        {
+            "name": "c2busy",
+            "inherits": "base",
+            "displayName": "c2busy — busy-loop variant (Cenário A)",
+            "cacheVariables": { "SCENARIO": "C2BUSY" }
+        },
+        {
+            "name": "c3",
+            "inherits": "base",
+            "displayName": "c3 — IRQ arbitration (Cenário A)",
+            "cacheVariables": { "SCENARIO": "C3" }
+        },
+        {
+            "name": "c4",
+            "inherits": "base",
+            "displayName": "c4 — USART1 (Cenário B)",
+            "cacheVariables": { "SCENARIO": "C4" }
+        },
+        {
+            "name": "echo",
+            "inherits": "base",
+            "displayName": "echo — USART peer (Cenário B, máquina 2)",
+            "cacheVariables": { "SCENARIO": "ECHO" }
         }
     ],
     "buildPresets": [
-        {
-            "name": "Debug",
-            "configurePreset": "Debug"
-        },
-        {
-            "name": "Release",
-            "configurePreset": "Release"
-        }
+        { "name": "sandbox", "configurePreset": "sandbox" },
+        { "name": "c1", "configurePreset": "c1" },
+        { "name": "c2", "configurePreset": "c2" },
+        { "name": "c2busy", "configurePreset": "c2busy" },
+        { "name": "c3", "configurePreset": "c3" },
+        { "name": "c4", "configurePreset": "c4" },
+        { "name": "echo", "configurePreset": "echo" }
     ]
 }

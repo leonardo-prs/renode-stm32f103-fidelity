@@ -1,0 +1,207 @@
+// ────────────────────────────────────────────────────────────────────────────
+// .vscode/launch.json — debug Cortex-M3 no VS Code (cortex-debug upstream).
+// ────────────────────────────────────────────────────────────────────────────
+// `gdbPath` e `cwd` vêm do .vscode/settings.json (`cortex-debug.gdbPath`) e
+// do default do VS Code (workspaceFolder) — não são repetidos por config.
+// `svdFile` = vendor/svd/STM32F103.svd (fonte ST oficial, ver
+// vendor/README.md § svd) — alimenta o Peripheral Viewer (mcu-debug) para
+// TIM2/USART1/GPIOC/RCC/EXTI nos dois ambientes (Renode e HW).
+// ────────────────────────────────────────────────────────────────────────────
+// Portas separadas de propósito: OpenOCD (hardware) usa :3333 (default do
+// OpenOCD, compatível com scripts/run_hw.sh e dump_sram.sh); Renode usa
+// :3334 (todos os .resc). Assim HW e simulador coexistem.
+//
+// Path do ELF: EXPLÍCITO por config (build/<alvo>/firmware.elf — a cópia
+// sincronizada pelo CMake, mesma dos .resc). O VS Code suporta
+// ${command:...}, mas sem cmake-tools não há launch target: paths explícitos
+// são a forma mais idempotente deste desenho (um preset = um alvo).
+// ────────────────────────────────────────────────────────────────────────────
+// NOTA: o VS Code encadeia `postDebugTask` automaticamente. Se a sessão
+// cair, o Renode fica de pé — use a task "Renode: stop" ou rode
+// "Debug: prep <cenario>" novamente (o script mata a instância anterior).
+// ────────────────────────────────────────────────────────────────────────────
+{
+  "version": "0.2.0",
+  "configurations": [
+    // ══════════════════════════════════════════════════════════════════════
+    // Renode (simulação): servertype "external" — cortex-debug apenas se
+    // conecta ao GDB server :3334 que o .resc sobe. O ELF é carregado pelo
+    // próprio .resc; o gdb lê símbolos do mesmo firmware.elf.
+    // preLaunchTask = build do alvo (Debug) + Renode headless + espera porta.
+    // sandbox.resc faz `start` no fim: o GDB conecta com o CPU já rodando
+    // (runToEntryPoint é inócuo nesse config, por design do smoke test).
+    // ══════════════════════════════════════════════════════════════════════
+    {
+      "name": "Renode: sandbox (:3334)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "external",
+      "gdbTarget": "localhost:3334",
+      "executable": "${workspaceFolder}/build/sandbox/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Debug: prep sandbox",
+      "postDebugTask": "Renode: stop"
+    },
+    {
+      "name": "Renode: c1 — irq baseline (:3334)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "external",
+      "gdbTarget": "localhost:3334",
+      "executable": "${workspaceFolder}/build/c1/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Debug: prep c1",
+      "postDebugTask": "Renode: stop"
+    },
+    {
+      "name": "Renode: c2 — irq baseline (:3334)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "external",
+      "gdbTarget": "localhost:3334",
+      "executable": "${workspaceFolder}/build/c2/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Debug: prep c2",
+      "postDebugTask": "Renode: stop"
+    },
+    {
+      "name": "Renode: c2busy — busy-loop variant (:3334)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "external",
+      "gdbTarget": "localhost:3334",
+      "executable": "${workspaceFolder}/build/c2busy/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Debug: prep c2busy",
+      "postDebugTask": "Renode: stop"
+    },
+    {
+      "name": "Renode: c3 — irq arbitration (:3334)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "external",
+      "gdbTarget": "localhost:3334",
+      "executable": "${workspaceFolder}/build/c3/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Debug: prep c3",
+      "postDebugTask": "Renode: stop"
+    },
+    {
+      "name": "Renode: c4 — usart dual-machine (:3334)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "external",
+      "gdbTarget": "localhost:3334",
+      "executable": "${workspaceFolder}/build/c4/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Debug: prep c4",
+      "postDebugTask": "Renode: stop"
+    },
+    // ── echo NÃO tem config Renode por construção: o peer (echo_peer) roda
+    // SEM GDB server (machine-1 do c4.resc, ver renode/PLAN.md). O cenário
+    // dual-machine (DUT+peer) é o config "Renode: c4" acima — cujo
+    // preLaunchTask garante o build/echo/firmware.elf. No HW real, o peer é
+    // flashado separado via "HW: echo (OpenOCD :3333)" abaixo. ─────────────
+    // ── Attach a uma instância Renode já rodando (ex.: subiu via
+    // scripts/run_battery.sh). Não reinicia nem mata nada: útil p/ cenários
+    // multi-máquina e para inspecionar uma bateria em execução. ────────────
+    {
+      "name": "Renode: attach (instância rodando, :3334)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "external",
+      "gdbTarget": "localhost:3334",
+      "executable": "${workspaceFolder}/build/c2/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd"
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Hardware: ST-Link/V2 via OpenOCD (cortex-debug gerencia o servidor).
+    // Flash + debug do firmware do cenário na Blue Pill real.
+    // preLaunchTask = build do alvo (Debug). Probe: gdbPath via settings.
+    // ══════════════════════════════════════════════════════════════════════
+    {
+      "name": "HW: sandbox (OpenOCD :3333)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "openocd",
+      "configFiles": ["interface/stlink.cfg", "target/stm32f1x.cfg"],
+      "executable": "${workspaceFolder}/build/sandbox/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Build: sandbox (Debug)"
+    },
+    {
+      "name": "HW: c1 (OpenOCD :3333)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "openocd",
+      "configFiles": ["interface/stlink.cfg", "target/stm32f1x.cfg"],
+      "executable": "${workspaceFolder}/build/c1/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Build: c1 (Debug)"
+    },
+    {
+      "name": "HW: c2 (OpenOCD :3333)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "openocd",
+      "configFiles": ["interface/stlink.cfg", "target/stm32f1x.cfg"],
+      "executable": "${workspaceFolder}/build/c2/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Build: c2 (Debug)"
+    },
+    {
+      "name": "HW: c2busy (OpenOCD :3333)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "openocd",
+      "configFiles": ["interface/stlink.cfg", "target/stm32f1x.cfg"],
+      "executable": "${workspaceFolder}/build/c2busy/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Build: c2busy (Debug)"
+    },
+    {
+      "name": "HW: c3 (OpenOCD :3333)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "openocd",
+      "configFiles": ["interface/stlink.cfg", "target/stm32f1x.cfg"],
+      "executable": "${workspaceFolder}/build/c3/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Build: c3 (Debug)"
+    },
+    {
+      "name": "HW: c4 (OpenOCD :3333)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "openocd",
+      "configFiles": ["interface/stlink.cfg", "target/stm32f1x.cfg"],
+      "executable": "${workspaceFolder}/build/c4/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Build: c4 (Debug)"
+    },
+    {
+      "name": "HW: echo (OpenOCD :3333)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "openocd",
+      "configFiles": ["interface/stlink.cfg", "target/stm32f1x.cfg"],
+      "executable": "${workspaceFolder}/build/echo/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Build: echo (Debug)"
+    }
+  ]
+}

@@ -4,7 +4,7 @@
 #
 # Loopback do C4 no Renode: sem wire TX→RX intrínseco no modelo, o caminho
 # canônico é um UART hub entre DUAS máquinas em virtual-time:
-#   machine-0 "c4dut"  = DUT (build/c4/firmware.elf, GDB :3333)
+#   machine-0 "c4dut"  = DUT (build/c4/firmware.elf, GDB :3334)
 #   machine-1 "c4peer" = echo passivo (build/echo/firmware.elf, sem GDB)
 # Entrega do hub é em virtual-time com atraso ≤ quantum (1us = 8c @8MHz),
 # caracterizado na análise (ver renode/PLAN.md + tcc/tmp/log.md). No HW o
@@ -20,7 +20,7 @@ machine LoadPlatformDescription @renode/stm32f103_hsi8.repl
 logLevel 3
 emulation SetGlobalQuantum "0.000001"
 sysbus LoadELF @build/c4/firmware.elf
-machine StartGdbServer 3333
+machine StartGdbServer 3334
 
 # ── machine-1: peer de echo ──
 mach create "c4peer"

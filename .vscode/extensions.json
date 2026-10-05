@@ -1,0 +1,26 @@
+{
+  "recommendations": [
+    "llvm-vs-code-extensions.vscode-clangd",
+    "marus25.cortex-debug",
+    "mcu-debug.debug-tracker-vscode",
+    "mcu-debug.peripheral-viewer",
+    "mcu-debug.memory-view",
+    "ms-python.python",
+    "ms-vscode.vscode-serial-monitor",
+    "ms-vscode.hexeditor",
+    "jnoortheen.nix-ide",
+    "mkhl.direnv",
+    "EditorConfig.EditorConfig"
+  ],
+  "unwantedRecommendations": [
+    "ms-vscode.cpptools",
+    "stmicroelectronics.stm32-vscode-extension",
+    "vadimcn.vscode-lldb",
+    "ms-vscode.cmake-tools",
+    "jeff-hykin.better-cpp-syntax",
+    "embedd-team.embedd-cortex-debug",
+    "embedd-team.embedd-peripheral-viewer",
+    "embedd-team.embedd-build-analyzer",
+    "eclipse-cdt.serial-monitor"
+  ]
+}
