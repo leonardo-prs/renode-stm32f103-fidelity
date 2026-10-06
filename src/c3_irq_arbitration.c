@@ -63,6 +63,14 @@
 
 #include "board.h"
 #include "periph.h"                  /* tim_1khz_init() */
+#include "trace.h"                   /* trace_init()/trace_emit(): ISRs 0x20-0x23, fase 0x24 */
+
+/* Trace overhead (documentado): cada trace_emit = 1 load (base do ring) +
+ * escrita no ring buffer em SRAM, ~10-20 ciclos. O marker 0x20/0x22 precede
+ * a amostra CYCCNT no hook por instrucoes — deslocamento constante, removido
+ * offline na analise (pares CYCCNT/meta preservados). Mapeamento por nome do
+ * ISR: TIM2 (HIGH, prio 2) = 0x20/0x21, TIM3 (LOW, prio 12) = 0x22/0x23;
+ * prioridades, fases e K inalterados. */
 
 /* ── Config ─────────────────────────────────────────────────────────────── */
 #define C3_CAP_PAIRS    1024u        /* pares (cyc,meta) cabiveis em c3_results */
@@ -90,6 +98,12 @@
 volatile uint32_t c3_results[2048];
 volatile uint32_t c3_n = 0u;
 volatile uint8_t  c3_done = 0u;
+
+/* ── Trace/arbitragem visiveis ao GDB (volatile: tocados por ISR e GDB) ─── */
+volatile uint32_t c3_sp_tim2 = 0u; /* SP (MSP) capturado na entrada do ISR TIM2 */
+volatile uint32_t c3_sp_tim3 = 0u; /* SP (MSP) capturado na entrada do ISR TIM3 */
+volatile uint8_t  in_low = 0u;     /* 1 = ISR TIM3 (LOW) em curso */
+volatile uint8_t  seen_high = 0u;  /* 1 = TIM2 entrou com in_low (preempcao vista) */
 
 /* ── Estado file-static ─────────────────────────────────────────────────── */
 static volatile uint32_t g_w;        /* indice de escrita em PARES (0..1024) */
@@ -189,12 +203,24 @@ static void waitPendingTIM2(uint32_t timeout_cyc)
 
 void TIM2_IRQHandler(void)
 {
+    trace_emit(0x20U);                /* ISR enter (primeira instrucao) */
+    c3_sp_tim2 = __get_MSP();         /* captura SP na entrada */
+    if (in_low != 0u)
+    {
+        seen_high = 1u;               /* HIGH entrou com LOW ativo: preempcao */
+    }
     c3_tim2_hook();
+    trace_emit(0x21U);                /* ISR exit (ultima antes do return) */
 }
 
 void TIM3_IRQHandler(void)
 {
+    trace_emit(0x22U);                /* ISR enter (primeira instrucao) */
+    c3_sp_tim3 = __get_MSP();         /* captura SP na entrada */
+    in_low = 1u;                      /* LOW ativo */
     c3_tim3_hook();
+    in_low = 0u;                      /* LOW concluido (antes do exit) */
+    trace_emit(0x23U);                /* ISR exit (ultima antes do return) */
 }
 
 /* ── Hooks (chamados dos handlers acima, 1a instrucao do handler) ──────── */
@@ -226,6 +252,7 @@ int main(void)
     uint32_t ki;
 
     board_init();
+    trace_init();                       /* ring de trace antes de qualquer emit */
 
     /* Unicos perifericos deste cenario: TIM2 e TIM3 @1 kHz. Prioridades e
      * habilitacao no NVIC sao feitas abaixo (mesma sequencia de antes). */
@@ -259,6 +286,10 @@ int main(void)
     g_id3 = 1u;
     LL_TIM_DisableCounter(TIM2);
     LL_TIM_DisableCounter(TIM3);
+    /* PRIGROUP 4.0 (só grupo preempta): 4 bits de grupo, 0 de subprioridade —
+     * subprioridade só ordena pendências, nunca preempta (PM0056, SCB_AIRCR).
+     * Garante que TIM2 (prio 2) preempta TIM3 (prio 12) por grupo. */
+    NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
     NVIC_SetPriority(TIM2_IRQn, 2);
     NVIC_SetPriority(TIM3_IRQn, 12);
     NVIC_EnableIRQ(TIM2_IRQn);
@@ -329,6 +360,7 @@ int main(void)
         LL_TIM_SetCounter(TIM2, (uint32_t)(1000u - k));
         g_t3cnt = 0u;
         g_phase = PH_SWEEP;
+        trace_emit(0x24U);             /* mark: mudanca de fase do sweep (K) */
         g_need = g_w + 32u;          /* informativo: ~16 pares por timer */
         LL_TIM_EnableCounter(TIM2);
         LL_TIM_EnableCounter(TIM3);

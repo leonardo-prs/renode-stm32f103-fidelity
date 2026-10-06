@@ -1,0 +1,12 @@
+# S1 final: núcleo/memória; ABI v1. Run from the project root.
+using sysbus
+mach create "s1_hsi8"
+machine LoadPlatformDescription @renode/stm32f103_hsi8.repl
+logLevel 1
+emulation SetGlobalQuantum "0.000001"
+# Nominal instructions/time hypothesis, NOT physical core-cycle calibration.
+sysbus.cpu PerformanceInMips 8
+sysbus LoadELF @build/s1/firmware.elf
+# Debug workflow only; the collector reserves/remaps a port >=3336.
+machine StartGdbServer 3334
+log "=== s1: pronta, sem start; 8 MIPS, quantum 1 us ==="

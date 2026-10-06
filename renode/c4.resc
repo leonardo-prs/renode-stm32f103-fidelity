@@ -17,7 +17,7 @@ using sysbus
 # ── machine-0: DUT ──
 mach create "c4dut"
 machine LoadPlatformDescription @renode/stm32f103_hsi8.repl
-logLevel 3
+logLevel 1
 emulation SetGlobalQuantum "0.000001"
 sysbus LoadELF @build/c4/firmware.elf
 machine StartGdbServer 3334

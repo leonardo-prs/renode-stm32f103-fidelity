@@ -37,10 +37,15 @@ echo "run_hw: flash $ELF"
 timeout 120 openocd -f interface/stlink.cfg -f target/stm32f1x.cfg \
     -c "program $ELF verify reset exit" > "$OUTDIR/${PREFIX}_flash.log" 2>&1 \
     || { echo "run_hw: FALHA no flash (ver $OUTDIR/${PREFIX}_flash.log)" >&2; tail -5 "$OUTDIR/${PREFIX}_flash.log" >&2; exit 1; }
-grep -q 'verified' "$OUTDIR/${PREFIX}_flash.log" && echo "run_hw: flash verified OK" || echo "run_hw: AVISO: 'verified' nao encontrado no log"
+grep -qi 'verified' "$OUTDIR/${PREFIX}_flash.log" && echo "run_hw: flash verified OK" || echo "run_hw: AVISO: 'verified' nao encontrado no log"
 
 echo "run_hw: daemon openocd + dump $PREFIX"
+# telnet em porta efêmera (0): qualquer porta fixa (4444 default ou 4445)
+# falha com "Address already in use" mesmo livre no ss — quirk do OpenOCD
+# 0.12 neste WSL (só a telnet; gdb 3333 e tcl 6666 religam). Telnet não é
+# usada pelo fluxo (só GDB), então efêmera é seguro.
 setsid nohup openocd -f interface/stlink.cfg -f target/stm32f1x.cfg \
+    -c "telnet_port 0" \
     > "$OUTDIR/${PREFIX}_ocd.log" 2>&1 < /dev/null &
 sleep 3
 if [ "${#AUX[@]}" -eq 2 ]; then

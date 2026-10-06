@@ -55,3 +55,6 @@ tmp/
 
 # ── Symlink local p/ o TCC no Windows (específico da máquina) ──
 /tcc
+
+# ── Deepwork state (git-local, legível pelo opencode) ──
+.slim/deepwork/

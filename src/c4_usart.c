@@ -68,6 +68,13 @@
 
 #include "board.h"
 #include "periph.h"                     /* usart1_init_115200_8n1, tim_1khz_init */
+#include "trace.h"                      /* trace_init()/trace_emit(): TX 0x30, RX 0x31, UIF 0x32, bg 0x10/0x11 */
+
+/* Trace overhead (documentado): cada trace_emit = 1 load (base do ring) +
+ * escrita no ring buffer em SRAM, ~10-20 ciclos. Emits colocados APOS o
+ * acesso ao periferico (TX ja escrito no DR, RX ja lido) — deslocamento
+ * constante no caminho IRQ, removido offline na analise. BRR, fases e
+ * contadores inalterados. */
 
 /* ── Símbolos públicos (extração via GDB) ─────────────────────────── */
 volatile uint32_t c4_results[2048];
@@ -141,6 +148,7 @@ void c4_usart1_hook(void)
         && (g_tx_i < g_txN))
     {
         LL_USART_TransmitData8(USART1, c4_pattern(g_tx_i++));
+        trace_emit(0x30U);                /* TX completo (byte da fase via IRQ) */
         if (g_tx_i == g_txN)
         {
             LL_USART_DisableIT_TXE(USART1);
@@ -178,6 +186,7 @@ void c4_usart1_hook(void)
             g_corrupt++;
         }
         g_rx_i++;
+        trace_emit(0x31U);                /* RX válido: byte recebido e contabilizado (mismatch -> n_corrupt) */
     }
 }
 
@@ -198,6 +207,7 @@ int main(void)
     uint8_t  done_code = 1U;
 
     board_init();
+    trace_init();                       /* ring de trace antes de qualquer emit */
 
     /* ── Periféricos deste cenário: USART1 e TIM2 (carga fase 2) ── */
     usart1_init_115200_8n1();
@@ -231,6 +241,7 @@ int main(void)
         {
         }
         LL_USART_TransmitData8(USART1, c4_pattern(g_tx_i++));
+        trace_emit(0x30U);                /* TX completo (polling fase 1a) */
     }
     t0 = DWT->CYCCNT;
     while (g_rx_i < 1024U)
@@ -273,12 +284,15 @@ int main(void)
     {
         if (LL_TIM_IsActiveFlag_UPDATE(TIM2) != 0U)
         {
+            trace_emit(0x10U);            /* TIM2 bg enter (reaproveita ID S2) */
+            trace_emit(0x32U);            /* UIF-hit do poll cooperativo */
             if (c4_auxn < 256U)
             {
                 c4_aux[c4_auxn++] = DWT->CYCCNT;
             }
             g_uif++;
             LL_TIM_ClearFlag_UPDATE(TIM2);
+            trace_emit(0x11U);            /* TIM2 bg exit */
         }
         /* Re-checa antes de dormir: a ISR entre o topo do loop e aqui pode
          * ter completado g_rx_i (20000) sem deixar IRQ pendente → o __WFI()

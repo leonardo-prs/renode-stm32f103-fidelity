@@ -11,10 +11,11 @@ Este diretório contém os arquivos de suporte de baixo nível fornecidos pela S
 - **CMSIS Core:** V5.0.8 (ARM Cortex-M3)
 - **CMSIS Device STM32F1xx:** V4.3.3
 - **Drivers:** STM32F1xx Low Layer (LL) Drivers (sem HAL)
-- **SVD:** `svd/STM32F103.svd` — ST (st.com CAD resources) via archive
-  `modm-io/cmsis-svd-stm32` @ `1761a45d754ac51a1156e17f75932c40dd95e645`
-  (último commit que toca o arquivo; mudanças do archive: apenas
-  normalização de line-endings Windows→Unix e trailing whitespace).
+- **SVD:** `svd/STM32F103.svd` — download **direto da ST** (st.com CAD
+  resources, pack `STM32F1_svd_V1.2.zip`), bytes originais (CRLF, zero
+  transformação). Validação cruzada: o conteúdo é **idêntico** ao archive
+  `modm-io/cmsis-svd-stm32` @ `1761a45d` após normalização CRLF→LF
+  (SHA-256 normalizado `ff632bd0…` = mesmo arquivo ST).
 
 ## Estrutura
 
@@ -66,6 +67,6 @@ ddf15b387ef4f9272046317489edc5fcfd73fb27d19b61c496462e413470d3c9  ./stm32f1xx_ll
 05db6c31e77f6035650f2d71a6d31150e80dd4a4517a161f64d3b0fe3d7638ad  ./stm32f1xx_ll/src/stm32f1xx_ll_tim.c
 bffafc271e7ab52d3ec58c98c264548a2052598fb26ee4fbac514ede4d6c71ab  ./stm32f1xx_ll/src/stm32f1xx_ll_usart.c
 fc35a6b8b3faac3960b25a3431eaca1d7deb7c8ef19ecf6f8db5ec15b5efea7f  ./stm32f1xx_ll/src/stm32f1xx_ll_utils.c
-ff632bd0d75d0bc807d787967cdf62512d6438be53d6a77d2d78ab8ba2110015  ./svd/STM32F103.svd
+da80e14faeb94188af3024a59eae487567de2701f1531c715e7a1fa936d5f5ed  ./svd/STM32F103.svd
 6f13b57054f33b4dcb8f3f23fa05b2942d9dca8abd9a2a08ecde6f99693505a5  ./system_stm32f1xx.c
 ```

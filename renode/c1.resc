@@ -14,7 +14,7 @@ mach create "c1_hsi8"
 machine LoadPlatformDescription @renode/stm32f103_hsi8.repl
 
 # Verbosidade moderada (0=silent, 3=debug) — mesmo nível do sandbox.resc
-logLevel 3
+logLevel 1
 
 # Quantum global fixo em 1us (ver tcc/docs/plano-execucao-cenarios.md).
 emulation SetGlobalQuantum "0.000001"

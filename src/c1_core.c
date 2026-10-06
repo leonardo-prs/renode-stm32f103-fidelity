@@ -48,6 +48,12 @@
 
 #include "board.h"                      /* CMSIS (DWT/CoreDebug/__disable_irq) + LED_BUILTIN_* */
 #include "periph.h"                     /* led_init() */
+#include "trace.h"                      /* trace_init()/trace_emit(): IDs 0x01-0x0E (enter/exit por bloco) */
+
+/* Trace overhead (documentado): cada trace_emit = 1 load (base do ring) +
+ * escrita no ring buffer em SRAM, ~10-20 ciclos. Chamadas colocadas FORA
+ * das janelas t0/t1, apos o store em c1_results — os deltas DWT por bloco
+ * nao incluem o custo do trace. */
 
 /* --- Exported contract (nomes exatos; GDB dump depende) --- */
 volatile uint32_t c1_results[700];
@@ -82,6 +88,7 @@ static uint32_t b7_callee(uint32_t x)
 int main(void)
 {
     board_init();
+    trace_init();                       /* ring de trace antes de qualquer emit */
     led_init();
 
     SysTick->CTRL = 0U;                 /* defensivo: sem tick durante a calibracao */
@@ -120,6 +127,8 @@ int main(void)
         t1 = DWT->CYCCNT;
         g_sink = acc;
         c1_results[rep * 7U + 0U] = (t1 - t0);
+        trace_emit(0x01U);                /* B1 enter */
+        trace_emit(0x02U);                /* B1 exit */
 
         /* B23 mul+div fundidos, operandos fixos (div M3 e data-dependent 2-12c) */
         t0 = DWT->CYCCNT;
@@ -136,6 +145,8 @@ int main(void)
         t1 = DWT->CYCCNT;
         g_sink = acc;
         c1_results[rep * 7U + 1U] = (t1 - t0);
+        trace_emit(0x03U);                /* B23 enter */
+        trace_emit(0x04U);                /* B23 exit */
 
         /* B4 SRAM load/store */
         t0 = DWT->CYCCNT;
@@ -149,6 +160,8 @@ int main(void)
         t1 = DWT->CYCCNT;
         g_sink = acc;
         c1_results[rep * 7U + 2U] = (t1 - t0);
+        trace_emit(0x05U);                /* B4 enter */
+        trace_emit(0x06U);                /* B4 exit */
 
         /* B5 flash literal load */
         t0 = DWT->CYCCNT;
@@ -161,6 +174,8 @@ int main(void)
         t1 = DWT->CYCCNT;
         g_sink = acc;
         c1_results[rep * 7U + 3U] = (t1 - t0);
+        trace_emit(0x07U);                /* B5 enter */
+        trace_emit(0x08U);                /* B5 exit */
 
         /* B6 branch taken/not-taken alternado */
         t0 = DWT->CYCCNT;
@@ -180,6 +195,8 @@ int main(void)
         t1 = DWT->CYCCNT;
         g_sink = acc;
         c1_results[rep * 7U + 4U] = (t1 - t0);
+        trace_emit(0x09U);                /* B6 enter */
+        trace_emit(0x0AU);                /* B6 exit */
 
         /* B7 call/ret */
         t0 = DWT->CYCCNT;
@@ -192,6 +209,8 @@ int main(void)
         t1 = DWT->CYCCNT;
         g_sink = acc;
         c1_results[rep * 7U + 5U] = (t1 - t0);
+        trace_emit(0x0BU);                /* B7 enter */
+        trace_emit(0x0CU);                /* B7 exit */
 
         /* B8 GPIO BSRR (apendice: unico bloco fora do nucleo CPU/mem) */
         t0 = DWT->CYCCNT;
@@ -206,6 +225,8 @@ int main(void)
         t1 = DWT->CYCCNT;
         g_sink = acc;
         c1_results[rep * 7U + 6U] = (t1 - t0);
+        trace_emit(0x0DU);                /* B8 enter */
+        trace_emit(0x0EU);                /* B8 exit */
     }
 
     c1_n = 700U;

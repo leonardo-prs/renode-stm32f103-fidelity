@@ -8,3 +8,7 @@
 # Diretório de builds; permitir leitura pelo opencode.
 !build/
 !build/**
+
+# Deepwork state: git-local mas legível pelo opencode.
+!.slim/deepwork/
+!.slim/deepwork/**

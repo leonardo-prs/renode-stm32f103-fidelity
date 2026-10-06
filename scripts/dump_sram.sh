@@ -56,6 +56,7 @@ gdb_eval() {
     "$GDB_BIN" --batch \
         -ex "set pagination off" \
         -ex "set confirm off" \
+        -ex "set tcp connect-timeout 5" \
         -ex "file \"$ELF\"" \
         -ex "target extended-remote :$PORT" \
         "$@" \

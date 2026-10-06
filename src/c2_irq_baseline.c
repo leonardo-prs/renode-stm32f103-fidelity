@@ -25,6 +25,12 @@
 
 #include "board.h"
 #include "periph.h"                     /* tim_1khz_init() */
+#include "trace.h"                      /* trace_init()/trace_emit(): ISR 0x10/0x11, WFI 0x12/0x13 */
+
+/* Trace overhead (documentado): cada trace_emit = 1 load (base do ring) +
+ * escrita no ring buffer em SRAM, ~10-20 ciclos. O marker 0x10 precede a
+ * amostra CYCCNT na ISR por instrucoes — deslocamento constante, removido
+ * offline na analise (pares CYCCNT/CNT preservados). */
 
 /* GDB-visible results: 1024 interleaved (CYCCNT, TIM2->CNT) pairs. */
 volatile uint32_t c2_results[2048U];
@@ -49,7 +55,9 @@ void TIM2_IRQHandler(void);
  */
 void TIM2_IRQHandler(void)
 {
+    trace_emit(0x10U);                    /* ISR enter (primeira instrucao) */
     c2_tim2_hook();
+    trace_emit(0x11U);                    /* ISR exit (ultima antes do return) */
 }
 
 /**
@@ -84,6 +92,7 @@ void c2_tim2_hook(void)
 int main(void)
 {
     board_init();
+    trace_init();                       /* ring de trace antes de qualquer emit */
 
     /* ── Only peripheral of this scenario: TIM2 @1 kHz, IRQ prio 2 ── */
     tim_1khz_init(TIM2);
@@ -128,7 +137,9 @@ int main(void)
     /* V1 (default): sleep between events. */
     for (;;)
     {
+        trace_emit(0x12U);                /* WFI enter */
         __WFI();
+        trace_emit(0x13U);                /* WFI exit (wakeup) */
     }
 #endif
 }

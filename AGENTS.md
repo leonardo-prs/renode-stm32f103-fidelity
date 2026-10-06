@@ -298,9 +298,11 @@ Mapeamento TCC: **Cenário A** (TIM2 + NVIC + GPIO + DWT) = `c1`/`c2`/
       test do build sandbox OK via comando real da task.
 - [ ] Smoke test no HW: `scripts/run_hw.sh` (OpenOCD) → LED pisca.
 - [x] SVD do STM32F103 plumbado no `launch.json` (2026-10-06):
-      `vendor/svd/STM32F103.svd` — fonte ST oficial via
-      `modm-io/cmsis-svd-stm32` (pin `1761a45d`; hash em `vendor/README.md`);
-      67 periféricos, TIM2/USART1/GPIOC/RCC/EXTI verificados.
+      `vendor/svd/STM32F103.svd` — download **direto da ST** (pack
+      `STM32F1_svd_V1.2.zip`, st.com CAD resources; hash em
+      `vendor/README.md`), validação cruzada bit-a-bit vs
+      `modm-io/cmsis-svd-stm32` (idêntico pós-normalização CRLF); 67
+      periféricos, TIM2/USART1/GPIOC/RCC/EXTI verificados.
 - [ ] Validar `nix develop` em Linux nativo (WSL2 já validado).
 - [x] Portado em 2025-08-31 para `C:\Users\Leonardo\projects\tcc\context/`
       (WSL: `/mnt/c/Users/Leonardo/projects/tcc/context/`): Yiu, Coleman,

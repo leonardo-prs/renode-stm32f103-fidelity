@@ -140,27 +140,53 @@ if(NOT DEFINED SCENARIO)
     message(FATAL_ERROR
         "Defina SCENARIO — use um preset per-cenário (fonte de verdade):\n"
         "  cmake --preset <cenario> && cmake --build --preset <cenario>\n"
-        "  cenarios: sandbox|c1|c2|c2busy|c3|c4|echo (ver CMakePresets.json)")
+        "  cenarios: sandbox|c1|c2|c2busy|c3|c4|echo|s1|s2|s3|s4 (ver CMakePresets.json)")
 endif()
 
 if(SCENARIO STREQUAL "SANDBOX")
     add_scenario(sandbox src/sandbox.c)
 elseif(SCENARIO STREQUAL "C1")
-    add_scenario(c1 src/c1_core.c)
+    add_scenario(c1 src/c1_core.c TRACE_N=1536)          # 1401 emits; RAM ~59%
 elseif(SCENARIO STREQUAL "C2")
-    add_scenario(c2 src/c2_irq_baseline.c)
+    add_scenario(c2 src/c2_irq_baseline.c TRACE_N=2048)  # 2001 emits (WFI envolve: lost documentado)
 elseif(SCENARIO STREQUAL "C2BUSY")
-    add_scenario(c2busy src/c2_irq_baseline.c C2_BUSY_LOOP)
+    add_scenario(c2busy src/c2_irq_baseline.c C2_BUSY_LOOP TRACE_N=2048)
 elseif(SCENARIO STREQUAL "C3")
-    add_scenario(c3 src/c3_irq_arbitration.c)
+    add_scenario(c3 src/c3_irq_arbitration.c TRACE_N=1536)  # ~1210 emits; RAM ~85%
 elseif(SCENARIO STREQUAL "C4")
-    add_scenario(c4 src/c4_usart.c)
+    add_scenario(c4 src/c4_usart.c TRACE_N=1536)         # cabe em 20K (90%); wrap parcial documentado
 elseif(SCENARIO STREQUAL "ECHO")
     add_scenario(echo src/echo_peer.c)
+elseif(SCENARIO MATCHES "^S[1-4]$")
+    # Final ABI v1 support is linked ONLY into final scenarios. Exploratory
+    # C1..C4 remain untouched until paired validation of their replacements.
+    add_library(fidelity OBJECT lib/fidelity.c)
+    target_link_libraries(fidelity PUBLIC vendor_headers)
+    target_include_directories(fidelity PUBLIC ${CMAKE_SOURCE_DIR}/inc)
+    target_compile_options(fidelity PRIVATE
+        -Wall -Wextra -Wmissing-prototypes -Wstrict-prototypes
+        -ffunction-sections -fdata-sections
+    )
+    if(SCENARIO STREQUAL "S1")
+        add_scenario(s1 src/s1_core.c)
+        set(final_target s1)
+    elseif(SCENARIO STREQUAL "S2")
+        add_scenario(s2 src/s2_timer_irq.c)
+        set(final_target s2)
+    elseif(SCENARIO STREQUAL "S3")
+        add_scenario(s3 src/s3_usart.c)
+        set(final_target s3)
+    else()
+        add_scenario(s4 src/s4_preemption.c)
+        set(final_target s4)
+    endif()
+    target_link_libraries(${final_target} PRIVATE fidelity)
+    # Parent must verify map/size: total static/runtime SRAM <=16384 bytes,
+    # leaving >=4096 bytes (including stack). Vendor linker stays unchanged.
 else()
     message(FATAL_ERROR
         "SCENARIO desconhecido: ${SCENARIO}\n"
-        "  valores: SANDBOX|C1|C2|C2BUSY|C3|C4|ECHO (ver CMakePresets.json)")
+        "  valores: SANDBOX|C1|C2|C2BUSY|C3|C4|ECHO|S1|S2|S3|S4 (ver CMakePresets.json)")
 endif()
 
 # ── Gera .clangd automaticamente (aponta para compile_commands.json) ──

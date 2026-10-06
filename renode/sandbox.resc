@@ -11,7 +11,7 @@ mach create "stm32f103_hsi8"
 machine LoadPlatformDescription @renode/stm32f103_hsi8.repl
 
 # Verbosidade moderada (0=silent, 3=debug)
-logLevel 3
+logLevel 1
 
 # ELF do cenário SANDBOX (blink PC13 busy-wait 200000 __NOP)
 # CAMINHO RELATIVO AO CWD (raiz do projeto). Renode resolve relativo ao .resc
