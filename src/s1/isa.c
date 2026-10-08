@@ -74,14 +74,12 @@ static void ctx_init(void)
 
 static uint32_t measure(Kernel k, uint32_t n, uint32_t *t0_out, uint32_t *sig)
 {
-    __asm volatile("" ::: "memory");
-    uint32_t t0 = fidelity_now();
-    uint32_t r = k(n, s_ctx);
-    uint32_t t1 = fidelity_now();
-    __asm volatile("" ::: "memory");
-    *t0_out = t0;
-    *sig = r;
-    return t1 - t0;
+    /* Bracket em asm (lib/fidelity_measure.S): ordem fixa, custo constante. */
+    FidelityMeasure m;
+    uint32_t ticks = fidelity_measure((FidelityFn)k, n, (uint32_t)s_ctx, &m);
+    *t0_out = m.t0;
+    *sig = m.ret;
+    return ticks;
 }
 
 int main(void)

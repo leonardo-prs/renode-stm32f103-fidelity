@@ -181,11 +181,11 @@ elseif(SCENARIO MATCHES "^S[1-4][A-Z]$")
     string(TOLOWER "${SCENARIO}" final_target)
     set(final_opt -O2 -g3)
 
-    add_library(fidelity OBJECT lib/fidelity.c)
+    add_library(fidelity OBJECT lib/fidelity.c lib/fidelity_measure.S)
     target_link_libraries(fidelity PUBLIC vendor_headers)
     target_include_directories(fidelity PUBLIC ${CMAKE_SOURCE_DIR}/inc)
     target_compile_options(fidelity PRIVATE
-        -Wall -Wextra -Wmissing-prototypes -Wstrict-prototypes
+        $<$<COMPILE_LANGUAGE:C>:-Wall -Wextra -Wmissing-prototypes -Wstrict-prototypes>
         -ffunction-sections -fdata-sections ${final_opt})
     if(FINAL_${SCENARIO}_DEFS)
         target_compile_definitions(fidelity PUBLIC ${FINAL_${SCENARIO}_DEFS})

@@ -122,6 +122,14 @@ static inline uint32_t fidelity_now(void)
     return DWT->CYCCNT;
 }
 
+/** Bracket de medição em assembly (lib/fidelity_measure.S). */
+typedef uint32_t (*FidelityFn)(uint32_t a, uint32_t b);
+typedef struct {
+    uint32_t ret;
+    uint32_t t0;
+} FidelityMeasure;
+uint32_t fidelity_measure(FidelityFn fn, uint32_t a, uint32_t b, FidelityMeasure *out);
+
 /**
  * Zera o snapshot, liga/zera o DWT e publica RUNNING + BOOT. Chamar uma vez,
  * com todas as fontes de IRQ do experimento quiescentes.

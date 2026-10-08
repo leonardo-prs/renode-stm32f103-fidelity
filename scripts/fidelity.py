@@ -60,6 +60,10 @@ def cmd_run(args) -> int:
                     failures += not res.ok
                     print(f"[hw] {fw.name} {res.path.name}: {'ok' if res.ok else 'ERRO ' + res.error}")
     else:
+        if args.mips != int(args.mips):
+            # Renode 1.17 trunca PerformanceInMips para inteiro (observado:
+            # 6.545 → 6). Recusar em vez de rotular um valor que não vale.
+            raise runner.RunError(f"--mips {args.mips}: o Renode só aceita MIPS inteiro")
         cfg = runner.RenodeConfig(mips=args.mips, quantum=args.quantum,
                                   uart_delay=not args.no_uart_delay)
         for fw in fws:
@@ -120,10 +124,22 @@ def main(argv=None) -> int:
     s = sub.add_parser("show")
     s.add_argument("run")
     s.add_argument("--trace", action="store_true")
+    c = sub.add_parser("campaign")
+    c.add_argument("firmware", nargs="*")
+    c.add_argument("--name", required=True)
+    g = sub.add_parser("gate")
+    g.add_argument("firmware", nargs="*")
+    g.add_argument("--out", type=Path)
     a = sub.add_parser("analyze")
     a.add_argument("firmware", nargs="*")
     a.add_argument("--campaign", required=True)
     args = p.parse_args(argv)
+    if args.cmd == "campaign":
+        from fidelity import campaign
+        return campaign.main(args)
+    if args.cmd == "gate":
+        from fidelity import gate
+        return gate.main(args)
     if args.cmd == "analyze":
         from fidelity import analysis
         return analysis.main(args)

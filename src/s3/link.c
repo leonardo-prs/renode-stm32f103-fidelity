@@ -251,10 +251,14 @@ static void cond_te_off(uint32_t trial)
     s3_wait_ticks(2U * S3_FRAME_TICKS);
     USART1->DR = s_tx[2];
     uint32_t rx = s3_wait_flag(USART_SR_RXNE);
+    uint32_t sr = USART1->SR;
     uint32_t b = rx ? (USART1->DR & 0xFFU) : 0x100U;
     USART1->CR1 |= USART_CR1_TE;
     s3_wait_ticks(2U * S3_FRAME_TICKS);
-    fidelity_row(trial, 8U, rx, b, 0U, 0U, 0U, 0U);
+    (void)s3_drain();
+    /* O que importa é se o DADO escrito saiu; ao desligar TE o HW pode
+     * produzir um quadro espúrio (0x00 / erro de quadro) na linha. */
+    fidelity_row(trial, 8U, (b == s_tx[2]) ? 1U : 0U, rx, b, sr & 0x3FFU, 0U, 0U);
 }
 
 int main(void)

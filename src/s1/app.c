@@ -10,8 +10,11 @@
  * 3 matmul (8×8 int32), 4 fir (16 taps q15 × 128 amostras), 5 memcpy
  * (palavras, 1 KiB), 6 isqrt (Newton com UDIV, 64 valores), 7 empty (só o
  * bracket: custo do observador).
- * Cargas são `noipa`: sem isso o GCC -O2 as infere "pure" e move a chamada
- * para fora do bracket DWT (observado: crc32 = 1 tick).
+ * Medição pelo bracket em asm `fidelity_measure` (ordem fixa; com DWT em C
+ * o GCC -O2 inferiu as cargas "pure" e moveu a chamada para fora: crc32 =
+ * 1 tick). Cargas também `noipa` e chamadas por wrappers de assinatura
+ * uniforme (o wrapper — 1 chamada + retorno — entra no bracket, mesmo
+ * custo para todas; a carga "empty" mede o bracket + wrapper).
  * Entradas geradas por xorshift32(seed) FORA do bracket; a assinatura de
  * saída é recomputada no host por um oráculo independente (Python).
  *
@@ -190,30 +193,30 @@ static void prepare(uint32_t cond)
     }
 }
 
-static uint32_t run(uint32_t cond)
-{
-    switch (cond) {
-    case 1U: return w_crc32(s_bytes, CRC_BYTES);
-    case 2U: return w_isort(s_sort, SORT_N);
-    case 3U: return w_matmul(s_mc, s_ma, s_mb);
-    case 4U: return w_fir(s_y, s_x, s_h);
-    case 5U: return w_memcpy(s_dst, s_src, COPY_WORDS);
-    case 6U: return w_isqrt(s_sq, SQRT_N);
-    default: return 0U;
-    }
-}
+/* Pontos de entrada uniformes p/ fidelity_measure: (a, b) ignorados. */
+static uint32_t e_crc32(uint32_t a, uint32_t b)  { (void)a; (void)b; return w_crc32(s_bytes, CRC_BYTES); }
+static uint32_t e_isort(uint32_t a, uint32_t b)  { (void)a; (void)b; return w_isort(s_sort, SORT_N); }
+static uint32_t e_matmul(uint32_t a, uint32_t b) { (void)a; (void)b; return w_matmul(s_mc, s_ma, s_mb); }
+static uint32_t e_fir(uint32_t a, uint32_t b)    { (void)a; (void)b; return w_fir(s_y, s_x, s_h); }
+static uint32_t e_memcpy(uint32_t a, uint32_t b) { (void)a; (void)b; return w_memcpy(s_dst, s_src, COPY_WORDS); }
+static uint32_t e_isqrt(uint32_t a, uint32_t b)  { (void)a; (void)b; return w_isqrt(s_sq, SQRT_N); }
+static uint32_t e_empty(uint32_t a, uint32_t b)  { (void)a; (void)b; return 0U; }
+
+static const FidelityFn s_entry[8] = {
+    0, e_crc32, e_isort, e_matmul, e_fir, e_memcpy, e_isqrt, e_empty,
+};
 
 static void trial(uint32_t trial_id, uint32_t cond)
 {
     /* Entradas novas por ensaio (xorshift contínuo, mesma sequência nos 2
      * ambientes) — a assinatura também testa a fidelidade funcional. */
     prepare(cond);
-    __asm volatile("" ::: "memory");
-    uint32_t t0 = fidelity_now();
-    uint32_t sig = run(cond);
-    uint32_t t1 = fidelity_now();
-    __asm volatile("" ::: "memory");
-    fidelity_row(trial_id, cond, t1 - t0, sig, 0U, 0U, 0U, 0U);
+    FidelityMeasure m;
+    uint32_t ticks = fidelity_measure(s_entry[cond], 0U, 0U, &m);
+    uint32_t sig = m.ret;
+    uint32_t t0 = m.t0;
+    uint32_t t1 = t0 + ticks;
+    fidelity_row(trial_id, cond, ticks, sig, 0U, 0U, 0U, 0U);
     if (trial_id == 1U) {
         fidelity_trace_at(FIDELITY_MAIN, t0, FIDELITY_EV_BEGIN, trial_id, cond);
         fidelity_trace_at(FIDELITY_MAIN, t1, FIDELITY_EV_END, trial_id, cond);

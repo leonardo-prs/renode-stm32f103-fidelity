@@ -98,7 +98,7 @@ _register(Firmware(
      5: ("received", "mismatches", "isr_entries", "tx_by_isr"),
      6: ("rxne_seen", "idle_seen", "sr_before", "sr_after"),
      7: ("tc_after_clear", "tc_right_after_write", "tc_after_2_frames"),
-     8: ("rx_seen", "byte")},
+     8: ("data_transmitted", "rx_seen", "byte", "sr")},
     uart_loopback=True,
 ))
 
