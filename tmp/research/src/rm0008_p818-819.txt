@@ -1,0 +1,67 @@
+# PDF Pages 818-819 of RM0008: STM32F101xx, STM32F102xx, STM32F103xx, STM32F105xx and STM32F107xx advanced Arm®-based 32-bit MCUs - Reference manual
+**Item Key:** N7JVRKFW
+**Total pages in PDF:** 1136
+
+## Page 818
+
+## Universal synchronous asynchronous receiver transmitter (USART) RM0008
+
+# 27.6.1 Status register (USART_SR)
+
+Address offset: 0x00 Reset value: 0x00C0 30 28 27 26
+
+|31|29|25|24|23|22|21|20|19|18|17|16|
+|---|---|---|---|---|---|---|---|---|---|---|---|
+||||Reserved|||||||||
+|1514131211109876543210|Reserved|CTS rc_w0rc_w0rrc_w0rc_w0rrrrr|LBD|TXE|TC|RXNE|IDLE|ORE|NE|FE|PE|
+
+Bits 31:10 Reserved, forced by hardware to 0.
+
+Bit 9 **CTS**: CTS flag This bit is set by hardware when the CTS input toggles, if the CTSE bit is set. It is cleared by software (by writing it to 0). An interrupt is generated if CTSIE=1 in the USART_CR3 register. 0: No change occurred on the CTS status line 1: A change occurred on the CTS status line This bit is not available for UART4 & UART5.
+
+Bit 8 **LBD**: LIN break detection flag This bit is set by hardware when the LIN break is detected. It is cleared by software (by writing it to 0). An interrupt is generated if LBDIE = 1 in the USART_CR2 register. 0: LIN Break not detected 1: LIN break detected
+
+*Note: An interrupt is generated when LBD=1 if LBDIE=1*
+
+Bit 7 **TXE**: Transmit data register empty This bit is set by hardware when the content of the TDR register has been transferred into the shift register. An interrupt is generated if the TXEIE bit =1 in the USART_CR1 register. It is cleared by a write to the USART_DR register. 0: Data is not transferred to the shift register 1: Data is transferred to the shift register)
+
+*Note: This bit is used during single buffer transmission.*
+
+Bit 6 **TC**: Transmission complete This bit is set by hardware if the transmission of a frame containing data is complete and if TXE is set. An interrupt is generated if TCIE=1 in the USART_CR1 register. It is cleared by a software sequence (a read from the USART_SR register followed by a write to the USART_DR register). The TC bit can also be cleared by writing a '0' to it. This clearing sequence is recommended only for multibuffer communication. 0: Transmission is not complete 1: Transmission is complete
+
+Bit 5 **RXNE**: Read data register not empty This bit is set by hardware when the content of the RDR shift register has been transferred to the USART_DR register. An interrupt is generated if RXNEIE=1 in the USART_CR1 register. It is cleared by a read to the USART_DR register. The RXNE flag can also be cleared by writing a zero to it. This clearing sequence is recommended only for multibuffer communication. 0: Data is not received 1: Received data is ready to be read.
+
+## 818/1136 RM0008 Rev 21
+
+## Page 819
+
+# <u>RM0008 Universal synchronous asynchronous receiver transmitter (USART)</u>
+
+Bit 4 **IDLE**: IDLE line detected This bit is set by hardware when an Idle Line is detected. An interrupt is generated if the IDLEIE=1 in the USART_CR1 register. It is cleared by a software sequence (an read to the USART_SR register followed by a read to the USART_DR register). 0: No Idle Line is detected 1: Idle Line is detected
+
+*Note: The IDLE bit will not be set again until the RXNE bit has been set itself (i.e. a new idle*
+
+*line occurs).*
+
+Bit 3 **ORE**: Overrun error This bit is set by hardware when the word currently being received in the shift register is ready to be transferred into the RDR register while RXNE=1. An interrupt is generated if RXNEIE=1 in the USART_CR1 register. It is cleared by a software sequence (an read to the USART_SR register followed by a read to the USART_DR register). 0: No Overrun error 1: Overrun error is detected
+
+*Note: When this bit is set, the RDR register content will not be lost but the shift register will be*
+
+*overwritten. An interrupt is generated on ORE flag in case of Multi Buffer* *communication if the EIE bit is set.*
+
+Bit 2 **NE**: Noise error flag This bit is set by hardware when noise is detected on a received frame. It is cleared by a software sequence (an read to the USART_SR register followed by a read to the USART_DR register). 0: No noise is detected 1: Noise is detected
+
+*Note: This bit does not generate interrupt as it appears at the same time as the RXNE bit*
+
+*which itself generates an interrupting interrupt is generated on NE flag in case of Multi* *Buffer communication if the EIE bit is set.*
+
+Bit 1 **FE**: Framing error This bit is set by hardware when a de-synchronization, excessive noise or a break character is detected. It is cleared by a software sequence (an read to the USART_SR register followed by a read to the USART_DR register). 0: No Framing error is detected 1: Framing error or break character is detected
+
+*Note: This bit does not generate interrupt as it appears at the same time as the RXNE bit*
+
+*which itself generates an interrupt. If the word currently being transferred causes both* *frame error and overrun error, it will be transferred and only the ORE bit will be set.* *An interrupt is generated on FE flag in case of Multi Buffer communication if the EIE bit* *is set.*
+
+Bit 0 **PE**: Parity error This bit is set by hardware when a parity error occurs in receiver mode. It is cleared by a software sequence (a read to the status register followed by a read to the USART_DR data register). The software must wait for the RXNE flag to be set before clearing the PE bit. An interrupt is generated if PEIE = 1 in the USART_CR1 register. 0: No parity error 1: Parity error
+
+## <u>RM0008 Rev 21 819/1136</u>
+

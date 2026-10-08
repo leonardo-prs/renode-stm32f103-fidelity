@@ -1,0 +1,75 @@
+# PDF Pages 54-55 of RM0008: STM32F101xx, STM32F102xx, STM32F103xx, STM32F105xx and STM32F107xx advanced Arm®-based 32-bit MCUs - Reference manual
+**Item Key:** N7JVRKFW
+**Total pages in PDF:** 1136
+
+## Page 54
+
+## Memory and bus architecture RM0008
+
+# 3.3.3 Embedded Flash memory
+
+The high-performance Flash memory module has the following key features:
+
+- For XL-density devices: density of up to 1 Mbyte with dual bank architecture for read- while-write (RWW) capability: – bank 1: fixed size of 512 Kbytes – bank 2: up to 512 Kbytes
+- For other devices: density of up to 512 Kbytes
+- Memory organization: the Flash memory is organized as a main block and an information block: – Main memory block of size: up to 128 Kbytes × 64 bits divided into 512 pages of 2 Kbytes each (see *Table 8*) for XL-density devices up to 4 Kb × 64 bits divided into 32 pages of 1 Kbyte each for low-density devices (see *Table 4*) up to 16 Kb × 64 bits divided into 128 pages of 1 Kbyte each for medium-density devices (see *Table 5*) up to 64 Kb × 64 bits divided into 256 pages of 2 Kbytes each (see *Table 6*) for high-density devices up to 32 Kbit × 64 bits divided into 128 pages of 2 Kbytes each (see *Table 7*) for connectivity line devices – Information block of size: 770 × 64 bits for XL-density devices (see *Table 8*) 2360 × 64 bits for connectivity line devices (see *Table 7*) 258 × 64 bits for other devices (see *Table 4*, *Table 5* and *Table 6*) The Flash memory interface (FLITF) features:
+- Read interface with prefetch buffer (2x64-bit words)
+- Option byte Loader
+- Flash Program / Erase operation
+- Read / Write protection
+**Table 4. Flash module organization (low-density devices)**
+
+|Block|Name|Base addresses||Size (bytes)|
+|---|---|---|---|---|
+||Page 0|0x0800 0000 - 0x0800 03FF||1 K|
+||Page 1|0x0800 0400 - 0x0800 07FF||1 K|
+||Page 2|0x0800 0800 - 0x0800 0BFF||1 K|
+||Page 3|0x0800 0C00 - 0x0800 0FFF||1 K|
+|Main memory|Page 4|0x0800 1000 - 0x0800 13FF||1 K|
+||.||.|.|
+||.||.|.|
+||.||.|.|
+||Page 31|0x0800 7C00 - 0x0800 7FFF||1 K|
+
+## 54/1136 RM0008 Rev 21
+
+> **Garbled in this text:** Table 4
+
+## Page 55
+
+# RM0008 Memory and bus architecture
+
+**Table 4. Flash module organization (low-density devices) (continued)**
+
+|Block|Name|Base addresses|Size (bytes)|
+|---|---|---|---|
+||System memory|0x1FFF F000 - 0x1FFF F7FF|2 K|
+|Information block|Option bytes FLASH_ACR FLASH_KEYR FLASH_OPTKEYR|0x1FFF F800 - 0x1FFF F80F 0x4002 2000 - 0x4002 2003 0x4002 2004 - 0x4002 2007 0x4002 2008 - 0x4002 200B|16 4 4 4|
+|Flash memory|FLASH_SR|0x4002 200C - 0x4002 200F|4|
+|interface|FLASH_CR|0x4002 2010 - 0x4002 2013|4|
+|registers|FLASH_AR Reserved FLASH_OBR FLASH_WRPR|0x4002 2014 - 0x4002 2017 0x4002 2018 - 0x4002 201B 0x4002 201C - 0x4002 201F 0x4002 2020 - 0x4002 2023|4 4 4 4|
+
+**Table 5. Flash module organization (medium-density devices)**
+
+|Block|Name|Base addresses||Size (bytes)|
+|---|---|---|---|---|
+||Page 0|0x0800 0000 - 0x0800 03FF||1 K|
+||Page 1|0x0800 0400 - 0x0800 07FF||1 K|
+||Page 2|0x0800 0800 - 0x0800 0BFF||1 K|
+||Page 3|0x0800 0C00 - 0x0800 0FFF||1 K|
+|Main memory|Page 4|0x0800 1000 - 0x0800 13FF||1 K|
+||.||.|.|
+||.||.|.|
+||.||.|.|
+||Page 127|0x0801 FC00 - 0x0801 FFFF||1 K|
+||System memory|0x1FFF F000 - 0x1FFF F7FF||2 K|
+|Information block|Option bytes FLASH_ACR FLASH_KEYR FLASH_OPTKEYR|0x1FFF F800 - 0x1FFF F80F 0x4002 2000 - 0x4002 2003 0x4002 2004 - 0x4002 2007 0x4002 2008 - 0x4002 200B||16 4 4 4|
+|Flash memory|FLASH_SR|0x4002 200C - 0x4002 200F||4|
+|interface|FLASH_CR|0x4002 2010 - 0x4002 2013||4|
+|registers|FLASH_AR Reserved FLASH_OBR FLASH_WRPR|0x4002 2014 - 0x4002 2017 0x4002 2018 - 0x4002 201B 0x4002 201C - 0x4002 201F 0x4002 2020 - 0x4002 2023||4 4 4 4|
+
+## RM0008 Rev 21 55/1136
+
+> **Garbled in this text:** Table 4, Table 5
+
+*Flagged pages have math, figures or tables that text extraction garbles. View them with `zotero-cli read N7JVRKFW --start-page N --format image`; add --rect x,y,width,height from `zotero-cli layout ATTACHMENT_KEY` to zoom into one of them.*

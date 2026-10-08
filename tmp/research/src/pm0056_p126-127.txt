@@ -1,0 +1,54 @@
+# PDF Pages 126-127 of PM0056: STM32F10xxx/20xxx/21xxx/L1xxxx Cortex®-M3 programming manual
+**Item Key:** IZMAAGNW
+**Total pages in PDF:** 156
+
+## Page 126
+
+## Core peripherals PM0056
+
+# 4.3.8 Software trigger interrupt register (NVIC_STIR)
+
+Address offset: 0xE00 Reset value: 0x0000 0000 Required privilege: When the USERSETMPEND bit in the SCR is set to 1, unprivileged software can access the STIR, see *Section 4.4.6: System control register (SCB_SCR)*. Only privileged software can enable unprivileged access to the STIR.
+
+31 30 29 28 27 26 25 24 23 22 21 20 19 18 17 16 Reserved 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1 0 <u>INTID[8:0]</u> Reserved wwwwwwwww
+
+Bits 31:9 Reserved, must be kept cleared. **NTID[8:0]** Software generated interrupt ID Bits 8:0 Write to the STIR to generate a Software Generated Interrupt (SGI). The value to be written is the Interrupt ID of the required SGI, in the range 0-239. For example, a value of 0b000000011 specifies interrupt IRQ3.
+
+# 4.3.9 Level-sensitive and pulse interrupts
+
+STM32 interrupts are both level-sensitive and pulse-sensitive. Pulse interrupts are also described as edge-triggered interrupts. A level-sensitive interrupt is held asserted until the peripheral deasserts the interrupt signal. Typically this happens because the ISR accesses the peripheral, causing it to clear the interrupt request. A pulse interrupt is an interrupt signal sampled synchronously on the rising edge of the processor clock. To ensure the NVIC detects the interrupt, the peripheral must assert the interrupt signal for at least one clock cycle, during which the NVIC detects the pulse and latches the interrupt. When the processor enters the ISR, it automatically removes the pending state from the interrupt, see *Hardware and software control of interrupts*. For a level-sensitive interrupt, if the signal is not deasserted before the processor returns from the ISR, the interrupt becomes pending again, and the processor must execute its ISR again. This means that the peripheral can hold the interrupt signal asserted until it no longer needs servicing.
+
+## Hardware and software control of interrupts
+
+The Cortex-M3 latches all interrupts. A peripheral interrupt becomes pending for one of the following reasons:
+
+- The NVIC detects that the interrupt signal is HIGH and the interrupt is not active
+- The NVIC detects a rising edge on the interrupt signal
+- Software writes to the corresponding interrupt set-pending register bit, see *Section 4.3.4: Interrupt set-pending registers (NVIC_ISPRx)*, or to the STIR to make an SGI pending, see *Section 4.3.8: Software trigger interrupt register (NVIC_STIR)*.
+126/156 PM0056 Rev 7
+
+## Page 127
+
+## PM0056 Core peripherals
+
+A pending interrupt remains pending until one of the following:
+
+- The processor enters the ISR for the interrupt. This changes the state of the interrupt from pending to active. Then: – For a level-sensitive interrupt, when the processor returns from the ISR, the NVIC samples the interrupt signal. If the signal is asserted, the state of the interrupt changes to pending, which might cause the processor to immediately re-enter the ISR. Otherwise, the state of the interrupt changes to inactive. – For a pulse interrupt, the NVIC continues to monitor the interrupt signal, and if this is pulsed the state of the interrupt changes to pending and active. In this case, when the processor returns from the ISR the state of the interrupt changes to pending, which might cause the processor to immediately re-enter the ISR. If the interrupt signal is not pulsed while the processor is in the ISR, when the processor returns from the ISR the state of the interrupt changes to inactive.
+- Software writes to the corresponding interrupt clear-pending register bit. For a level-sensitive interrupt, if the interrupt signal is still asserted, the state of the interrupt does not change. Otherwise, the state of the interrupt changes to inactive. For a pulse interrupt, state of the interrupt changes to: – Inactive, if the state was pending – Active, if the state was active and pending.
+# 4.3.10 NVIC design hints and tips
+
+Ensure software uses correctly aligned register accesses. The processor does not support unaligned accesses to NVIC registers. See the individual register descriptions for the supported access sizes. A interrupt can enter pending state even it is disabled. Before programming VTOR to relocate the vector table, ensure the vector table entries of the new vector table are setup for fault handlers, NMI and all enabled exception like interrupts. For more information see *Section 4.4.4: Vector table offset register (SCB_VTOR)* *on page 133*.
+
+## NVIC programming hints
+
+Software uses the CPSIE I and CPSID I instructions to enable and disable interrupts. The CMSIS provides the following intrinsic functions for these instructions: void __disable_irq(void) // Disable Interrupts void __enable_irq(void) // Enable Interrupts In addition, the CMSIS provides a number of functions for NVIC control, including:
+
+**Table 43. CMSIS functions for NVIC control**
+
+**CMSIS interrupt control function Description** void NVIC_SetPriorityGrouping(uint32_t priority_grouping) Set the priority grouping void NVIC_EnableIRQ(IRQn_t IRQn) Enable IRQn void NVIC_DisableIRQ(IRQn_t IRQn) Disable IRQn Return true (IRQ-Number) if IRQn is uint32_t NVIC_GetPendingIRQ (IRQn_t IRQn) pending
+
+PM0056 Rev 7 127/156
+
+> **Garbled in this text:** Table 43
+
+*Flagged pages have math, figures or tables that text extraction garbles. View them with `zotero-cli read IZMAAGNW --start-page N --format image`; add --rect x,y,width,height from `zotero-cli layout ATTACHMENT_KEY` to zoom into one of them.*

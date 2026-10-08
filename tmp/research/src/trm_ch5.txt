@@ -1,0 +1,816 @@
+=== PDF page 102
+Exceptions 
+5-6
+Copyright © 2005-2008 ARM Limited. All rights reserved.
+ARM DDI 0337G
+Non-Confidential
+Unrestricted Access
+5.3
+Exception priority
+Table 5-2 shows how priority affects when and how the processor takes an exception. It 
+lists the actions an exception can take based on priority. 
+In the processor exception model, priority determines when and how the processor takes 
+exceptions. You can:
+•
+assign software priority levels to interrupts
+•
+group priorities by splitting priority levels into pre-emption priorities and 
+subpriorities.
+Table 5-2 Priority-based actions of exceptions
+Action 
+Description 
+Pre-emption
+New exception has higher priority than current exception priority or thread and interrupts current flow.
+This is the response to a pended interrupt, causing entry to an ISR if the pended interrupt is higher priority 
+than the active ISR or thread. When one ISR pre-empts another, the interrupts are nested.
+On exception entry the processor automatically saves processor state, which is pushed on to the stack. In 
+parallel with this, the vector corresponding to the interrupt is fetched. Execution of the first instruction of 
+the ISR starts when processor state is saved and the first instruction of the ISR enters the execute stage of 
+the processor pipeline. The state saving is performed over the System bus and DCode bus. The vector 
+fetch is performed over either the System bus or the ICode bus depending on where the vector table is 
+located, see Vector Table Offset Register on page 8-21.
+Tail-chain
+A mechanism used by the processor to speed up interrupt servicing. On completion of an ISR, if there is 
+a pending interrupt of higher priority than the ISR or thread that is being returned to, the stack pop is 
+skipped and control is transferred to the new ISR.
+Return
+With no pending exceptions or no pending exceptions with higher priority than a stacked ISR, the 
+processor pops the stack and returns to stacked ISR or Thread Mode.
+On completion of an ISR the processor automatically restores the processor state by popping the stack to 
+the state prior to the interrupt that caused the ISR to be entered. If a new interrupt arrives during the state 
+restoration, and that interrupt is of higher priority than the ISR or thread that is being returned to, then the 
+state restoration is abandoned and the new interrupt is handled as a tail-chain.
+Late-arriving
+A mechanism used by the processor to speed up pre-emption. If a higher priority interrupt arrives during 
+state saving for a previous pre-emption, the processor switches to handling the higher priority interrupt 
+instead and initiates the vector fetch for that interrupt. The state saving is not effected by late arrival 
+because the state saved is the same for both interrupts, and the state saving continues uninterrupted. Late 
+arriving interrupts are managed until the first instruction of the ISR enters the execute stage of the 
+processor pipeline. On return, the normal tail-chaining rules apply.
+
+=== PDF page 103
+Exceptions 
+ARM DDI 0337G
+Copyright © 2005-2008 ARM Limited. All rights reserved.
+5-7
+Unrestricted Access
+Non-Confidential
+5.3.1
+Priority levels
+The NVIC supports software-assigned priority levels. You can assign a priority level 
+from 0 to 255 to an interrupt by writing to the eight-bit PRI_N field in an Interrupt 
+Priority Register, see Interrupt Priority Registers on page 8-17. Hardware priority 
+decreases with increasing interrupt number. Priority level 0 is the highest priority level, 
+and priority level 255 is the lowest. The priority level overrides the hardware priority. 
+For example, if you assign priority level 1 to IRQ[0] and priority level 0 to IRQ[31], 
+then IRQ[31] has higher priority than IRQ[0].
+Note
+ Software prioritization does not affect reset, Non-Maskable Interrupt (NMI), and hard 
+fault. They always have higher priority than the external interrupts.
+When multiple interrupts have the same priority number, the pending interrupt with the 
+lowest interrupt number takes precedence. For example, if both IRQ[0] and IRQ[1] are 
+priority level 1, then IRQ[0] has higher priority than IRQ[1].
+For more information on the PRI_N fields, see Interrupt Priority Registers on 
+page 8-17.
+5.3.2
+Priority grouping
+To increase priority control in systems with large numbers of interrupts, the NVIC 
+supports priority grouping. You can use the PRIGROUP field in the Application 
+Interrupt and Reset Control Register on page 8-22 to split the value in every PRI_N 
+field into a pre-emption priority field and a subpriority field. The pre-emption priority 
+group is referred to as the group priority. Where multiple pending exceptions share the 
+same group priority, the sub-priority bit field resolves the priority within a group. This 
+is referred to as the sub-priority within the group. The combination of the group priority 
+and the sub-priority is referred to generally as the priority. Where two pending 
+exceptions have the same priority, the lower pending exception number has priority over 
+the higher pending exception number. This is consistent with the priority precedence 
+scheme.
+
+=== PDF page 104
+Exceptions 
+5-8
+Copyright © 2005-2008 ARM Limited. All rights reserved.
+ARM DDI 0337G
+Non-Confidential
+Unrestricted Access
+Table 5-3 shows how writing to PRIGROUP splits an eight bit PRI_N field into a 
+pre-emption priority field (x) and a subpriority field (y). 
+Note
+ •
+Table 5-3 shows the priorities for the processor configured with eight bits of 
+priority. 
+•
+For a processor configured with less than eight bits of priority, the lower bits of 
+the register are always 0. For example, if four bits of priority are implemented, 
+PRI_N[7:4] sets the priority, and PRI_N[3:0] is 4'b0000.
+An interrupt can pre-empt another interrupt in progress only if its pre-emption priority 
+is higher than that of the interrupt in progress.
+For more information on priority optimizations, priority level grouping, and priority 
+masking, see the ARMv7-M Architecture Reference Manual.
+Table 5-3 Priority grouping
+Interrupt priority level field, PRI_N[7:0]
+PRIGROUP[2:0] 
+Binary point 
+position 
+Pre-emption field 
+Subpriority field 
+Number of 
+pre-emption 
+priorities 
+Number of 
+subpriorities
+b000
+bxxxxxxx.y
+[7:1]
+[0]
+128
+2
+b001
+bxxxxxx.yy
+[7:2]
+[1:0]
+64
+4
+b010
+bxxxxx.yyy
+[7:3]
+[2:0]
+32
+8
+b011
+bxxxx.yyyy
+[7:4]
+[3:0]
+16
+16
+b100
+bxxx.yyyyy
+[7:5]
+[4:0]
+8
+32
+b101
+bxx.yyyyyy
+[7:6]
+[5:0]
+4
+64
+b110
+bx.yyyyyyy
+[7]
+[6:0]
+2
+128
+b111
+b.yyyyyyyy
+None
+[7:0]
+0
+256
+
+=== PDF page 105
+Exceptions 
+ARM DDI 0337G
+Copyright © 2005-2008 ARM Limited. All rights reserved.
+5-9
+Unrestricted Access
+Non-Confidential
+5.4
+Privilege and stacks
+The processor supports two separate stacks:
+Process stack 
+You can configure Thread mode to use the process stack. Thread mode 
+uses the main stack out of reset. SP_process is the Stack Pointer (SP) 
+register for the process stack.
+Main stack 
+Handler mode uses the main stack. SP_main is the SP register for the 
+main stack.
+Only one stack, the process stack or the main stack, is visible at any time. After pushing 
+the eight registers, the ISR uses the main stack, and all subsequent interrupt 
+pre-emptions use the main stack. The stack that saves context is as follows:
+•
+Thread mode uses either the main stack or the process stack, depending on the 
+value of the CONTROL bit [1] that Move to Status Register (MSR) or Move to 
+Register from Status (MRS) can access. Appropriate EXC_RETURN values can 
+also set this bit when exiting an ISR. An exception that pre-empts a user thread 
+saves the context of the user thread on the stack that the Thread mode is using.
+•
+All exceptions use the main stack for their own local variables.
+Using the process stack for the Thread mode and the main stack for exceptions supports 
+Operating System (OS) scheduling. To reschedule, the kernel only requires to save the 
+eight registers not pushed by hardware, r4-r11, and to copy SP_process into the Thread 
+Control Block (TCB). If the processor saved the context on the main stack, the kernel 
+would have to copy the 16 registers to the TCB.
+Note
+ MSR and MRS instructions have visibility of both stacks.
+5.4.1
+Stacks
+The stack model is independent of privileged mode, that is, Thread mode can use the 
+process or main stack and be in user or privileged mode. All four combinations of stack 
+and privilege are possible. For a basic protected thread model, the user threads run in 
+Thread mode using the process stack, and the kernel and the interrupts run privileged 
+using the main stack.
+
+=== PDF page 106
+Exceptions 
+5-10
+Copyright © 2005-2008 ARM Limited. All rights reserved.
+ARM DDI 0337G
+Non-Confidential
+Unrestricted Access
+Note
+ Privilege alone does not prevent corruption of stacks, whether malicious or accidental. 
+A memory protection scheme of one form or another is required to isolate the user code. 
+That is, you must prevent the user code from writing to memory it does not own, 
+including other stacks.
+5.4.2
+Privilege
+Privilege controls access rights, and is decoupled from all other concepts in ARMv7-M. 
+Code can be privileged, with full access rights, or unprivileged, with limited access 
+rights. Access rights affect ability to:
+•
+Use or not use certain instructions such as MSR fields.
+•
+Access System Control Space (SCS) registers.
+•
+Access memory or peripherals, based on system design. The processor indicates 
+to the system whether the code making an access is privileged and so the system 
+can enforce restrictions on non-privileged access.
+•
+Access rules to memory locations based on an MPU. When fitted with an MPU, 
+the access restrictions can control what memory can be read, written, and 
+executed.
+Only Thread mode can be unprivileged. All exceptions are privileged.
+
+=== PDF page 107
+Exceptions 
+ARM DDI 0337G
+Copyright © 2005-2008 ARM Limited. All rights reserved.
+5-11
+Unrestricted Access
+Non-Confidential
+5.5
+Pre-emption
+The following sections describe the behavior of the processor when it takes an 
+exception:
+•
+Stacking
+•
+Late-arriving on page 5-15
+•
+Tail-chaining on page 5-14.
+5.5.1
+Stacking
+When the processor invokes an exception, it automatically stores the following eight 
+registers to the SP in the following order:
+•
+Program Counter (PC)
+•
+Processor Status Register (xPSR)
+•
+r0-r3
+•
+r12
+•
+Link Register (LR).
+The SP is decremented by eight words by the completion of the stack push. Figure 5-1 
+shows the contents of the stack after an exception pre-empts the current program flow. 
+Figure 5-1 Stack contents after pre-emption
+Note
+ •
+Figure 5-1 shows the order on the stack.
+•
+If STKALIGN is set in the Configuration Control Register then an extra word can 
+be inserted before the stacking takes place. See Configuration Control Register on 
+page 8-26.
+After returning from the ISR, the processor automatically pops the eight registers from 
+the stack. Interrupt return is passed as a data field in the LR, so ISR functions can be 
+normal C/C++ functions, and do not require a veneer.
+Old SP
+SP
+xPSR
+PC
+LR
+r12
+r3
+r2
+r1
+r0
+<previous>
+
+=== PDF page 108
+Exceptions 
+5-12
+Copyright © 2005-2008 ARM Limited. All rights reserved.
+ARM DDI 0337G
+Non-Confidential
+Unrestricted Access
+Table 5-4 describes the steps that the processor takes before it enters an ISR. 
+Figure 5-2 on page 5-13 shows an example of exception entry timing.
+Table 5-4 Exception entry steps
+Action 
+Restartable? 
+Description 
+Push eight registersa
+No.
+Pushes xPSR, PC, r0, r1, r2, r3, r12, and LR on selected stack.
+Read vector table
+Yes. Late-arriving 
+exception can cause 
+restart.
+Reads vector table from memory based on 
+table base + (exception number 4). Read on the ICode bus can 
+be done simultaneously with register pushes on the DCode bus.
+Read SP from vector table
+No.
+On Reset only, updates SP to top of stack from vector table. 
+Other exceptions do not modify SP except to select stack, push, 
+and pop.
+Update PC
+No.
+Updates PC with vector table read location. Late-arriving 
+exceptions cannot be processed until the first instruction starts to 
+execute. 
+Load pipeline
+Yes. Pre-emption 
+reloads pipeline from 
+new vector table read.
+Loads instructions from location pointed to by vector table. This 
+is done in parallel with register push.
+Update LR
+No.
+LR is set to EXC_RETURN to exit from exception. 
+EXC_RETURN is one of 16 values as defined in ARMv7-M 
+Architecture Reference Manual.
+a.
+When tail-chaining, this step is skipped. 
+
+=== PDF page 109
+Exceptions 
+ARM DDI 0337G
+Copyright © 2005-2008 ARM Limited. All rights reserved.
+5-13
+Unrestricted Access
+Non-Confidential
+Figure 5-2 Exception entry timing
+The NVIC indicates to the processor core, in the cycle after INTISR[2] was received, 
+that an interrupt has been received, and the processor initiates the stack push and vector 
+fetch in the following cycle.
+When the stack push has completed, the first instruction of the ISR enters the execute 
+stage of the pipeline. In the cycle that the ISR enters execute:
+•
+ETMINSTAT[2:0] indicates that the ISR has been entered (3'b001). This is a 
+1-cycle pulse.
+•
+CURRPRI[7:0] indicates the priority of the active interrupt. CURRPRI remains 
+asserted throughout the duration of the ISR. CURRPRI becomes valid when 
+ETMINTSTAT indicates that the ISR has been entered (3'b001).
+•
+ETMINTNUM[8:0] indicates the number of the active interrupt. 
+ETMINTNUM remains asserted throughout the duration of the ISR. 
+ETMINTNUM becomes valid when ETMINTSTAT indicates that the ISR has 
+been entered (3'b001). Prior to that it indicates which ISR is being fetched.
+Figure 5-2 shows that there is a 12-cycle latency from asserting the interrupt to the first 
+instruction of the ISR executing.
+ETMINSTAT[2:0]
+CLK
+ETMINTNUM[8:0]
+HADDRS[31:0]
+HWDATAS[31:0]
+HADDRI[31:0]
+HRDATAI[31:0]
+PC
+r0
+r1
+r2
+r3
+r12
+LR
+100
+104
+108
+100
+ISR fetch
+Handler fetch
+CURRPRI[7:0]
+2
+Twelve-cycle ISR entry latency
+First ISR instruction
+in Execute stage
+000
+100
+001
+000
+18
+18
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+INTISR[2]
+SP+18
+SP+1C
+SP+0
+SP+4
+SP+8
+SP+C
+SP+10
+SP+14
+xPSR
+0x48
+
+=== PDF page 110
+Exceptions 
+5-14
+Copyright © 2005-2008 ARM Limited. All rights reserved.
+ARM DDI 0337G
+Non-Confidential
+Unrestricted Access
+5.6
+Tail-chaining
+Tail-chaining is back-to-back processing of exceptions without the overhead of state 
+saving and restoration between interrupts. The processor skips the pop of eight registers 
+and push of eight registers when exiting one ISR and entering another because this has 
+no effect on the stack contents.
+The processor tail-chains if a pending interrupt has higher priority than all stacked 
+exceptions.
+Figure 5-3 shows an example of tail-chaining. If a pending interrupt has higher priority 
+than the highest-priority stacked exception, the stack push or pop is omitted, and the 
+processor immediately fetches the vector for the pending interrupt. The ISR that is 
+tail-chained into starts execution six cycles after exiting the previous ISR.
+Figure 5-3 Tail-chaining timing
+On return from the last ISR, INTISR[2] is of higher priority than any stacked ISR, or 
+other pended interrupt, and so the processor tail-chains to the ISR corresponding to 
+INTISR[2]. In the cycle that the ISR for INTISR[2] enters execute:
+•
+ETMINSTAT[2:0] indicates that the ISR has been entered (3'b001). This is a 
+1-cycle pulse.
+•
+CURRPRI[7:0] indicates the priority of the active interrupt. CURRPRI remains 
+asserted throughout the duration of the ISR.
+•
+ETMINTNUM[8:0] indicates the number of the active interrupt. 
+ETMINTNUM remains asserted throughout the duration of the ISR.
+Figure 5-3 shows that there is a 6-cycle latency when returning from the last ISR to 
+executing the new ISR.
+ETMINSTAT[2:0]
+CLK
+ETMINTNUM[8:0]
+HADDRI[31:0]
+HRDATAI[31:0]
+CURRPRI[7:0]
+01
+000
+100
+17
+Last instruction fetch of ISR (BX LR)
+0x104
+INTISR[2]
+010
+02
+0x108
+18
+001
+0x48
+0x100
+0x100
+
+=== PDF page 111
+Exceptions 
+ARM DDI 0337G
+Copyright © 2005-2008 ARM Limited. All rights reserved.
+5-15
+Unrestricted Access
+Non-Confidential
+5.7
+Late-arriving
+A late-arriving interrupt can pre-empt a previous interrupt if the first instruction of the 
+previous ISR has not entered the Execute stage, and the late-arriving interrupt has a 
+higher priority than the previous interrupt.
+A late-arriving interrupt causes a new vector address fetch and ISR prefetch. State 
+saving is not performed for the late-arriving interrupt because it has already been 
+performed for the initial interrupt and so does not have to be repeated.
+Figure 5-4 shows an example of late-arriving interrupts.
+Figure 5-4 Late-arriving exception timing
+In Figure 5-4, INTISR[8] pre-empts INTISR[2]. The state saving for INTISR[2] is 
+already done and is not required to be repeated. Figure 5-4 shows the latest point at 
+which INTISR[8] can pre-empt before the first instruction of the ISR for INTISR[2] 
+enters Execute stage. A higher priority interrupt after that point is managed as a 
+pre-emption.
+CURRPRI[7:0]
+HRDATAI[31:0]
+INTISR[2]
+INTISR[8]
+INTISR[9]
+HADDRS[31:0]
+HWDATAS[31:0]
+HADDRI[31:0]
+CLK
+PC
+r0
+r1
+r2
+r12
+r3
+LR
+100
+500 504
+600 604 608
+100
+500
+600
+Fetch of 
+ISR6
+Fetch of 
+ISR12
+First ISR instruction
+is in Execute stage
+1
+2
+3
+6
+4
+5
+7
+8
+9
+12
+10 11
+13 14 15 16
+19
+17 18
+20 21
+24
+22 23
+25
+ETMINSTAT[2:0]
+ETMINTNUM[8:0]
+000
+100
+000
+001
+8-cycle ISR entry 
+latency
+018
+024
+025
+104 108
+FF
+Fetch of 
+ISR15
+09
+SP+18
+SP+1C
+SP+0
+SP+4
+SP+8
+SP+C
+SP+10
+SP+14
+xPSR
+0x48
+0x60
+0x64
+
+=== PDF page 112
+Exceptions 
+5-16
+Copyright © 2005-2008 ARM Limited. All rights reserved.
+ARM DDI 0337G
+Non-Confidential
+Unrestricted Access
+Figure 5-4 on page 5-15 shows the latest point at which INTISR[9] can pre-empt 
+before the first instruction of the ISR for INTISR[8] enters Fetch stage. The ISR fetch 
+for INTISR[8] is aborted when INTISR[9] is received, and the processor then initiates 
+the vector fetch for INTISR[9]. A higher priority interrupt after that point is managed 
+as pre-emption.
+In the cycle that the ISR for INTISR[9] enters execute:
+•
+ETMINSTAT[2:0] indicates that the ISR has been entered (3'b001). This is a 
+1-cycle pulse.
+•
+CURRPRI[7:0] indicates the priority of the active interrupt. CURRPRI remains 
+asserted throughout the duration of the ISR.
+•
+ETMINTNUM[8:0] indicates the number of the active interrupt. 
+ETMINTNUM remains asserted throughout the duration of the ISR.
+
+=== PDF page 113
+Exceptions 
+ARM DDI 0337G
+Copyright © 2005-2008 ARM Limited. All rights reserved.
+5-17
+Unrestricted Access
+Non-Confidential
+5.8
+Exit
+The last instruction of an ISR loads the PC with value 0xFFFFFFFX that was LR on 
+exception entry. This indicates to the processor that the ISR is complete, and the 
+processor initiates the exception exit sequence. See Returning the processor from an ISR 
+on page 5-18 for the instructions that you can use to return the processor from an ISR.
+5.8.1
+Exception exit
+When returning from an exception, the processor is either:
+•
+tail-chaining to a pending exception if the pending exception is of higher priority 
+than all stacked exceptions
+•
+returning to the last stacked ISR if there are no pending exceptions or if the 
+highest priority stacked exception is of higher priority than the highest priority 
+pending exception
+•
+returning to the Thread mode if there are no pending or stacked exceptions.
+Table 5-5 describes the postamble sequence. 
+Figure 5-5 on page 5-18 shows an example of exception exit timing.
+Table 5-5 Exception exit steps
+Action 
+Description 
+Pop eight registers
+Pops PC, xPSR, r0, r1, r2, r3, r12 and LR from stack selected by EXC_RETURN 
+and adjusts SP, if not pre-empted.
+Load current active interrupt numbera 
+and reverse stack-alignment 
+adjustment
+Loads current active interrupt number from bits [8:0] of stacked IPSR word. The 
+processor uses this to track which exception to return to and to clear the 
+activation bit on return. When bits [8:0] are zero, the processor returns to Thread 
+Mode.
+Select SP
+If returning to an exception, SP is SP_main. If returning to Thread Mode, SP can 
+be SP_main or SP_process.
+a.
+Because of dynamic priority changes, the NVIC uses interrupt numbers instead of interrupt priorities to determine which ISR 
+is current.
+
+=== PDF page 114
+Exceptions 
+5-18
+Copyright © 2005-2008 ARM Limited. All rights reserved.
+ARM DDI 0337G
+Non-Confidential
+Unrestricted Access
+Figure 5-5 Exception exit timing
+ETMINSTAT indicates:
+•
+3'b010 to show that the ISR has exited. ETMINTNUM shows the number of the 
+ISR that exited.
+•
+3'b011 in the cycle after interrupt exit if a previous stacked ISR is being returned 
+to. ETMINTNUM shows the number of the interrupt that is being returned to.
+Note
+ If a higher priority exception occurs during the stack pop, the processor abandons the 
+stack pop, rewinds the stack pointer, and services the exception as a tail-chain case.
+5.8.2
+Returning the processor from an ISR
+Exception returns occur when one of the following instructions loads a value of 
+0xFFFFFFFX into the PC:
+•
+POP/LDM which includes loading the PC
+•
+LDR with PC as a destination
+•
+BX with any register.
+CLK
+HADDRI[31:0]
+HRDATAI[31:0]
+HADDRS[31:0]
+HRDATAS[31:0]
+SP+0 SP+4 SP+8 SP+C
+PC
+xPSR
+r0
+r1
+r2
+r3
+r12
+LR
+Last instruction fetch of ISR (BX LR)
+CURRPRI[7:0]
+ETMINSTAT[2:0]
+ETMINTNUM[8:0]
+000
+34
+09
+010
+000
+011
+FF
+000
+00
+SP+18
+SP+1C
+SP+10
+SP+14
+PC
+PC+4
+PC+8
+PC+12
+PC+16
+I0
+I1
+I2
+I3
+
+=== PDF page 115
+Exceptions 
+ARM DDI 0337G
+Copyright © 2005-2008 ARM Limited. All rights reserved.
+5-19
+Unrestricted Access
+Non-Confidential
+When used in this way, the value written to the PC is intercepted and is referred to as 
+the EXC_RETURN value. EXC_RETURN[3:0] provides return information as defined in 
+Table 5-6.
+Reserved entries in this table result in a chained exception to a Usage Fault.
+If an EXC_RETURN value is loaded into the PC when in Thread mode, or from the 
+vector table, or by any other instruction, the value is treated as an address, not as a 
+special value. This address range is defined to have Execute Never (XN) permissions, 
+and results in a MemManage fault.
+Table 5-6 Exception return behavior
+EXC_RETURN[3:0]
+Description
+0bXXX0
+Reserved.
+0b0001
+Return to Handler mode.
+Exception return gets state from the main stack.
+On return execution uses the main stack.
+0b0011
+Reserved.
+0b01X1
+Reserved.
+0b1001
+Return to Thread mode.
+Exception return gets state from the main stack.
+On return execution uses the main stack.
+0b1101
+Return to Thread mode.
+Exception return gets state from the process stack.
+On return execution uses the process stack.
+0b1X11
+Reserved.
+
+=== PDF page 116
+Exceptions 
+5-20
+Copyright © 2005-2008 ARM Limited. All rights reserved.
+ARM DDI 0337G
+Non-Confidential
+Unrestricted Access
+5.9
+Resets
+The NVIC is reset at the same time as the core and controls the release of reset into the 
+core. As a result, the behavior of reset is predictable. Table 5-7 shows the reset behavior.
+For more information about resets, see Chapter 6 Clocking and Resets.
+5.9.1
+Vector Table and Reset
+The vector table at location 0 provides the vector table at reset. It must contain at least 
+four values:
+•
+stack top address
+•
+reset routine location
+•
+NMI ISR location
+•
+Hard Fault ISR location.
+When interrupts are enabled, the vector table regardless of location, points to all 
+mask-enabled exceptions. Also, the SVCall ISR location is populated if the SVC 
+instruction is used.
+An example of a full vector table:
+unsigned int stack_base[STACK_SIZE];
+void ResetISR(void);
+void NmiISR(void);
+…
+ISR_VECTOR_TABLE vector_table_at_0
+{
+  stack_base + sizeof(stack_base),
+  ResetISR,
+  NmiSR,
+FaultISR,
+Table 5-7 Reset actions
+Action
+Description
+NVIC resets, holds core in reset
+NVIC clears most of its registers. The processor is in Thread mode, priority is 
+privileged, and the stack is set to Main.
+NVIC releases core from reset
+NVIC releases core from reset.
+Core sets stack
+Core reads the start SP, SP_main, from vector-table offset 0.
+Core sets PC and LR
+Core reads the start PC from vector-table offset. LR is set to 0xFFFFFFFF.
+Reset routine runs
+NVIC has interrupts disabled, and NMI and Hard Fault are not disabled.
+

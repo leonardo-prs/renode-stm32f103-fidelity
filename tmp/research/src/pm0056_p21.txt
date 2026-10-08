@@ -1,0 +1,18 @@
+# PDF Pages 21-21 of PM0056: STM32F10xxx/20xxx/21xxx/L1xxxx Cortex®-M3 programming manual
+**Item Key:** IZMAAGNW
+**Total pages in PDF:** 156
+
+## Page 21
+
+## PM0056 The Cortex®-M3 processor
+
+|the NMI handler. for its attributes.|The processor clears the FAULTMASK bit to 0 on exit from any exception handler except Base priority mask register The BASEPRI register defines the minimum priority for exception processing. When BASEPRI is set to a nonzero value, it prevents the activation of all exceptions with same or lower priority level as the BASEPRI value. See the register summary in Table 2 on page 15 Figure 7 shows the bit assignments. Figure 7. BASEPRI bit assignments|
+|---|---|
+|31|8 7 0 Reserved BASEPRI MSv39640V1 Table 9. BASEPRI register bit assignments|
+|Bits|Function|
+|Bits 31:8|Reserved|
+|Bits 7:4|(1) BASEPRI[7:4] Priority mask bits 0x00: no effect Nonzero: defines the base priority for exception processing. The processor does not process any exception with a priority value greater than or equal to BASEPRI.|
+|Bits 3:0|Reserved|
+|1. (NVIC_IPRx) on page 125 lower exception priorities. CONTROL register page 15|This field is similar to the priority fields in the interrupt priority registers. See Interrupt priority registers for more information. Remember that higher priority field values correspond to The CONTROL register controls the stack used and the privilege level for software execution when the processor is in Thread mode. See the register summary in Table 2 on for its attributes. Figure 8 shows the bit assignments. Figure 8. CONTROL bit assignments|
+|31|210 Reserved Active stack pointer Thread mode privilege level MS48367V1 PM0056 Rev 7 21/156|
+

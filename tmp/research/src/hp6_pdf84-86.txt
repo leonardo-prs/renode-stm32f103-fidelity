@@ -1,0 +1,67 @@
+# PDF Pages 84-86 of Computer Architecture: A Quantitative Approach
+**Item Key:** 7KNR6VY7
+**Total pages in PDF:** 1527
+
+## Page 84
+
+52 ■ Chapter One Fundamentals of Quantitative Design and Analysis
+
+Therefore the fraction of the failure rate that could be improved is 5 per million hours out of 23 for the whole system, or 0.22.
+
+Answer The reliability improvement would be
+
+<u>1 1</u> Improvementpower supply pair¼ <u>0:22</u> ¼ ¼ 1:28 ðÞ 1 0:22 + 0:78 4150 Despite an impressive 4150 improvement in reliability of one module, from the <u>system’s perspective, the change has a measurable but small benefit.</u>
+
+In the preceding examples, we needed the fraction consumed by the new and improved version; often it is difficult to measure these times directly. In the next section, we will see another way of doing such comparisons based on the use of an equation that decomposes the CPU execution time into three separate components. If we know how an alternative affects these three components, we can determine its overall performance. Furthermore, it is often possible to build simulators that measure these components before the hardware is actually designed.
+
+# The Processor Performance Equation
+
+Essentially all computers are constructed using a clock running at a constant rate. These discrete time events are called clock periods, clocks, cycles,orclock cycles. Computer designers refer to the time of a clock period by its duration (e.g., 1 ns) or by its rate (e.g., 1 GHz). CPU time for a program can then be expressed two ways:
+
+CPU time ¼ CPU clock cycles for a program Clock cycle time
+
+or
+
+<u>CPU clock cycles for a program</u> CPU time ¼ Clock rate In addition to the number of clock cycles needed to execute a program, we can also count the number of instructions executed—the instruction path length or instruction count (IC). If we know the number of clock cycles and the instruction count, we can calculate the average number of clock cycles per instruction (CPI). Because it is easier to work with, and because we will deal with simple processors in this chapter, we use CPI. Designers sometimes also use instructions per clock (IPC), which is the inverse of CPI. CPI is computed as
+
+<u>CPU clock cycles for a program</u> CPI ¼ Instruction count This processor figure of merit provides insight into different styles of instruction sets and implementations, and we will use it extensively in the next four chapters.
+
+## Page 85
+
+1.9 Quantitative Principles of Computer Design ■ 53
+By transposing the instruction count in the preceding formula, clock cycles can be defined as IC CPI. This allows us to use CPI in the execution time formula:
+
+CPU time ¼ Instruction count Cycles per instruction Clock cycle time
+
+Expanding the first formula into the units of measurement shows how the pieces fit together:
+
+<u>Instructions Clock cycles Seconds Seconds</u> ¼ ¼ CPU time Program Instruction Clock cycle Program
+
+As this formula demonstrates, processor performance is dependent upon three characteristics: clock cycle (or rate), clock cycles per instruction, and instruction count. Furthermore, CPU time is equally dependent on these three characteristics; for example, a 10% improvement in any one of them leads to a 10% improvement in CPU time. Unfortunately, it is difficult to change one parameter in complete isolation from others because the basic technologies involved in changing each characteristic are interdependent:
+
+■ Clock cycle time—Hardware technology and organization
+
+■ CPI—Organization and instruction set architecture
+
+■ Instruction count—Instruction set architecture and compiler technology
+
+Luckily, many potential performance improvement techniques primarily enhance one component of processor performance with small or predictable impacts on the other two. In designing the processor, sometimes it is useful to calculate the number of total processor clock cycles as X n CPU clock cycles ¼ ICiCPIi i¼1 where ICirepresents the number of times instruction i is executed in a program and CPIirepresents the average number of clocks per instruction for instruction i. This form can be used to express CPU time as ! X n CPU time ¼ ICiCPIiClock cycle time i¼1 and overall CPI as
+
+X n ICiCPIi n <u>i¼1</u> X <u>IC</u> <u>i</u> CPI ¼ ¼ CPIi Instruction count i¼1 Instruction count
+
+The latter form of the CPI calculation uses each individual CPIiand the fraction of occurrences of that instruction in a program (i.e., ICiInstruction count). Because it must include pipeline effects, cache misses, and any other memory system
+
+## Page 86
+
+54 ■ Chapter One Fundamentals of Quantitative Design and Analysis
+
+inefficiencies, CPIishould be measured and not just calculated from a table in the back of a reference manual. Consider our performance example on page 52, here modified to use measure- ments of the frequency of the instructions and of the instruction CPI values, which, in practice, are obtained by simulation or by hardware instrumentation.
+
+Example Suppose we made the following measurements:
+
+Frequency of FP operations ¼ 25% Average CPI of FP operations ¼ 4.0 Average CPI of other instructions ¼ 1.33 Frequency of FSQRT ¼ 2% CPI of FSQRT ¼ 20
+
+Assume that the two design alternatives are to decrease the CPI of FSQRT to 2 or to decrease the average CPI of all FP operations to 2.5. Compare these two design alternatives using the processor performance equation.
+
+Answer First, observe that only the CPI changes; the clock rate and instruction count remain identical. We start by finding the original CPI with neither enhancement: X n~ <u>ICi</u> CPIoriginal¼ CPIi i¼1 Instruction count ¼ ðÞ 4 25% +1 ðÞ¼ :33 75% 2:0 We can compute the CPI for the enhanced FSQRT by subtracting the cycles saved from the original CPI: CPIwith new FPSQR¼ CPIoriginal2% CPIold FPSQRCPIof new FPSQR only ¼ 2:0 2% ðÞ¼ 20 2 1:64 We can compute the CPI for the enhancement of all FP instructions the same way or by summing the FP and non-FP CPIs. Using the latter gives us CPInew FP¼ ðÞ 75% 1:33 +25 ðÞ¼ % 2:5 1:625 Since the CPI of the overall FP enhancement is slightly lower, its performance will be marginally better. Specifically, the speedup for the overall FP enhancement is <u>CPU timeoriginalIC Clock cycle CPIoriginal</u> Speedupnew FP¼ ¼ CPU timenew FPIC Clock cycle CPInew FP <u>CPIoriginal</u>2:00 ¼ ¼ ¼ 1:23 CPInew FP1:625 <u>Happily, we obtained this same speedup using Amdahl’s Law on page 51.</u>
+

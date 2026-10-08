@@ -1,0 +1,69 @@
+# PDF Pages 36-38 of PM0056: STM32F10xxx/20xxx/21xxx/L1xxxx Cortex®-M3 programming manual
+**Item Key:** IZMAAGNW
+**Total pages in PDF:** 156
+
+## Page 36
+
+**®** <u>The Cortex-M3 processor PM0056</u>
+
+If software does not configure any priorities, then all exceptions with a configurable priority have a priority of 0. For information about configuring exception priorities see
+
+- *System handler priority registers (SHPRx) on page 138*
+- *Interrupt priority registers (NVIC_IPRx) on page 125* Configurable priority values are in the range 0-15. This means that the Reset, Hard fault, and NMI exceptions, with fixed negative priority values, always have higher priority than any other exception. For example, assigning a higher priority value to IRQ[0] and a lower priority value to IRQ[1] means that IRQ[1] has higher priority than IRQ[0]. If both IRQ[1] and IRQ[0] are asserted, IRQ[1] is processed before IRQ[0]. If multiple pending exceptions have the same priority, the pending exception with the lowest exception number takes precedence. For example, if both IRQ[0] and IRQ[1] are pending and have the same priority, then IRQ[0] is processed before IRQ[1]. When the processor is executing an exception handler, the exception handler is preempted if a higher priority exception occurs. If an exception occurs with the same priority as the exception being handled, the handler is not preempted, irrespective of the exception number. However, the status of the new interrupt changes to pending.
+# 2.3.6 Interrupt priority grouping
+
+To increase priority control in systems with interrupts, the NVIC supports priority grouping. This divides each interrupt priority register entry into two fields:
+
+- An upper field that defines the *group priority*
+- A lower field that defines a *subpriority* within the group. Only the group priority determines preemption of interrupt exceptions. When the processor is executing an interrupt exception handler, another interrupt with the same group priority as the interrupt being handled does not preempt the handler, If multiple pending interrupts have the same group priority, the subpriority field determines the order in which they are processed. If multiple pending interrupts have the same group priority and subpriority, the interrupt with the lowest IRQ number is processed first. For information about splitting the interrupt priority fields into group priority and subpriority, see *Application interrupt and reset control register (SCB_AIRCR) on page 134*.
+<u>36/156 PM0056 Rev 7</u>
+
+## Page 37
+
+## <u>PM0056 The Cortex</u>
+
+**®** <u>-M3 processor</u>
+
+# 2.3.7 Exception entry and return
+
+Descriptions of exception handling use the following terms:
+
+Preemption When the processor is executing an exception handler, an exception can preempt the exception handler if its priority is higher than the priority of the exception being handled. See *Section 2.3.6: Interrupt* *priority grouping* for more information about preemption by an interrupt.
+
+When one exception preempts another, the exceptions are called nested exceptions. See *Exception entry on page 37* more information.
+
+Return This occurs when the exception handler is completed, and:
+
+- There is no pending exception with sufficient priority to be serviced
+- The completed exception handler was not handling a late- arriving exception. The processor pops the stack and restores the processor state to the state it had before the interrupt occurred. See *Exception return on* *page 38* for more information.
+Tail-chaining This mechanism speeds up exception servicing. On completion of an exception handler, if there is a pending exception that meets the requirements for exception entry, the stack pop is skipped and control transfers to the new exception handler.
+
+Late-arriving This mechanism speeds up preemption. If a higher priority exception occurs during state saving for a previous exception, the processor switches to handle the higher priority exception and initiates the vector fetch for that exception. State saving is not affected by late arrival because the state saved is the same for both exceptions. Therefore the state saving continues uninterrupted. The processor can accept a late arriving exception until the first instruction of the exception handler of the original exception enters the execute stage of the processor. On return from the exception handler of the late- arriving exception, the normal tail-chaining rules apply.
+
+## Exception entry
+
+Exception entry occurs when there is a pending exception with sufficient priority and either:
+
+- The processor is in Thread mode
+- The new exception is of higher priority than the exception being handled, in which case the new exception preempts the original exception. When one exception preempts another, the exceptions are nested. Sufficient priority means the exception has more priority than any limits set by the mask registers, see *Exception mask registers on page 19*. An exception with less priority than this is pending but is not handled by the processor. When the processor takes an exception, unless the exception is a tail-chained or a late- arriving exception, the processor pushes information onto the current stack. This operation
+<u>PM0056 Rev 7 37/156</u>
+
+## Page 38
+
+**®** <u>The Cortex-M3 processor PM0056</u>
+
+is referred as *stacking* and the structure of eight data words is referred as *stack frame*. The stack frame contains the following information:
+
+- R0-R3, R12
+- Return address
+- PSR
+- LR. Immediately after stacking, the stack pointer indicates the lowest address in the stack frame. Unless stack alignment is disabled, the stack frame is aligned to a double-word address. If the STKALIGN bit of the *Configuration Control Register* (CCR) is set to 1, stack align adjustment is performed during stacking. The stack frame includes the return address. This is the address of the next instruction in the interrupted program. This value is restored to the PC at exception return so that the interrupted program resumes. In parallel to the stacking operation, the processor performs a vector fetch that reads the exception handler start address from the vector table. When stacking is complete, the processor starts executing the exception handler. At the same time, the processor writes an EXC_RETURN value to the LR. This indicates which stack pointer corresponds to the stack frame and what operation mode the was processor was in before the entry occurred. If no higher priority exception occurs during exception entry, the processor starts executing the exception handler and automatically changes the status of the corresponding pending interrupt to active. If another higher priority exception occurs during exception entry, the processor starts executing the exception handler for this exception and does not change the pending status of the earlier exception. This is the late arrival case.
+# Exception return
+
+Exception return occurs when the processor is in Handler mode and executes one of the following instructions to load the EXC_RETURN value into the PC:
+
+- A POP instruction that includes the PC
+- A BX instruction with any register.
+- An LDR or LDM instruction with the PC as the destination EXC_RETURN is the value loaded into the LR on exception entry. The exception mechanism relies on this value to detect when the processor has completed an exception handler. The lowest four bits of this value provide information on the return stack and processor mode. *Table 17* shows the EXC_RETURN[3:0] values with a description of the exception return behavior. The processor sets EXC_RETURN bits[31:4] to 0xFFFFFFF. When this value is loaded into the PC it indicates to the processor that the exception is complete, and the processor initiates the exception return sequence.
+<u>38/156 PM0056 Rev 7</u>
+

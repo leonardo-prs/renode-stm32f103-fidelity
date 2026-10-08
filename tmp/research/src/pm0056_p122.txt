@@ -1,0 +1,28 @@
+# PDF Pages 122-122 of PM0056: STM32F10xxx/20xxx/21xxx/L1xxxx Cortex®-M3 programming manual
+**Item Key:** IZMAAGNW
+**Total pages in PDF:** 156
+
+## Page 122
+
+## Core peripherals PM0056
+
+# 4.3.4 Interrupt set-pending registers (NVIC_ISPRx)
+
+## Address offset: 0x00 - 0x0B
+
+## Reset value: 0x0000 0000
+
+## Required privilege: Privileged
+
+The ISPR0-ISPR2 registers force interrupts into the pending state, and show which interrupts are pending.
+
+|31|30|29|28|27|26|25|24|23|22|21|20|19|18|17|16|
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+||||||||SETPEND[31:16]|||||||||
+|rs 1514131211109876543210|rs|rs|rs|rs|rs|rs|rs SETPEND[15:0]|rs|rs|rs|rs|rs|rs|rs|rs|
+|rs|rs|rs|rs|rs|rs|rs|rs|rs|rs|rs|rs|rs|rs|rs|rs|
+
+Bits 31:0 **SETPEND[31:0]**: Interrupt set-pending bits **Write**: 0: No effect 1: Changes interrupt state to pending **Read**: 0: Interrupt is not pending 1: Interrupt is pending See ***Table 41: Mapping of interrupts to the interrupt variables on page 119*** for the correspondence of interrupts to each register bit. Writing 1 to the ISPR bit corresponding to an interrupt that is pending: – has no effect. Writing 1 to the ISPR bit corresponding to a disabled interrupt: – sets the state of that interrupt to pending.
+
+122/156 PM0056 Rev 7
+

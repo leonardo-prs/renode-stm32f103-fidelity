@@ -43,7 +43,9 @@ Thumbs.db
 
 # ── Logs e temporários ──
 *.log
-tmp/
+#tmp/
+# PDFs de referência (>1 MB, limite do GitHub; ficam só no disco)
+tmp/research/src/*.pdf
 
 # ── Datasets de coleta (bins brutos GDB + CSVs; reproduzíveis via rerun,
 #     mas caros em wall-clock — nunca commitar, nunca em /tmp volátil) ──
