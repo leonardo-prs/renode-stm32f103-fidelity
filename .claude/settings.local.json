@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(kill:*)",
+      "Bash(pkill:*)",
+      "Bash(openocd:*)",
+      "Bash(renode:*)",
+      "Bash(arm-none-eabi-gdb:*)"
+    ]
+  }
+}

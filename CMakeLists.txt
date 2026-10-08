@@ -157,6 +157,48 @@ elseif(SCENARIO STREQUAL "C4")
     add_scenario(c4 src/c4_usart.c TRACE_N=1536)         # cabe em 20K (90%); wrap parcial documentado
 elseif(SCENARIO STREQUAL "ECHO")
     add_scenario(echo src/echo_peer.c)
+elseif(SCENARIO MATCHES "^S[1-4][A-Z]$")
+    # ── Firmwares FINAIS do TCC (ABI v2, inc/fidelity.h) ──────────────────
+    # Cenário N, variante X → preset sNx → build/sNx/firmware.elf. Vários
+    # mains por cenário: cada firmware isola UMA pergunta experimental.
+    # Otimização FIXA -O2 (declarada no manifesto do coletor): kernels cujo
+    # mix de instruções importa são assembly (.S) e não dependem dela.
+    set(FINAL_S1A src/s1/isa.c src/s1/isa_kernels.S)   # CPI por classe
+    set(FINAL_S1B src/s1/app.c)                        # cargas C realistas
+    set(FINAL_S2A src/s2/latency.c)                    # latência IRQ + razão CPU/periférico
+    set(FINAL_S2B src/s2/events.c)                     # semântica UIF/NVIC
+    set(FINAL_S3A src/s3/link.c)                       # integridade/ORE
+    set(FINAL_S3B src/s3/timing.c)                     # tempo de quadro
+    set(FINAL_S4A src/s4/nvic.c)                       # preempção × arbitragem
+    set(FINAL_S4B src/s4/race.c)                       # late-arrival/tail-chain
+    if(NOT DEFINED FINAL_${SCENARIO})
+        message(FATAL_ERROR "firmware final desconhecido: ${SCENARIO}")
+    endif()
+    string(TOLOWER "${SCENARIO}" final_target)
+    set(final_opt -O2 -g3)
+
+    add_library(fidelity OBJECT lib/fidelity.c)
+    target_link_libraries(fidelity PUBLIC vendor_headers)
+    target_include_directories(fidelity PUBLIC ${CMAKE_SOURCE_DIR}/inc)
+    target_compile_options(fidelity PRIVATE
+        -Wall -Wextra -Wmissing-prototypes -Wstrict-prototypes
+        -ffunction-sections -fdata-sections ${final_opt})
+    target_compile_options(board PRIVATE ${final_opt})
+
+    list(GET FINAL_${SCENARIO} 0 final_main)
+    list(SUBLIST FINAL_${SCENARIO} 1 -1 final_extra)
+    add_scenario(${final_target} ${final_main})
+    target_sources(${final_target} PRIVATE ${final_extra})
+    target_compile_options(${final_target} PRIVATE ${final_opt})
+    target_include_directories(${final_target} PRIVATE ${CMAKE_SOURCE_DIR}/src/common)
+    target_link_libraries(${final_target} PRIVATE fidelity)
+    # Builds de DIAGNÓSTICO (árvore separada, nunca o build oficial):
+    #   cmake --preset s1a -B build/diag-x -DFINAL_DEFS="FOO=1;BAR=2"
+    if(FINAL_DEFS)
+        target_compile_definitions(${final_target} PRIVATE ${FINAL_DEFS})
+        message(STATUS "FINAL_DEFS (diagnóstico): ${FINAL_DEFS}")
+    endif()
+    # Mapa de memória p/ o gate: arm-none-eabi-size + firmware.map.
 elseif(SCENARIO MATCHES "^S[1-4]$")
     # Final ABI v1 support is linked ONLY into final scenarios. Exploratory
     # C1..C4 remain untouched until paired validation of their replacements.

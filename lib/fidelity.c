@@ -1,15 +1,15 @@
+/**
+ * @file    lib/fidelity.c
+ * @brief   Implementação da ABI v2 (ver inc/fidelity.h).
+ */
 #include "fidelity.h"
-#include "stm32f1xx.h"
 
 _Alignas(16) volatile FidelitySnapshot fidelity_snapshot;
 
-void fidelity_init(uint32_t scenario, uint32_t seed)
+void fidelity_init(uint32_t scenario, uint32_t variant, uint32_t seed)
 {
-    /* Character accesses may alias the complete object without crossing
-     * uint32_t subobjects; volatile stores avoid heap/libc dependencies.
-     * Experiment sources must remain quiescent throughout initialization.
-     */
-    volatile unsigned char *bytes = (volatile unsigned char *)&fidelity_snapshot;
+    /* Acesso byte a byte volatile: zera o objeto inteiro sem libc. */
+    volatile uint8_t *bytes = (volatile uint8_t *)&fidelity_snapshot;
     for (uint32_t i = 0U; i < sizeof(FidelitySnapshot); ++i) {
         bytes[i] = 0U;
     }
@@ -21,94 +21,112 @@ void fidelity_init(uint32_t scenario, uint32_t seed)
     __DSB();
     __ISB();
 
-    fidelity_snapshot.header.magic = FIDELITY_MAGIC;
-    fidelity_snapshot.header.version = FIDELITY_VERSION;
-    fidelity_snapshot.header.scenario = scenario;
-    fidelity_snapshot.header.core_hz = FIDELITY_CORE_HZ;
-    fidelity_snapshot.header.trace_capacity = FIDELITY_TRACE_CAPACITY;
-    fidelity_snapshot.header.result_capacity = FIDELITY_RESULT_CAPACITY;
-    fidelity_snapshot.header.trace_enabled = 1U;
-    fidelity_snapshot.header.seed = seed;
-    __DMB();
-    fidelity_snapshot.header.state = FIDELITY_RUNNING;
-    fidelity_trace(FIDELITY_MAIN, FIDELITY_BOOT, 0U, scenario);
-}
+    /* Custo do observador: menor diferença entre duas leituras seguidas. */
+    uint32_t best = UINT32_MAX;
+    for (uint32_t i = 0U; i < 8U; ++i) {
+        uint32_t a = fidelity_now();
+        uint32_t b = fidelity_now();
+        if ((b - a) < best) {
+            best = b - a;
+        }
+    }
 
-uint32_t fidelity_ticks(void)
-{
-    return DWT->CYCCNT;
+    volatile FidelityHeader *h = &fidelity_snapshot.header;
+    h->magic = FIDELITY_MAGIC;
+    h->version = FIDELITY_VERSION;
+    h->scenario = scenario;
+    h->variant = variant;
+    h->core_hz = FIDELITY_CORE_HZ;
+    h->seed = seed;
+    h->row_capacity = FIDELITY_ROWS;
+    h->trace_capacity = FIDELITY_TRACE;
+    h->observer_ticks = best;
+    __DMB();
+    h->state = FIDELITY_RUNNING;
+    fidelity_trace(FIDELITY_MAIN, FIDELITY_EV_BOOT, 0U, (scenario << 8) | variant);
 }
 
 void fidelity_trace(uint32_t writer, uint32_t event, uint32_t trial, uint32_t arg)
 {
-    /* Valid channel ownership is a caller contract, not role-based routing.
-     * No interrupt mask is used: each channel has exactly one writer.
-     */
-    if (writer >= FIDELITY_WRITER_COUNT ||
-        fidelity_snapshot.header.state != FIDELITY_RUNNING ||
-        fidelity_snapshot.header.trace_enabled == 0U) {
-        return;
-    }
-    uint32_t index = fidelity_snapshot.header.trace_count[writer];
-    if (index >= FIDELITY_TRACE_CAPACITY) {
-        fidelity_snapshot.header.trace_drop[writer]++;
-        return;
-    }
-    volatile FidelityTraceEntry *entry = &fidelity_snapshot.trace[writer][index];
-    entry->ticks = fidelity_ticks();
-    entry->event = event;
-    entry->trial = trial;
-    entry->arg = arg;
-    __DMB();
-    fidelity_snapshot.header.trace_count[writer] = index + 1U;
+    fidelity_trace_at(writer, fidelity_now(), event, trial, arg);
 }
 
-void fidelity_result(uint32_t trial, uint32_t condition,
-                     uint32_t a, uint32_t b, uint32_t c,
-                     uint32_t d, uint32_t e, uint32_t f)
+void fidelity_trace_at(uint32_t writer, uint32_t ticks, uint32_t event,
+                       uint32_t trial, uint32_t arg)
 {
-    if (fidelity_snapshot.header.state != FIDELITY_RUNNING) {
+    /* Cada canal tem exatamente um escritor: sem máscara de IRQ, sem head
+     * compartilhado. O count publica a entrada inteira (DMB antes). */
+    volatile FidelityHeader *h = &fidelity_snapshot.header;
+    if (writer >= FIDELITY_WRITERS || h->state != FIDELITY_RUNNING) {
         return;
     }
-    uint32_t index = fidelity_snapshot.header.result_count;
-    if (index >= FIDELITY_RESULT_CAPACITY) {
-        fidelity_snapshot.header.error |= FIDELITY_ERROR_RESULT_OVERFLOW;
+    uint32_t index = h->trace_count[writer];
+    if (index >= FIDELITY_TRACE) {
+        h->trace_drop[writer] = h->trace_drop[writer] + 1U;
         return;
     }
-    volatile uint32_t *row = fidelity_snapshot.results[index];
+    volatile FidelityTraceEntry *e = &fidelity_snapshot.trace[writer][index];
+    e->ticks = ticks;
+    e->event = event;
+    e->trial = trial;
+    e->arg = arg;
+    __DMB();
+    h->trace_count[writer] = index + 1U;
+}
+
+void fidelity_row(uint32_t trial, uint32_t condition,
+                  uint32_t v0, uint32_t v1, uint32_t v2,
+                  uint32_t v3, uint32_t v4, uint32_t v5)
+{
+    volatile FidelityHeader *h = &fidelity_snapshot.header;
+    if (h->state != FIDELITY_RUNNING) {
+        return;
+    }
+    uint32_t index = h->row_count;
+    if (index >= FIDELITY_ROWS) {
+        h->error |= FIDELITY_ERR_ROWS_FULL;
+        return;
+    }
+    volatile uint32_t *row = fidelity_snapshot.rows[index];
     row[0] = trial;
     row[1] = condition;
-    row[2] = a;
-    row[3] = b;
-    row[4] = c;
-    row[5] = d;
-    row[6] = e;
-    row[7] = f;
+    row[2] = v0;
+    row[3] = v1;
+    row[4] = v2;
+    row[5] = v3;
+    row[6] = v4;
+    row[7] = v5;
     __DMB();
-    fidelity_snapshot.header.result_count = index + 1U;
+    h->row_count = index + 1U;
 }
 
-_Noreturn void fidelity_finish(uint32_t error)
+void fidelity_flag(uint32_t error_bits)
 {
-    /* Scenario has already stopped peripheral sources and all writers. */
+    fidelity_snapshot.header.error |= error_bits;
+}
+
+_Noreturn void fidelity_finish(void)
+{
     __disable_irq();
     __DSB();
-    fidelity_snapshot.header.rcc_cr = RCC->CR;
-    fidelity_snapshot.header.rcc_cfgr = RCC->CFGR;
-    fidelity_snapshot.header.flash_acr = FLASH->ACR;
-    fidelity_snapshot.header.dwt_ctrl = DWT->CTRL;
-    fidelity_snapshot.header.prigroup = NVIC_GetPriorityGrouping();
-    fidelity_snapshot.header.error |= error;
+    volatile FidelityHeader *h = &fidelity_snapshot.header;
+    h->end_ticks = fidelity_now();
+    h->cpuid = SCB->CPUID;
+    h->rcc_cr = RCC->CR;
+    h->rcc_cfgr = RCC->CFGR;
+    h->flash_acr = FLASH->ACR;
+    h->dwt_ctrl = DWT->CTRL;
+    h->aircr = SCB->AIRCR;
+    h->dbgmcu_cr = DBGMCU->CR;
     __DMB();
-    fidelity_snapshot.header.state = fidelity_snapshot.header.error == 0U
-                                  ? FIDELITY_DONE : FIDELITY_FAILED;
+    h->state = (h->error == 0U) ? FIDELITY_DONE : FIDELITY_FAILED;
     __DSB();
     fidelity_complete();
 }
 
 _Noreturn void fidelity_complete(void)
 {
-    /* Deliberately no BKPT: a debugger is optional, snapshot is frozen. */
+    /* Sem BKPT: o coletor usa hbreak aqui; sem debugger, fica parado. */
     for (;;) {
         __NOP();
     }
