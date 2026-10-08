@@ -69,38 +69,6 @@
             }
         },
         {
-            "name": "s1",
-            "inherits": "base",
-            "displayName": "s1 — final: núcleo e memória (ABI v1)",
-            "cacheVariables": {
-                "SCENARIO": "S1"
-            }
-        },
-        {
-            "name": "s2",
-            "inherits": "base",
-            "displayName": "s2 — final: TIM2 periódico e resposta IRQ (ABI v1)",
-            "cacheVariables": {
-                "SCENARIO": "S2"
-            }
-        },
-        {
-            "name": "s3",
-            "inherits": "base",
-            "displayName": "s3 — final: USART em loopback passivo (ABI v1)",
-            "cacheVariables": {
-                "SCENARIO": "S3"
-            }
-        },
-        {
-            "name": "s4",
-            "inherits": "base",
-            "displayName": "s4 — final: preempção e arbitragem (ABI v1)",
-            "cacheVariables": {
-                "SCENARIO": "S4"
-            }
-        },
-        {
             "name": "s1a",
             "inherits": "base",
             "displayName": "s1a — final: S1 núcleo — CPI por classe de instrução (asm) (ABI v2)",
@@ -193,22 +161,6 @@
         {
             "name": "echo",
             "configurePreset": "echo"
-        },
-        {
-            "name": "s1",
-            "configurePreset": "s1"
-        },
-        {
-            "name": "s2",
-            "configurePreset": "s2"
-        },
-        {
-            "name": "s3",
-            "configurePreset": "s3"
-        },
-        {
-            "name": "s4",
-            "configurePreset": "s4"
         },
         {
             "name": "s1a",

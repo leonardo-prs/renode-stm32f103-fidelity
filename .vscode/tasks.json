@@ -39,6 +39,17 @@
     { "label": "Build: c4 (Debug)",       "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/scenario_build.sh", "c4"],       "problemMatcher": ["$gcc"] },
     { "label": "Build: echo (Debug)",     "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/scenario_build.sh", "echo"],     "problemMatcher": ["$gcc"] },
 
+    // Firmwares FINAIS do TCC (ABI v2, -O2 fixo no CMakeLists) — s1a..s4b.
+    { "label": "Build: s1a (final)", "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/scenario_build.sh", "s1a"], "problemMatcher": ["$gcc"] },
+    { "label": "Build: s1b (final)", "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/scenario_build.sh", "s1b"], "problemMatcher": ["$gcc"] },
+    { "label": "Build: s2a (final)", "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/scenario_build.sh", "s2a"], "problemMatcher": ["$gcc"] },
+    { "label": "Build: s2b (final)", "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/scenario_build.sh", "s2b"], "problemMatcher": ["$gcc"] },
+    { "label": "Build: s3a (final)", "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/scenario_build.sh", "s3a"], "problemMatcher": ["$gcc"] },
+    { "label": "Build: s3b (final)", "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/scenario_build.sh", "s3b"], "problemMatcher": ["$gcc"] },
+    { "label": "Build: s4a (final)", "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/scenario_build.sh", "s4a"], "problemMatcher": ["$gcc"] },
+    { "label": "Build: s4b (final)", "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/scenario_build.sh", "s4b"], "problemMatcher": ["$gcc"] },
+    { "label": "Fidelity: gate (ELFs finais)", "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "python3", "scripts/fidelity.py", "gate"], "problemMatcher": [] },
+
     // ══════════════════════════════════════════════════════════════════════
     // Debug prep: build do alvo + Renode headless + espera GDB :3334
     // (preLaunchTask dos configs Renode em launch.json; o script mata a
@@ -53,6 +64,15 @@
     { "label": "Debug: prep c2busy",   "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/renode_start.sh", "c2busy",   "--build"], "presentation": { "reveal": "always" }, "problemMatcher": ["$gcc"] },
     { "label": "Debug: prep c3",       "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/renode_start.sh", "c3",       "--build"], "presentation": { "reveal": "always" }, "problemMatcher": ["$gcc"] },
     { "label": "Debug: prep c4",       "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/renode_start.sh", "c4",       "--build"], "presentation": { "reveal": "always" }, "problemMatcher": ["$gcc"] },
+    // Finais: renode_start.sh GERA build/<fw>/debug.resc (scripts/fidelity.py resc).
+    { "label": "Debug: prep s1a", "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/renode_start.sh", "s1a", "--build"], "presentation": { "reveal": "always" }, "problemMatcher": ["$gcc"] },
+    { "label": "Debug: prep s1b", "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/renode_start.sh", "s1b", "--build"], "presentation": { "reveal": "always" }, "problemMatcher": ["$gcc"] },
+    { "label": "Debug: prep s2a", "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/renode_start.sh", "s2a", "--build"], "presentation": { "reveal": "always" }, "problemMatcher": ["$gcc"] },
+    { "label": "Debug: prep s2b", "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/renode_start.sh", "s2b", "--build"], "presentation": { "reveal": "always" }, "problemMatcher": ["$gcc"] },
+    { "label": "Debug: prep s3a", "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/renode_start.sh", "s3a", "--build"], "presentation": { "reveal": "always" }, "problemMatcher": ["$gcc"] },
+    { "label": "Debug: prep s3b", "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/renode_start.sh", "s3b", "--build"], "presentation": { "reveal": "always" }, "problemMatcher": ["$gcc"] },
+    { "label": "Debug: prep s4a", "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/renode_start.sh", "s4a", "--build"], "presentation": { "reveal": "always" }, "problemMatcher": ["$gcc"] },
+    { "label": "Debug: prep s4b", "type": "shell", "command": "scripts/direnv_exec.sh", "args": [".", "scripts/renode_start.sh", "s4b", "--build"], "presentation": { "reveal": "always" }, "problemMatcher": ["$gcc"] },
 
     // ══════════════════════════════════════════════════════════════════════
     // Renode: stop (postDebugTask dos configs Renode; best-effort)

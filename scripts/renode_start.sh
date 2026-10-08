@@ -14,7 +14,8 @@
 # a plataforma (renode/stm32f103_hsi8.repl) e sobe o GDB server em :3334.
 # Detalhes do mapeamento cN: ver renode/PLAN.md.
 #
-# Uso: scripts/renode_start.sh <sandbox|c1|c2|c2busy|c3|c4|echo> [--build]
+# Uso: scripts/renode_start.sh <sandbox|c1|c2|c2busy|c3|c4|s1a..s4b> [--build]
+# (s1a..s4b: firmwares finais — .resc gerado por `scripts/fidelity.py resc`)
 set -euo pipefail
 
 usage() { echo "uso: $0 <cenario> [--build]" >&2; exit 2; }
@@ -67,15 +68,22 @@ if [[ "$scenario" == "c4" && ! -f "build/echo/firmware.elf" ]]; then
     echo "      scripts/scenario_build.sh echo (ou renode_start.sh c4 --build)." >&2
     exit 1
 fi
-if [[ ! -f "renode/${scenario}.resc" ]]; then
-    echo "ERRO: renode/${scenario}.resc não existe." >&2
+resc="renode/${scenario}.resc"
+if [[ "$scenario" =~ ^s[1-4][a-z]$ ]]; then
+    # Firmwares finais: o .resc é GERADO pelo mesmo código da coleta
+    # (scripts/fidelity/runner.py::renode_resc), nunca mantido à mão.
+    resc="build/${scenario}/debug.resc"
+    python3 scripts/fidelity.py resc "$scenario" --port 3334 > "$resc"
+fi
+if [[ ! -f "$resc" ]]; then
+    echo "ERRO: $resc não existe." >&2
     exit 1
 fi
 
 # ── Sobe Renode em background ───────────────────────────────────────────────
-echo ">>> Renode: renode/${scenario}.resc (log: ${log_file})"
+echo ">>> Renode: ${resc} (log: ${log_file})"
 nohup renode --disable-xwt --pid-file "$pid_file" -P 6512 \
-    -e "s @renode/${scenario}.resc" > "$log_file" 2>&1 &
+    -e "s @${resc}" > "$log_file" 2>&1 &
 
 # ── Aguarda o GDB :3334 abrir (Renode levanta JVM; timeout 60 s) ────────────
 for _ in $(seq 1 120); do

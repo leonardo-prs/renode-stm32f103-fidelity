@@ -112,6 +112,102 @@
     // scripts/run_battery.sh). Não reinicia nem mata nada: útil p/ cenários
     // multi-máquina e para inspecionar uma bateria em execução. ────────────
     {
+      "name": "Renode: s1a — S1 CPI por classe (:3334)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "external",
+      "gdbTarget": "localhost:3334",
+      "executable": "${workspaceFolder}/build/s1a/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Debug: prep s1a",
+      "postDebugTask": "Renode: stop"
+    },
+    {
+      "name": "Renode: s1b — S1 cargas C (:3334)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "external",
+      "gdbTarget": "localhost:3334",
+      "executable": "${workspaceFolder}/build/s1b/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Debug: prep s1b",
+      "postDebugTask": "Renode: stop"
+    },
+    {
+      "name": "Renode: s2a — S2 latência IRQ (:3334)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "external",
+      "gdbTarget": "localhost:3334",
+      "executable": "${workspaceFolder}/build/s2a/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Debug: prep s2a",
+      "postDebugTask": "Renode: stop"
+    },
+    {
+      "name": "Renode: s2b — S2 semântica TIM/NVIC (:3334)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "external",
+      "gdbTarget": "localhost:3334",
+      "executable": "${workspaceFolder}/build/s2b/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Debug: prep s2b",
+      "postDebugTask": "Renode: stop"
+    },
+    {
+      "name": "Renode: s3a — S3 USART integridade (:3334)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "external",
+      "gdbTarget": "localhost:3334",
+      "executable": "${workspaceFolder}/build/s3a/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Debug: prep s3a",
+      "postDebugTask": "Renode: stop"
+    },
+    {
+      "name": "Renode: s3b — S3 USART tempo de quadro (:3334)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "external",
+      "gdbTarget": "localhost:3334",
+      "executable": "${workspaceFolder}/build/s3b/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Debug: prep s3b",
+      "postDebugTask": "Renode: stop"
+    },
+    {
+      "name": "Renode: s4a — S4 preempção×arbitragem (:3334)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "external",
+      "gdbTarget": "localhost:3334",
+      "executable": "${workspaceFolder}/build/s4a/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Debug: prep s4a",
+      "postDebugTask": "Renode: stop"
+    },
+    {
+      "name": "Renode: s4b — S4 late-arrival (:3334)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "external",
+      "gdbTarget": "localhost:3334",
+      "executable": "${workspaceFolder}/build/s4b/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Debug: prep s4b",
+      "postDebugTask": "Renode: stop"
+    },
+    {
       "name": "Renode: attach (instância rodando, :3334)",
       "type": "cortex-debug",
       "request": "launch",
@@ -126,6 +222,94 @@
     // Flash + debug do firmware do cenário na Blue Pill real.
     // preLaunchTask = build do alvo (Debug). Probe: gdbPath via settings.
     // ══════════════════════════════════════════════════════════════════════
+    {
+      "name": "HW: s1a — S1 CPI por classe (OpenOCD :3333)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "openocd",
+      "configFiles": ["interface/stlink.cfg", "target/stm32f1x.cfg"],
+      "executable": "${workspaceFolder}/build/s1a/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Build: s1a (final)"
+    },
+    {
+      "name": "HW: s1b — S1 cargas C (OpenOCD :3333)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "openocd",
+      "configFiles": ["interface/stlink.cfg", "target/stm32f1x.cfg"],
+      "executable": "${workspaceFolder}/build/s1b/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Build: s1b (final)"
+    },
+    {
+      "name": "HW: s2a — S2 latência IRQ (OpenOCD :3333)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "openocd",
+      "configFiles": ["interface/stlink.cfg", "target/stm32f1x.cfg"],
+      "executable": "${workspaceFolder}/build/s2a/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Build: s2a (final)"
+    },
+    {
+      "name": "HW: s2b — S2 semântica TIM/NVIC (OpenOCD :3333)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "openocd",
+      "configFiles": ["interface/stlink.cfg", "target/stm32f1x.cfg"],
+      "executable": "${workspaceFolder}/build/s2b/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Build: s2b (final)"
+    },
+    {
+      "name": "HW: s3a — S3 USART integridade (OpenOCD :3333)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "openocd",
+      "configFiles": ["interface/stlink.cfg", "target/stm32f1x.cfg"],
+      "executable": "${workspaceFolder}/build/s3a/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Build: s3a (final)"
+    },
+    {
+      "name": "HW: s3b — S3 USART tempo de quadro (OpenOCD :3333)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "openocd",
+      "configFiles": ["interface/stlink.cfg", "target/stm32f1x.cfg"],
+      "executable": "${workspaceFolder}/build/s3b/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Build: s3b (final)"
+    },
+    {
+      "name": "HW: s4a — S4 preempção×arbitragem (OpenOCD :3333)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "openocd",
+      "configFiles": ["interface/stlink.cfg", "target/stm32f1x.cfg"],
+      "executable": "${workspaceFolder}/build/s4a/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Build: s4a (final)"
+    },
+    {
+      "name": "HW: s4b — S4 late-arrival (OpenOCD :3333)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "openocd",
+      "configFiles": ["interface/stlink.cfg", "target/stm32f1x.cfg"],
+      "executable": "${workspaceFolder}/build/s4b/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Build: s4b (final)"
+    },
     {
       "name": "HW: sandbox (OpenOCD :3333)",
       "type": "cortex-debug",

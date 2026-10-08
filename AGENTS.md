@@ -227,12 +227,45 @@ cmake --build --preset c1 --target clean
 No VS Code: as mesmas ações são tasks (`.vscode/tasks.json`, cópia direta
 de `.theia/tasks.json`), sempre via wrapper `scripts/direnv_exec.sh`.
 
-## Cenários e contratos
+## Firmwares FINAIS do TCC (ABI v2) — 2026-10-08
+
+Quatro cenários, oito firmwares (vários `main` por cenário, cada um isola UMA
+pergunta). Preset `sNx` → `build/sNx/firmware.elf`, `-O2 -g3` fixo. Mesmo ELF
+na bancada e no Renode. Log de decisões/achados: `.slim/deepwork/claude-20261007.md`;
+relatórios intermediários: `tmp/reports/` (tmp/ é gitignored).
+
+| Preset | Fonte | Pergunta |
+|---|---|---|
+| s1a | `src/s1/isa.c` + `isa_kernels.S` | custo por classe de instrução (asm, 16 instr/iter) |
+| s1b | `src/s1/app.c` | cargas C reais; CPI efetivo; validação held-out da calibração |
+| s2a | `src/s2/latency.c` + `spin.S` | latência TIM2→ISR (lida por CNT, PSC=0) e trabalho/período |
+| s2b | `src/s2/events.c` | semântica UIF/NVIC/PSC/ARR/UG; ISR dupla |
+| s3a | `src/s3/link.c` (+`uart.h`) | USART1 loopback: integridade, ORE, IRQ, TC, TE |
+| s3b | `src/s3/timing.c` | tempo de quadro (TXE/TC/RXNE/IDLE), rajada |
+| s4a | `src/s4/nvic.c` (+`seq.h`) | preempção × arbitragem (PRIGROUP 4: 3 grupo + 1 sub) |
+| s4b | `src/s4/race.c` | late-arrival × preempção × sequencial (TIM1 UP/CC1, Δ ciclos) |
+
+- **ABI v2** `inc/fidelity.h` + `lib/fidelity.c` + `lib/fidelity_measure.S`
+  (bracket de medição em asm: LDR CYCCNT · BLX · LDR CYCCNT).
+- **CLI única** `scripts/fidelity.py {build,gate,run,show,analyze,campaign}`;
+  pacote `scripts/fidelity/` (abi, firmware, runner, oracles, analysis,
+  perfetto, gate, campaign). Testes: `tests/test_fidelity_v2.py`.
+- Dados: `data/fidelity/<campanha>/<fw>/<tag>/run-NNN/` + `analysis/`.
+- **Bancada:** loopback PA9→PA10 PERMANENTE → nenhum firmware fora do S3 pode
+  tocar a USART1 (o gate verifica no ELF). O coletor sobe OpenOCD PRÓPRIO na
+  :3333 (porta ocupada = erro; nunca kill global). Renode em portas ≥3336.
+- **Placa provavelmente CLONE** (CKS32/CS32F103?): UID zero, CPUID r2p0, RX da
+  USART bufferiza ≥4 bytes sem ORE, 1ª execução em flash mais lenta. Conferir
+  a marcação do chip. Ver `tmp/reports/00-metodologia.md` §5.
+- Renode trunca `PerformanceInMips` para inteiro; política calibrada = 7.
+
+## Cenários exploratórios (legado c1..c4)
 
 Cada cenário é um executável C independente (`add_scenario` no
 CMakeLists.txt), com `firmware.elf` próprio em `build/<alvo>/`.
 Mapeamento TCC: **Cenário A** (TIM2 + NVIC + GPIO + DWT) = `c1`/`c2`/
 `c2busy`/`c3`; **Cenário B** (USART1 115200 8N1) = `c4`/`echo`.
+Substituídos pelos firmwares finais acima; mantidos como histórico.
 
 | Alvo    | Fonte                    | Descrição                          |
 |---------|--------------------------|------------------------------------|

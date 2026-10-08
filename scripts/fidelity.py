@@ -6,6 +6,9 @@
     scripts/fidelity.py run s1a --env renode --mips 8 --runs 2 --campaign v1
     scripts/fidelity.py show data/fidelity/v1/s1a/hw/run-001
     scripts/fidelity.py analyze --campaign v1 [s1a ...]
+    scripts/fidelity.py gate [s1a ...]                # verificação estática dos ELFs
+    scripts/fidelity.py campaign --name v1            # plano completo (campaign.py)
+    scripts/fidelity.py resc s1a > x.resc             # .resc de depuração (GDB :3334)
 
 Dados: data/fidelity/<campanha>/<firmware>/<tag>/run-NNN/{manifest.json,
 snapshot.bin, gdb.log, ...}. Um run = um reset → execução completa → dump.
@@ -124,6 +127,12 @@ def main(argv=None) -> int:
     s = sub.add_parser("show")
     s.add_argument("run")
     s.add_argument("--trace", action="store_true")
+    x = sub.add_parser("resc", help="imprime o .resc de depuração (mesmo gerador da coleta)")
+    x.add_argument("firmware")
+    x.add_argument("--port", type=int, default=3334)
+    x.add_argument("--mips", type=int, default=8)
+    x.add_argument("--quantum", default="0.000001")
+    x.add_argument("--no-uart-delay", action="store_true")
     c = sub.add_parser("campaign")
     c.add_argument("firmware", nargs="*")
     c.add_argument("--name", required=True)
@@ -134,6 +143,11 @@ def main(argv=None) -> int:
     a.add_argument("firmware", nargs="*")
     a.add_argument("--campaign", required=True)
     args = p.parse_args(argv)
+    if args.cmd == "resc":
+        cfg = runner.RenodeConfig(mips=args.mips, quantum=args.quantum,
+                                  uart_delay=not args.no_uart_delay)
+        print(runner.renode_resc(firmware.get(args.firmware), cfg, args.port), end="")
+        return 0
     if args.cmd == "campaign":
         from fidelity import campaign
         return campaign.main(args)
