@@ -165,12 +165,16 @@ elseif(SCENARIO MATCHES "^S[1-4][A-Z]$")
     # mix de instruções importa são assembly (.S) e não dependem dela.
     set(FINAL_S1A src/s1/isa.c src/s1/isa_kernels.S)   # CPI por classe
     set(FINAL_S1B src/s1/app.c)                        # cargas C realistas
-    set(FINAL_S2A src/s2/latency.c)                    # latência IRQ + razão CPU/periférico
+    set(FINAL_S2A src/s2/latency.c src/s2/spin.S)                 # latência IRQ + razão CPU/periférico
     set(FINAL_S2B src/s2/events.c)                     # semântica UIF/NVIC
     set(FINAL_S3A src/s3/link.c)                       # integridade/ORE
     set(FINAL_S3B src/s3/timing.c)                     # tempo de quadro
     set(FINAL_S4A src/s4/nvic.c)                       # preempção × arbitragem
     set(FINAL_S4B src/s4/race.c)                       # late-arrival/tail-chain
+    # Capacidades da ABI por firmware (aplicadas também a lib/fidelity.c).
+    set(FINAL_S2A_DEFS FIDELITY_ROWS=384U FIDELITY_TRACE=32U)
+    set(FINAL_S3B_DEFS FIDELITY_ROWS=200U FIDELITY_TRACE=48U)
+    set(FINAL_S4B_DEFS FIDELITY_ROWS=200U FIDELITY_TRACE=48U)
     if(NOT DEFINED FINAL_${SCENARIO})
         message(FATAL_ERROR "firmware final desconhecido: ${SCENARIO}")
     endif()
@@ -183,10 +187,13 @@ elseif(SCENARIO MATCHES "^S[1-4][A-Z]$")
     target_compile_options(fidelity PRIVATE
         -Wall -Wextra -Wmissing-prototypes -Wstrict-prototypes
         -ffunction-sections -fdata-sections ${final_opt})
+    if(FINAL_${SCENARIO}_DEFS)
+        target_compile_definitions(fidelity PUBLIC ${FINAL_${SCENARIO}_DEFS})
+    endif()
     target_compile_options(board PRIVATE ${final_opt})
 
-    list(GET FINAL_${SCENARIO} 0 final_main)
-    list(SUBLIST FINAL_${SCENARIO} 1 -1 final_extra)
+    set(final_extra ${FINAL_${SCENARIO}})
+    list(POP_FRONT final_extra final_main)
     add_scenario(${final_target} ${final_main})
     target_sources(${final_target} PRIVATE ${final_extra})
     target_compile_options(${final_target} PRIVATE ${final_opt})
