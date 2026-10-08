@@ -1,0 +1,66 @@
+{
+  "config": {
+    "env": "hw"
+  },
+  "debugger_during_run": "attached (hbreak)",
+  "elf": "build/s1a/firmware.elf",
+  "elf_sha256": "8efd2454cf97b9513d0a42fe4d6020afce7249e02d4b499556d6b4889c675d9a",
+  "environment": "hw",
+  "finished_utc": "2026-10-08T02:27:42+00:00",
+  "firmware": "s1a",
+  "header": {
+    "aircr": 4194632448,
+    "core_hz": 8000000,
+    "cpuid": 1093648944,
+    "dbgmcu_cr": 775,
+    "dwt_ctrl": 1073741825,
+    "end_ticks": 651961,
+    "error": 0,
+    "error_names": [],
+    "flash_acr": 48,
+    "magic": 1179206706,
+    "observer_ticks": 1,
+    "rcc_cfgr": 0,
+    "rcc_cr": 32387,
+    "reserved": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "row_capacity": 128,
+    "row_count": 128,
+    "scenario": 1,
+    "seed": 1592590337,
+    "state": 2,
+    "trace_capacity": 128,
+    "trace_count": [
+      29,
+      0,
+      0
+    ],
+    "trace_drop": [
+      0,
+      0,
+      0
+    ],
+    "variant": 1,
+    "version": 2
+  },
+  "host_elapsed_s": 0.519,
+  "platform_sha256": "1c04be0c32a95c4e6f445213e6648272f6e33bc9827ab43944a0a8eb11d9ede1",
+  "revision": "uznsmkwqmvyk 3e3e7866c1e6",
+  "scenario": 1,
+  "schema": 2,
+  "snapshot_sha256": "07e6d3305bf269e870591c55c8e3f2ccd5dd2289448e0ec316221e900897e50f",
+  "source": {
+    "files": 54,
+    "sha256": "3ac18fa4c33dec3d917aa581a27edc1d6b7a5c29787d7a3fc6a0e21efef9718b"
+  },
+  "started_utc": "2026-10-08T02:27:42+00:00",
+  "status": "complete",
+  "tag": "hw",
+  "variant": 1
+}

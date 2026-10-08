@@ -1,0 +1,8 @@
+mach create "s1_fidelity"
+using sysbus
+machine LoadPlatformDescription @"/home/leonardo/projects/renode-stm32f103-fidelity/renode/stm32f103_hsi8.repl"
+logLevel 1
+emulation SetGlobalQuantum "0.000001"
+sysbus.cpu PerformanceInMips 8
+sysbus LoadELF @"/home/leonardo/projects/renode-stm32f103-fidelity/build/s1/firmware.elf"
+machine StartGdbServer 3336

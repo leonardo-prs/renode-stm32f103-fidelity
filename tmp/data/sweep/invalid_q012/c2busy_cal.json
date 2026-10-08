@@ -1,0 +1,14 @@
+{
+ "tag": "c2busy_cal",
+ "case": "c2busy",
+ "mips": 50,
+ "scale": 9,
+ "cpi_eff": 1.44,
+ "quantum": "0.00000108",
+ "runfor": "1.3",
+ "done": 1,
+ "n": 2048,
+ "executed_instr": 6069095,
+ "elapsed_cycles": 6069095,
+ "wall_s": 74.5
+}

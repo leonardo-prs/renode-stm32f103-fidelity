@@ -1,0 +1,576 @@
+{
+  "functional": [
+    {
+      "check": "uif_no_uie.uif = 1",
+      "env": "hw",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "uif_no_uie.uif = 1",
+      "env": "rn-m8-q1us",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "uif_no_uie.nvic_pending = 0",
+      "env": "hw",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "uif_no_uie.nvic_pending = 0",
+      "env": "rn-m8-q1us",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "coalesce.pending_after_run = 1",
+      "env": "hw",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "coalesce.pending_after_run = 1",
+      "env": "rn-m8-q1us",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "coalesce.isr_entries = 1",
+      "env": "hw",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "coalesce.isr_entries = 1",
+      "env": "rn-m8-q1us",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "clear_both.isr_entries = 0",
+      "env": "hw",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "clear_both.isr_entries = 0",
+      "env": "rn-m8-q1us",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "stale_pending.isr_entries = 1",
+      "env": "hw",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "stale_pending.isr_entries = 1",
+      "env": "rn-m8-q1us",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "stale_pending.spurious = 1",
+      "env": "hw",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "stale_pending.spurious = 1",
+      "env": "rn-m8-q1us",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "late_clear_dsb.spurious = 0",
+      "env": "hw",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "late_clear_dsb.spurious = 0",
+      "env": "rn-m8-q1us",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "psc_buffered.write_to_update = 500",
+      "env": "hw",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "psc_buffered.write_to_update = 500",
+      "env": "rn-m8-q1us",
+      "pass": 0,
+      "total": 1
+    },
+    {
+      "check": "psc_buffered.next_period = 2000",
+      "env": "hw",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "psc_buffered.next_period = 2000",
+      "env": "rn-m8-q1us",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "ug_uif.uif_after_ug = 1",
+      "env": "hw",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "ug_uif.uif_after_ug = 1",
+      "env": "rn-m8-q1us",
+      "pass": 0,
+      "total": 1
+    },
+    {
+      "check": "arr_preload.write_to_update = 500",
+      "env": "hw",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "arr_preload.write_to_update = 500",
+      "env": "rn-m8-q1us",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "arr_preload.next_period = 2000",
+      "env": "hw",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "arr_preload.next_period = 2000",
+      "env": "rn-m8-q1us",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "late_clear_rb.spurious = 0",
+      "env": "hw",
+      "pass": 1,
+      "total": 1
+    },
+    {
+      "check": "late_clear_rb.spurious = 0",
+      "env": "rn-m8-q1us",
+      "pass": 1,
+      "total": 1
+    }
+  ],
+  "tables": [
+    {
+      "title": "Semântica TIM2/NVIC (trial 2 — quente)",
+      "unit": "valores de registrador/contagens; tempos em ciclos/ticks",
+      "rows": [
+        {
+          "condição": "uif_no_uie",
+          "campo": "uif",
+          "esperado (manual)": 1,
+          "referência": "RM0008 §15.4.5 UIF setado por overflow independente de UIE",
+          "hw": "1",
+          "hw ✓": "sim",
+          "rn-m8-q1us": "1",
+          "rn-m8-q1us ✓": "sim"
+        },
+        {
+          "condição": "uif_no_uie",
+          "campo": "nvic_pending",
+          "esperado (manual)": 0,
+          "referência": "sem UIE não há pedido de IRQ",
+          "hw": "0",
+          "hw ✓": "sim",
+          "rn-m8-q1us": "0",
+          "rn-m8-q1us ✓": "sim"
+        },
+        {
+          "condição": "coalesce",
+          "campo": "uif",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "1",
+          "rn-m8-q1us": "1"
+        },
+        {
+          "condição": "coalesce",
+          "campo": "pending_after_run",
+          "esperado (manual)": 1,
+          "referência": "PM0056 §4.3 ISPR",
+          "hw": "1",
+          "hw ✓": "sim",
+          "rn-m8-q1us": "1",
+          "rn-m8-q1us ✓": "sim"
+        },
+        {
+          "condição": "coalesce",
+          "campo": "pending_at_enable",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "1",
+          "rn-m8-q1us": "1"
+        },
+        {
+          "condição": "coalesce",
+          "campo": "isr_entries",
+          "esperado (manual)": 1,
+          "referência": "NVIC: pendência única (coalescência de 5 eventos)",
+          "hw": "1",
+          "hw ✓": "sim",
+          "rn-m8-q1us": "1",
+          "rn-m8-q1us ✓": "sim"
+        },
+        {
+          "condição": "coalesce",
+          "campo": "first_sr",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "31",
+          "rn-m8-q1us": "1"
+        },
+        {
+          "condição": "coalesce",
+          "campo": "spurious",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "0",
+          "rn-m8-q1us": "0"
+        },
+        {
+          "condição": "clear_both",
+          "campo": "uif",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "1",
+          "rn-m8-q1us": "1"
+        },
+        {
+          "condição": "clear_both",
+          "campo": "pending_after_run",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "1",
+          "rn-m8-q1us": "1"
+        },
+        {
+          "condição": "clear_both",
+          "campo": "pending_at_enable",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "0",
+          "rn-m8-q1us": "0"
+        },
+        {
+          "condição": "clear_both",
+          "campo": "isr_entries",
+          "esperado (manual)": 0,
+          "referência": "UIF e ICPR limpos antes de habilitar",
+          "hw": "0",
+          "hw ✓": "sim",
+          "rn-m8-q1us": "0",
+          "rn-m8-q1us ✓": "sim"
+        },
+        {
+          "condição": "clear_both",
+          "campo": "first_sr",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "65535",
+          "rn-m8-q1us": "65535"
+        },
+        {
+          "condição": "clear_both",
+          "campo": "spurious",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "0",
+          "rn-m8-q1us": "0"
+        },
+        {
+          "condição": "stale_pending",
+          "campo": "uif",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "1",
+          "rn-m8-q1us": "1"
+        },
+        {
+          "condição": "stale_pending",
+          "campo": "pending_after_run",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "1",
+          "rn-m8-q1us": "1"
+        },
+        {
+          "condição": "stale_pending",
+          "campo": "pending_at_enable",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "1",
+          "rn-m8-q1us": "1"
+        },
+        {
+          "condição": "stale_pending",
+          "campo": "isr_entries",
+          "esperado (manual)": 1,
+          "referência": "pendência do NVIC é latched (PM0056 §2.3.9)",
+          "hw": "1",
+          "hw ✓": "sim",
+          "rn-m8-q1us": "1",
+          "rn-m8-q1us ✓": "sim"
+        },
+        {
+          "condição": "stale_pending",
+          "campo": "first_sr",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "0",
+          "rn-m8-q1us": "0"
+        },
+        {
+          "condição": "stale_pending",
+          "campo": "spurious",
+          "esperado (manual)": 1,
+          "referência": "entra com UIF já limpo",
+          "hw": "1",
+          "hw ✓": "sim",
+          "rn-m8-q1us": "1",
+          "rn-m8-q1us ✓": "sim"
+        },
+        {
+          "condição": "late_clear",
+          "campo": "isr_entries",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "16",
+          "rn-m8-q1us": "16"
+        },
+        {
+          "condição": "late_clear",
+          "campo": "spurious",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "0",
+          "rn-m8-q1us": "0"
+        },
+        {
+          "condição": "late_clear",
+          "campo": "ppre1",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "0",
+          "rn-m8-q1us": "0"
+        },
+        {
+          "condição": "late_clear_apb2",
+          "campo": "isr_entries",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "31",
+          "rn-m8-q1us": "16"
+        },
+        {
+          "condição": "late_clear_apb2",
+          "campo": "spurious",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "15",
+          "rn-m8-q1us": "0"
+        },
+        {
+          "condição": "late_clear_apb2",
+          "campo": "ppre1",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "4",
+          "rn-m8-q1us": "0"
+        },
+        {
+          "condição": "late_clear_dsb",
+          "campo": "isr_entries",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "16",
+          "rn-m8-q1us": "16"
+        },
+        {
+          "condição": "late_clear_dsb",
+          "campo": "spurious",
+          "esperado (manual)": 0,
+          "referência": "DSB após a escrita (ARM AN321)",
+          "hw": "0",
+          "hw ✓": "sim",
+          "rn-m8-q1us": "0",
+          "rn-m8-q1us ✓": "sim"
+        },
+        {
+          "condição": "late_clear_dsb",
+          "campo": "ppre1",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "4",
+          "rn-m8-q1us": "0"
+        },
+        {
+          "condição": "psc_buffered",
+          "campo": "base_period",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "996",
+          "rn-m8-q1us": "1000"
+        },
+        {
+          "condição": "psc_buffered",
+          "campo": "write_to_update",
+          "esperado (manual)": 500,
+          "referência": "RM0008 §15.3.1: PSC bufferizado, vale no próximo update",
+          "hw": "500",
+          "hw ✓": "sim",
+          "rn-m8-q1us": "992",
+          "rn-m8-q1us ✓": "NÃO"
+        },
+        {
+          "condição": "psc_buffered",
+          "campo": "next_period",
+          "esperado (manual)": 2000,
+          "referência": "PSC=1 → 2× período",
+          "hw": "2001",
+          "hw ✓": "sim",
+          "rn-m8-q1us": "2000",
+          "rn-m8-q1us ✓": "sim"
+        },
+        {
+          "condição": "psc_buffered",
+          "campo": "ref_to_write",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "499",
+          "rn-m8-q1us": "496"
+        },
+        {
+          "condição": "ug_uif",
+          "campo": "uif_before",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "0",
+          "rn-m8-q1us": "0"
+        },
+        {
+          "condição": "ug_uif",
+          "campo": "uif_after_ug",
+          "esperado (manual)": 1,
+          "referência": "RM0008 §15.4.6 EGR.UG gera evento de update (URS=0)",
+          "hw": "1",
+          "hw ✓": "sim",
+          "rn-m8-q1us": "0",
+          "rn-m8-q1us ✓": "NÃO"
+        },
+        {
+          "condição": "ug_uif",
+          "campo": "cnt_after_ug",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "0",
+          "rn-m8-q1us": "0"
+        },
+        {
+          "condição": "arr_preload",
+          "campo": "base_period",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "996",
+          "rn-m8-q1us": "1008"
+        },
+        {
+          "condição": "arr_preload",
+          "campo": "write_to_update",
+          "esperado (manual)": 500,
+          "referência": "RM0008 §15.3.1: ARR com ARPE=1 vale no próximo update",
+          "hw": "500",
+          "hw ✓": "sim",
+          "rn-m8-q1us": "498",
+          "rn-m8-q1us ✓": "sim"
+        },
+        {
+          "condição": "arr_preload",
+          "campo": "next_period",
+          "esperado (manual)": 2000,
+          "referência": "ARR=1999",
+          "hw": "2001",
+          "hw ✓": "sim",
+          "rn-m8-q1us": "2006",
+          "rn-m8-q1us ✓": "sim"
+        },
+        {
+          "condição": "arr_preload",
+          "campo": "ref_to_write",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "499",
+          "rn-m8-q1us": "496"
+        },
+        {
+          "condição": "late_clear_rb",
+          "campo": "isr_entries",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "16",
+          "rn-m8-q1us": "16"
+        },
+        {
+          "condição": "late_clear_rb",
+          "campo": "spurious",
+          "esperado (manual)": 0,
+          "referência": "leitura de volta força a escrita pela ponte APB",
+          "hw": "0",
+          "hw ✓": "sim",
+          "rn-m8-q1us": "0",
+          "rn-m8-q1us ✓": "sim"
+        },
+        {
+          "condição": "late_clear_rb",
+          "campo": "ppre1",
+          "esperado (manual)": "—",
+          "referência": "observação",
+          "hw": "4",
+          "rn-m8-q1us": "0"
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "late_clear*: corrida física entre a escrita no SR pela ponte APB e o retorno de exceção; o resultado no HW depende da razão de clock do APB1 e do layout exato do código."
+  ],
+  "derived": {},
+  "determinism": {
+    "hw": {
+      "runs": 1,
+      "distinct_row_sets": 1,
+      "identical": true
+    },
+    "rn-m8-q1us": {
+      "runs": 1,
+      "distinct_row_sets": 1,
+      "identical": true
+    }
+  },
+  "runs": {
+    "hw": [
+      "data/fidelity/dev/s2b/hw/run-001"
+    ],
+    "rn-m8-q1us": [
+      "data/fidelity/dev/s2b/rn-m8-q1us/run-001"
+    ]
+  }
+}

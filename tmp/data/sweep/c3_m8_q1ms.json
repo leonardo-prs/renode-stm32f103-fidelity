@@ -1,0 +1,13 @@
+{
+ "tag": "c3_m8_q1ms",
+ "case": "c3",
+ "mips": "8",
+ "cpi": "1",
+ "quantum": "0.001",
+ "runfor": "3",
+ "done": 1,
+ "n": 902,
+ "executed_instr": 2381532,
+ "elapsed_cycles": 24000000,
+ "wall_s": 28.2
+}

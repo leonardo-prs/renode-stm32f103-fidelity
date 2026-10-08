@@ -1,0 +1,126 @@
+{
+  "functional": [],
+  "tables": [
+    {
+      "title": "Latência TIM2 update → 1ª leitura de CNT na ISR (amostras 1..63)",
+      "unit": "ticks do TIM2 (= ciclos HCLK no HW; tempo virtual no Renode)",
+      "rows": [
+        {
+          "condição": "alu",
+          "hw lat. mín/med/máx": "22/22/22",
+          "hw 1ª IRQ": "466",
+          "hw período med (faixa)": "8000 (8000..8000)",
+          "rn-m8-q1us lat. mín/med/máx": "1/5/5",
+          "rn-m8-q1us 1ª IRQ": "1",
+          "rn-m8-q1us período med (faixa)": "8000 (7993..8000)"
+        },
+        {
+          "condição": "div",
+          "hw lat. mín/med/máx": "22/22/22",
+          "hw 1ª IRQ": "22",
+          "hw período med (faixa)": "8000 (8000..8000)",
+          "rn-m8-q1us lat. mín/med/máx": "1/5/5",
+          "rn-m8-q1us 1ª IRQ": "1",
+          "rn-m8-q1us período med (faixa)": "8000 (7993..8000)"
+        },
+        {
+          "condição": "ldm",
+          "hw lat. mín/med/máx": "22/22/22",
+          "hw 1ª IRQ": "22",
+          "hw período med (faixa)": "8000 (8000..8000)",
+          "rn-m8-q1us lat. mín/med/máx": "1/5/5",
+          "rn-m8-q1us 1ª IRQ": "1",
+          "rn-m8-q1us período med (faixa)": "8000 (7993..8000)"
+        },
+        {
+          "condição": "wfi",
+          "hw lat. mín/med/máx": "22/22/22",
+          "hw 1ª IRQ": "22",
+          "hw período med (faixa)": "8000 (8000..8000)",
+          "rn-m8-q1us lat. mín/med/máx": "1/5/5",
+          "rn-m8-q1us 1ª IRQ": "1",
+          "rn-m8-q1us período med (faixa)": "8000 (7993..8000)"
+        },
+        {
+          "condição": "masked",
+          "hw lat. mín/med/máx": "230/233/233",
+          "hw 1ª IRQ": "233",
+          "hw período med (faixa)": "8000 (7997..8003)",
+          "rn-m8-q1us lat. mín/med/máx": "207/211/217",
+          "rn-m8-q1us 1ª IRQ": "209",
+          "rn-m8-q1us período med (faixa)": "7999 (7993..8008)"
+        },
+        {
+          "condição": "wfi_nodbg",
+          "hw lat. mín/med/máx": "22/22/22",
+          "hw 1ª IRQ": "22",
+          "hw período med (faixa)": "8000 (8000..8000)",
+          "rn-m8-q1us lat. mín/med/máx": "1/5/5",
+          "rn-m8-q1us 1ª IRQ": "1",
+          "rn-m8-q1us período med (faixa)": "8000 (7993..8000)"
+        }
+      ]
+    },
+    {
+      "title": "Trabalho do laço de fundo por período de 8000 ciclos",
+      "unit": "iterações (TRM: ciclos/iteração esperados no HW)",
+      "rows": [
+        {
+          "condição": "alu",
+          "TRM ciclos/iter": 17,
+          "instr/iter": 14,
+          "hw iter/período": 467.0,
+          "rn-m8-q1us iter/período": 569.0,
+          "rn-m8-q1us/HW": 1.2184154175588866
+        },
+        {
+          "condição": "div",
+          "TRM ciclos/iter": 105,
+          "instr/iter": 14,
+          "hw iter/período": 75.0,
+          "rn-m8-q1us iter/período": 569.0,
+          "rn-m8-q1us/HW": 7.586666666666667
+        },
+        {
+          "condição": "ldm",
+          "TRM ciclos/iter": 49,
+          "instr/iter": 14,
+          "hw iter/período": 162.0,
+          "rn-m8-q1us iter/período": 569.0,
+          "rn-m8-q1us/HW": 3.5123456790123457
+        },
+        {
+          "condição": "wfi"
+        },
+        {
+          "condição": "masked"
+        },
+        {
+          "condição": "wfi_nodbg"
+        }
+      ]
+    }
+  ],
+  "notes": [],
+  "derived": {},
+  "determinism": {
+    "hw": {
+      "runs": 1,
+      "distinct_row_sets": 1,
+      "identical": true
+    },
+    "rn-m8-q1us": {
+      "runs": 1,
+      "distinct_row_sets": 1,
+      "identical": true
+    }
+  },
+  "runs": {
+    "hw": [
+      "data/fidelity/dev/s2a/hw/run-001"
+    ],
+    "rn-m8-q1us": [
+      "data/fidelity/dev/s2a/rn-m8-q1us/run-001"
+    ]
+  }
+}

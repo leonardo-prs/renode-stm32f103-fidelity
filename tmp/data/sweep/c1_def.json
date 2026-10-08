@@ -1,0 +1,13 @@
+{
+ "tag": "c1_def",
+ "case": "c1",
+ "mips": "100",
+ "cpi": "1",
+ "quantum": "0.000001",
+ "runfor": "1.2",
+ "done": 1,
+ "n": 700,
+ "executed_instr": 120000000,
+ "elapsed_cycles": 120000000,
+ "wall_s": 20.5
+}

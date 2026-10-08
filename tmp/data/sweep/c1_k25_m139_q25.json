@@ -1,0 +1,14 @@
+{
+ "tag": "c1_k25_m139_q25",
+ "case": "c1",
+ "mips": 139,
+ "scale": 25,
+ "cpi_eff": 1.4388489208633093,
+ "quantum": "0.000025",
+ "runfor": "5",
+ "done": 1,
+ "n": 700,
+ "executed_instr": 27800000,
+ "elapsed_cycles": 27848774,
+ "wall_s": 14.6
+}

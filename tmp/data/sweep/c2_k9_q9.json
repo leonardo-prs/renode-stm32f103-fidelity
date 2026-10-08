@@ -1,0 +1,15 @@
+{
+ "tag": "c2_k9_q9",
+ "case": "c2",
+ "mips": 50,
+ "scale": 9,
+ "cpi_eff": 1.44,
+ "efficiency": 0.011,
+ "quantum": "0.000009",
+ "runfor": "1.3",
+ "done": 1,
+ "n": 2048,
+ "executed_instr": 79510,
+ "elapsed_cycles": 7222222,
+ "wall_s": 10.8
+}

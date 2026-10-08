@@ -1,0 +1,14 @@
+{
+ "tag": "c1_k25_m200",
+ "case": "c1",
+ "mips": 200,
+ "scale": 25,
+ "cpi_eff": 1.0,
+ "quantum": "0.000001",
+ "runfor": "4",
+ "done": 1,
+ "n": 700,
+ "executed_instr": 32000000,
+ "elapsed_cycles": 32000000,
+ "wall_s": 95.4
+}

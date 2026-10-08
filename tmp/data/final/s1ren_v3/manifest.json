@@ -1,0 +1,138 @@
+{
+  "acquisition_complete": false,
+  "analysis_required": true,
+  "artifact_sha256": {
+    "commands.gdb": "51b28420bc1618c6958cdc75cd372150fb9ae9bfbddb8480ed3b6c2fcc24158d",
+    "run.resc": "af41dc34faecd7e1ee04055587cf6c36d29916850b058d6d9c8ccd4217d7bb9e"
+  },
+  "clock_domains": {
+    "dwt_nominal_hz": 8000000,
+    "host_elapsed": "monotonic seconds, not target time",
+    "renode_dwt": "virtual-time-derived ticks, not CPU cycles"
+  },
+  "collector": {
+    "sha256": "62934d4f66c61d0c206942937ac61a4b3f5771f1ccc403e42bd41147459aa819"
+  },
+  "config": {
+    "confirmed_wiring": false,
+    "elf": null,
+    "environment": "renode",
+    "mips": 8,
+    "mips_policy": "nominal",
+    "out": "data/final/s1ren_v3",
+    "port": 3336,
+    "quantum": "0.000001",
+    "reuse_openocd": false,
+    "scenario": "s1",
+    "timeout": 60.0,
+    "uart_delay": "on"
+  },
+  "config_sha256": "ec00f148fb0c61902d2ea0eaa6ac8513cbd6c8aaec213f5c3294cc67c049cbeb",
+  "elf": {
+    "path": "/home/leonardo/projects/renode-stm32f103-fidelity/build/s1/firmware.elf",
+    "sha256": "dad918c2db54d85bc7b8305d6cf4ce692fb6a5ef351c46a8b2e8dd6a128fd0bf"
+  },
+  "environment": "renode",
+  "error": {
+    "kind": "AcquisitionError",
+    "message": "GDB failed with exit 1"
+  },
+  "finished_utc": "2026-10-07T23:00:43.070314+00:00",
+  "functional_status": "unknown",
+  "gdb_argv": [
+    "arm-none-eabi-gdb",
+    "--nx",
+    "--batch",
+    "/home/leonardo/projects/renode-stm32f103-fidelity/build/s1/firmware.elf",
+    "-x",
+    "/home/leonardo/projects/renode-stm32f103-fidelity/data/final/s1ren_v3/commands.gdb"
+  ],
+  "host": {
+    "uname": [
+      "Linux",
+      "DESKTOP-UKF0IKQ",
+      "6.18.40.1-microsoft-standard-WSL2",
+      "#1 SMP PREEMPT_DYNAMIC Fri Jul 31 22:12:15 UTC 2026",
+      "x86_64"
+    ]
+  },
+  "host_elapsed_seconds": 4.978800193995994,
+  "method": "hardware breakpoint post-freeze",
+  "monitor_port": 44761,
+  "physical_wiring": "unconfirmed/assumed PA9\u2192PA10",
+  "platform": {
+    "path": "/home/leonardo/projects/renode-stm32f103-fidelity/renode/stm32f103_hsi8.repl",
+    "sha256": "1c04be0c32a95c4e6f445213e6648272f6e33bc9827ab43944a0a8eb11d9ede1"
+  },
+  "run_id": "947ea35d-620d-4951-baee-c500b08bd0dc",
+  "runtime_validation": "phase-3 required: Renode reset/halt and hbreak support",
+  "sampling": "one run, one GDB connection, no measurement polling",
+  "scenario": "s1",
+  "schema_version": 1,
+  "seed_source": "firmware snapshot",
+  "server": {
+    "argv": [
+      "renode",
+      "--disable-xwt",
+      "-P",
+      "44761",
+      "-e",
+      "s @data/final/s1ren_v3/run.resc"
+    ],
+    "ownership": "owned child",
+    "pid": 286194
+  },
+  "source": {
+    "files": {
+      "CMakeLists.txt": "a3221691b69e5626827ff60a80892fdbaf1f6364d36b520ffbeb6697c54e48c5",
+      "CMakePresets.json": "fd5212cd4d0fe36f8dd7366d37b104b71bbac1320a75d6d6e772d9f5b05db48b",
+      "cmake/clangd.in": "322d5d0c926e6baf26e9e6dba86c70a487e3cff040e842f200db718ac327f440",
+      "cmake/gcc-arm-none-eabi.cmake": "e7e80012ed73f2953d1717f7c1d05c401ff0d11056c7ee3a339ebcb0c51b777b",
+      "cmake/starm-clang.cmake": "4928cbe1721de2826e561328e04d09f8ab976cfa1281c9f63d6cb8e60af22418",
+      "flake.lock": "dfb8c0b95b5793426205dc80e345d9e6a76a7bc9d568b348777ecc69ec11adeb",
+      "flake.nix": "b55da838ef4beb14591c2f2843f172ae371adcd2245c58cdf3024693a49b37ac",
+      "inc/fidelity.h": "4a9aaef2a37f74f25ff2957fd89746c291cc4b391a84a95c02c964d003b9eeab",
+      "inc/fidelity_trace.h": "c7f273ea831cc1cd42822c703043e09e3346fae2d26aaf6c8b61a7e2755f4e6f",
+      "inc/trace.h": "a0fc28def0dc875c8c0f830a3229003c6994ae637ed25359ab1e470b7d12037b",
+      "lib/board.c": "2a7e4b44224403cf4a4853ef8538a33b89653cf54b953891cd8685c8674cf22d",
+      "lib/board.h": "8229ab98f08264ac952cb86cddea44e62a98f97c96de1e2a6eaaf6e1640dabb2",
+      "lib/fidelity.c": "4e22a80591b9fc4713f3ad651995e5fb8b37989a725ebaacfd76e94fbf82ae3b",
+      "lib/periph.c": "16fe7516fa7f73f27314019d0f6c49e50a20d4e584154fe1513ce588427b7f3e",
+      "lib/periph.h": "4d6abf17f4fbd69e5b2914f2be5498ce9ba1523bd242eabfca5fb9011c18cc30",
+      "src/c1_core.c": "dc367a41de4516a1171a48ee65c1699704e7c55f547dd912e1977b36e2289fb8",
+      "src/c2_irq_baseline.c": "3972f7bbde8d5dcee509e1464765077b393674c967d58dbd09086e246fa6f3bd",
+      "src/c3_irq_arbitration.c": "aec33e25fb1ddf0de0287411ef174201da449932b56b3966ad15223131847640",
+      "src/c4_usart.c": "eba532a087504273552ab5c8a9d044a9833a8587f7e04420ff50f9afe64150ae",
+      "src/echo_peer.c": "8c30bc0aff29a5826dc080d36e93429c8536b096fcbee7b84156e8f4f0cd21d2",
+      "src/s1_core.c": "af2d5f6c1bcbb31197292bc8a5718f5a6cbfa0d583c3470a8be60a6885b4c7c8",
+      "src/s2_timer_irq.c": "eda74ee281987514887ffacc49eadb0dcbc0b48fa3a44d9d12e3263793f4d6c8",
+      "src/s3_usart.c": "bdedee8a65653c386f72f09bc602cd6c9232779473642bdbea5775312a1b974a",
+      "src/s4_preemption.c": "d9b007b0638a05810c2e11be23736a83b1ca7d88c6b2879cacdf04bfb2540df5",
+      "src/sandbox.c": "7a9a4f6c91cd43e553230d5e8753b3658950054035a9e26325076667f11acf33"
+    },
+    "root_realpath": "/home/leonardo/projects/renode-stm32f103-fidelity",
+    "sha256": "2a8cf6e857f51d57ba98405de95e7b6d12158167d638ad772f6c3a51ee580a8f",
+    "vendor_policy": "excluded frozen vendor"
+  },
+  "started_utc": "2026-10-07T23:00:38.091619+00:00",
+  "status": "error",
+  "timeout": false,
+  "tool_versions": {
+    "arm-none-eabi-gcc": {
+      "output": "arm-none-eabi-gcc (Arm GNU Toolchain 15.3.Rel1 (Build arm-15.149)) 15.3.1 20260627\nCopyright (C) 2025 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+      "returncode": 0
+    },
+    "arm-none-eabi-gdb": {
+      "output": "GNU gdb (Arm GNU Toolchain 15.3.Rel1 (Build arm-15.149)) 16.3.90.20250906-git\nCopyright (C) 2024 Free Software Foundation, Inc.\nLicense GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\nThis is free software: you are free to change and redistribute it.\nThere is NO WARRANTY, to the extent permitted by law.\n",
+      "returncode": 0
+    },
+    "openocd": {
+      "output": "Open On-Chip Debugger 0.12.0\nLicensed under GNU GPL v2\nFor bug reports, read\n\thttp://openocd.org/doc/doxygen/bugs.html\n",
+      "returncode": 0
+    },
+    "renode": {
+      "output": "Renode v1.17.0\n  build: 1.17.0+gitab721d88e135a1bcb8ed2ecc5a38f51cbe61fdd2\n  build type: Release\n  runtime: .NET 10.0.12\n",
+      "returncode": 0
+    }
+  }
+}

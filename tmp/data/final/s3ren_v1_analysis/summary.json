@@ -1,0 +1,285 @@
+{
+  "condition_stats": {
+    "blackout_ore": {
+      "checksum_ok": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 2,
+        "stdev": 0.0
+      },
+      "fields": [
+        "tx_bytes",
+        "rx_bytes",
+        "ore_events",
+        "recovery_ok",
+        "checksum_ok",
+        "first_byte_retained"
+      ],
+      "first_byte_retained": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 2,
+        "stdev": 0.0
+      },
+      "n_rows": 2,
+      "ore_events": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 2,
+        "stdev": 0.0
+      },
+      "recovery_ok": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 2,
+        "stdev": 0.0
+      },
+      "rx_bytes": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 2,
+        "stdev": 0.0
+      },
+      "tx_bytes": {
+        "max": 3,
+        "mean": 3.0,
+        "median": 3.0,
+        "min": 3,
+        "n": 2,
+        "stdev": 0.0
+      }
+    },
+    "burst": {
+      "checksum_ok": {
+        "max": 1,
+        "mean": 1.0,
+        "median": 1.0,
+        "min": 1,
+        "n": 2,
+        "stdev": 0.0
+      },
+      "fields": [
+        "tx_bytes",
+        "rx_bytes",
+        "ore_events",
+        "recovery_ok",
+        "checksum_ok",
+        "first_byte_retained"
+      ],
+      "first_byte_retained": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 2,
+        "stdev": 0.0
+      },
+      "n_rows": 2,
+      "ore_events": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 2,
+        "stdev": 0.0
+      },
+      "recovery_ok": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 2,
+        "stdev": 0.0
+      },
+      "rx_bytes": {
+        "max": 8,
+        "mean": 8.0,
+        "median": 8.0,
+        "min": 8,
+        "n": 2,
+        "stdev": 0.0
+      },
+      "tx_bytes": {
+        "max": 8,
+        "mean": 8.0,
+        "median": 8.0,
+        "min": 8,
+        "n": 2,
+        "stdev": 0.0
+      }
+    },
+    "leisurely_10ms": {
+      "checksum_ok": {
+        "max": 1,
+        "mean": 1.0,
+        "median": 1.0,
+        "min": 1,
+        "n": 2,
+        "stdev": 0.0
+      },
+      "fields": [
+        "tx_bytes",
+        "rx_bytes",
+        "ore_events",
+        "recovery_ok",
+        "checksum_ok",
+        "first_byte_retained"
+      ],
+      "first_byte_retained": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 2,
+        "stdev": 0.0
+      },
+      "n_rows": 2,
+      "ore_events": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 2,
+        "stdev": 0.0
+      },
+      "recovery_ok": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 2,
+        "stdev": 0.0
+      },
+      "rx_bytes": {
+        "max": 8,
+        "mean": 8.0,
+        "median": 8.0,
+        "min": 8,
+        "n": 2,
+        "stdev": 0.0
+      },
+      "tx_bytes": {
+        "max": 8,
+        "mean": 8.0,
+        "median": 8.0,
+        "min": 8,
+        "n": 2,
+        "stdev": 0.0
+      }
+    },
+    "ore_recovery": {
+      "checksum_ok": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 2,
+        "stdev": 0.0
+      },
+      "fields": [
+        "tx_bytes",
+        "rx_bytes",
+        "ore_events",
+        "recovery_ok",
+        "checksum_ok",
+        "first_byte_retained"
+      ],
+      "first_byte_retained": {
+        "max": 1,
+        "mean": 0.5,
+        "median": 0.5,
+        "min": 0,
+        "n": 2,
+        "stdev": 0.7071067811865476
+      },
+      "n_rows": 2,
+      "ore_events": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 2,
+        "stdev": 0.0
+      },
+      "recovery_ok": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 2,
+        "stdev": 0.0
+      },
+      "rx_bytes": {
+        "max": 8,
+        "mean": 8.0,
+        "median": 8.0,
+        "min": 8,
+        "n": 2,
+        "stdev": 0.0
+      },
+      "tx_bytes": {
+        "max": 8,
+        "mean": 8.0,
+        "median": 8.0,
+        "min": 8,
+        "n": 2,
+        "stdev": 0.0
+      }
+    }
+  },
+  "environment": "renode",
+  "findings": [
+    {
+      "detail": "rows=8 integrity_failures=[7, 8]",
+      "id": "s3.payload",
+      "status": "refuted"
+    },
+    {
+      "detail": "HW expected ORE under blackout; Renode STM32_UART never raises ORE: ore_events=[(5, 0), (6, 0)] (RN zero = known model gap, not a functional pass)",
+      "id": "s3.ore_model_gap",
+      "status": "model_limitation"
+    },
+    {
+      "detail": "SR->DR recovery with retained old RDR byte",
+      "id": "s3.ore_recovery",
+      "status": "refuted"
+    },
+    {
+      "detail": "TX=28 RX=24 SR/ORE=0",
+      "id": "s3.tx_rx_events",
+      "status": "observed"
+    }
+  ],
+  "independent_unit": "run (snapshot); intra-run trials may be correlated",
+  "mips": 8,
+  "mips_policy": "nominal",
+  "observer_note": "DWT read and logging have context-dependent cost; empty-bracket rows quantify it, single subtraction not assumed",
+  "quality": {
+    "error": 0,
+    "frozen": true,
+    "functional_status": "requires_result_contract",
+    "global_equal_tick_order": "not_causal_proof",
+    "status": "captured",
+    "trace_complete": true,
+    "warnings": []
+  },
+  "quantum": "0.000001",
+  "run": "data/final/s3ren_v1",
+  "samples": {
+    "bracket_ticks": [],
+    "interarrival_ticks": []
+  },
+  "scenario": "s3_usart",
+  "sha256": "6586cc207191952f2597441dccd71d0bfec67a318eee051fdb59f81edbef3932",
+  "tick_domain": "DWT virtual timer 8MHz; not CPU cycles"
+}

@@ -1,0 +1,11 @@
+mach create "s3a"
+machine LoadPlatformDescription @renode/stm32f103_hsi8.repl
+logLevel 3
+emulation SetGlobalQuantum "0.000001"
+sysbus.cpu PerformanceInMips 100
+emulation CreateUARTHub "loop" true
+connector Connect sysbus.usart1 loop
+sysbus.usart1 AutoUpdateDelay true
+sysbus.usart1 DelayMultiplier 1
+sysbus LoadELF @build/s3a/firmware.elf
+machine StartGdbServer 3336

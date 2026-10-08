@@ -1,0 +1,9 @@
+trial,condition,tx_bytes,rx_bytes,ore_events,recovery_ok,checksum_ok,first_byte_retained
+1,1,8,8,0,0,1,0
+2,1,8,8,0,0,1,0
+3,2,8,8,0,0,1,0
+4,2,8,8,0,0,1,0
+5,3,3,0,0,0,0,0
+6,3,3,0,0,0,0,0
+7,4,8,8,0,0,0,1
+8,4,8,8,0,0,0,0

@@ -1,0 +1,404 @@
+{
+  "bracket_ticks": {
+    "1": 72,
+    "10": 9324,
+    "11": 9320,
+    "12": 9324,
+    "13": 12908,
+    "14": 12904,
+    "15": 12908,
+    "16": 12904,
+    "17": 6124,
+    "18": 6116,
+    "19": 6110,
+    "2": 73,
+    "20": 6126,
+    "21": 2224,
+    "22": 2221,
+    "23": 2216,
+    "24": 2223,
+    "25": 39601,
+    "26": 39608,
+    "27": 39604,
+    "28": 39608,
+    "3": 73,
+    "4": 74,
+    "5": 5484,
+    "6": 5480,
+    "7": 5484,
+    "8": 5480,
+    "9": 9320
+  },
+  "condition_stats": {
+    "alu_dep": {
+      "actual_checksum": {
+        "max": 4191148508,
+        "mean": 2535062508.0,
+        "median": 2544455052.5,
+        "min": 860191419,
+        "n": 4,
+        "stdev": 1897750466.4398625
+      },
+      "expected_checksum": {
+        "max": 4191148508,
+        "mean": 2535062508.0,
+        "median": 2544455052.5,
+        "min": 860191419,
+        "n": 4,
+        "stdev": 1897750466.4398625
+      },
+      "fields": [
+        "expected_checksum",
+        "actual_checksum",
+        "iterations",
+        "reserved",
+        "reserved",
+        "reserved"
+      ],
+      "iterations": {
+        "max": 256,
+        "mean": 256.0,
+        "median": 256.0,
+        "min": 256,
+        "n": 4,
+        "stdev": 0.0
+      },
+      "n_rows": 4,
+      "reserved": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 4,
+        "stdev": 0.0
+      }
+    },
+    "branch": {
+      "actual_checksum": {
+        "max": 3891898928,
+        "mean": 2075091619.5,
+        "median": 1925448967.0,
+        "min": 557569616,
+        "n": 4,
+        "stdev": 1466654262.0049732
+      },
+      "expected_checksum": {
+        "max": 3891898928,
+        "mean": 2075091619.5,
+        "median": 1925448967.0,
+        "min": 557569616,
+        "n": 4,
+        "stdev": 1466654262.0049732
+      },
+      "fields": [
+        "expected_checksum",
+        "actual_checksum",
+        "iterations",
+        "reserved",
+        "reserved",
+        "reserved"
+      ],
+      "iterations": {
+        "max": 256,
+        "mean": 256.0,
+        "median": 256.0,
+        "min": 256,
+        "n": 4,
+        "stdev": 0.0
+      },
+      "n_rows": 4,
+      "reserved": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 4,
+        "stdev": 0.0
+      }
+    },
+    "calibration": {
+      "actual_checksum": {
+        "max": 1668576668,
+        "mean": 1159624330.5,
+        "median": 1358915352.0,
+        "min": 252089950,
+        "n": 4,
+        "stdev": 622416627.1080714
+      },
+      "expected_checksum": {
+        "max": 1668576668,
+        "mean": 1159624330.5,
+        "median": 1358915352.0,
+        "min": 252089950,
+        "n": 4,
+        "stdev": 622416627.1080714
+      },
+      "fields": [
+        "expected_checksum",
+        "actual_checksum",
+        "iterations",
+        "reserved",
+        "reserved",
+        "reserved"
+      ],
+      "iterations": {
+        "max": 1000,
+        "mean": 1000.0,
+        "median": 1000.0,
+        "min": 1000,
+        "n": 4,
+        "stdev": 0.0
+      },
+      "n_rows": 4,
+      "reserved": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 4,
+        "stdev": 0.0
+      }
+    },
+    "div": {
+      "actual_checksum": {
+        "max": 722652,
+        "mean": 629441.25,
+        "median": 696781.5,
+        "min": 401550,
+        "n": 4,
+        "stdev": 152430.71791773685
+      },
+      "expected_checksum": {
+        "max": 722652,
+        "mean": 629441.25,
+        "median": 696781.5,
+        "min": 401550,
+        "n": 4,
+        "stdev": 152430.71791773685
+      },
+      "fields": [
+        "expected_checksum",
+        "actual_checksum",
+        "iterations",
+        "reserved",
+        "reserved",
+        "reserved"
+      ],
+      "iterations": {
+        "max": 256,
+        "mean": 256.0,
+        "median": 256.0,
+        "min": 256,
+        "n": 4,
+        "stdev": 0.0
+      },
+      "n_rows": 4,
+      "reserved": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 4,
+        "stdev": 0.0
+      }
+    },
+    "empty_bracket": {
+      "actual_checksum": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 4,
+        "stdev": 0.0
+      },
+      "expected_checksum": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 4,
+        "stdev": 0.0
+      },
+      "fields": [
+        "expected_checksum",
+        "actual_checksum",
+        "iterations",
+        "reserved",
+        "reserved",
+        "reserved"
+      ],
+      "iterations": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 4,
+        "stdev": 0.0
+      },
+      "n_rows": 4,
+      "reserved": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 4,
+        "stdev": 0.0
+      }
+    },
+    "mul": {
+      "actual_checksum": {
+        "max": 2676342784,
+        "mean": 1535023104.0,
+        "median": 1251651584.0,
+        "min": 960446464,
+        "n": 4,
+        "stdev": 782558842.2271417
+      },
+      "expected_checksum": {
+        "max": 2676342784,
+        "mean": 1535023104.0,
+        "median": 1251651584.0,
+        "min": 960446464,
+        "n": 4,
+        "stdev": 782558842.2271417
+      },
+      "fields": [
+        "expected_checksum",
+        "actual_checksum",
+        "iterations",
+        "reserved",
+        "reserved",
+        "reserved"
+      ],
+      "iterations": {
+        "max": 256,
+        "mean": 256.0,
+        "median": 256.0,
+        "min": 256,
+        "n": 4,
+        "stdev": 0.0
+      },
+      "n_rows": 4,
+      "reserved": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 4,
+        "stdev": 0.0
+      }
+    },
+    "sram_rw": {
+      "actual_checksum": {
+        "max": 2893005922,
+        "mean": 1793672865.5,
+        "median": 2115347222.0,
+        "min": 50991096,
+        "n": 4,
+        "stdev": 1263070769.8380504
+      },
+      "expected_checksum": {
+        "max": 2893005922,
+        "mean": 1793672865.5,
+        "median": 2115347222.0,
+        "min": 50991096,
+        "n": 4,
+        "stdev": 1263070769.8380504
+      },
+      "fields": [
+        "expected_checksum",
+        "actual_checksum",
+        "iterations",
+        "reserved",
+        "reserved",
+        "reserved"
+      ],
+      "iterations": {
+        "max": 64,
+        "mean": 64.0,
+        "median": 64.0,
+        "min": 64,
+        "n": 4,
+        "stdev": 0.0
+      },
+      "n_rows": 4,
+      "reserved": {
+        "max": 0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0,
+        "n": 4,
+        "stdev": 0.0
+      }
+    }
+  },
+  "environment": "renode",
+  "findings": [
+    {
+      "detail": "28 bracket(s); durations ticks: {'n': 28, 'min': 72, 'max': 39608, 'median': 6120.0, 'mean': 10818.32142857143, 'stdev': 12621.09066442056}",
+      "id": "s1.brackets",
+      "status": "observed"
+    },
+    {
+      "detail": "checksums equal on 28 row(s)",
+      "id": "s1.functional",
+      "status": "observed"
+    },
+    {
+      "detail": "4 empty-bracket row(s)",
+      "id": "s1.empty_bracket",
+      "status": "observed"
+    }
+  ],
+  "independent_unit": "run (snapshot); intra-run trials may be correlated",
+  "mips": 8,
+  "mips_policy": "nominal",
+  "observer_note": "DWT read and logging have context-dependent cost; empty-bracket rows quantify it, single subtraction not assumed",
+  "quality": {
+    "error": 0,
+    "frozen": true,
+    "functional_status": "requires_result_contract",
+    "global_equal_tick_order": "not_causal_proof",
+    "status": "captured",
+    "trace_complete": true,
+    "warnings": []
+  },
+  "quantum": "0.000001",
+  "run": "data/final/s1ren_v4",
+  "samples": {
+    "bracket_ticks": [
+      72,
+      73,
+      73,
+      74,
+      2216,
+      2221,
+      2223,
+      2224,
+      5480,
+      5480,
+      5484,
+      5484,
+      6110,
+      6116,
+      6124,
+      6126,
+      9320,
+      9320,
+      9324,
+      9324,
+      12904,
+      12904,
+      12908,
+      12908,
+      39601,
+      39604,
+      39608,
+      39608
+    ],
+    "interarrival_ticks": []
+  },
+  "scenario": "s1_core_mem",
+  "sha256": "3d0014f120e913236e03fe2e9027485d9b2017ce3d0b4585faf8c0f8f1f33411",
+  "tick_domain": "DWT virtual timer 8MHz; not CPU cycles"
+}

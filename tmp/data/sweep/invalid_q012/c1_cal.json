@@ -1,0 +1,14 @@
+{
+ "tag": "c1_cal",
+ "case": "c1",
+ "mips": 50,
+ "scale": 9,
+ "cpi_eff": 1.44,
+ "quantum": "0.00000108",
+ "runfor": "7",
+ "done": 1,
+ "n": 700,
+ "executed_instr": 32679739,
+ "elapsed_cycles": 32679739,
+ "wall_s": 164.8
+}

@@ -1,0 +1,13 @@
+{
+ "tag": "c2_def",
+ "case": "c2",
+ "mips": "100",
+ "cpi": "1",
+ "quantum": "0.000001",
+ "runfor": "1.2",
+ "done": 1,
+ "n": 2048,
+ "executed_instr": 79510,
+ "elapsed_cycles": 120000000,
+ "wall_s": 21.4
+}

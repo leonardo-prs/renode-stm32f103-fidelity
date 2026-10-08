@@ -1,0 +1,8 @@
+mach create "s4_fidelity"
+using sysbus
+machine LoadPlatformDescription @renode/stm32f103_hsi8.repl
+logLevel 1
+emulation SetGlobalQuantum "0.000001"
+sysbus.cpu PerformanceInMips 8
+sysbus LoadELF @build/s4/firmware.elf
+machine StartGdbServer 3336

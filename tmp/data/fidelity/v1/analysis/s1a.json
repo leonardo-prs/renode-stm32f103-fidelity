@@ -1,0 +1,528 @@
+{
+  "functional": [
+    {
+      "check": "assinatura dos kernels = oráculo do host",
+      "env": "hw",
+      "pass": 1260,
+      "total": 1260
+    },
+    {
+      "check": "assinatura dos kernels = oráculo do host",
+      "env": "rn-m8-q1us",
+      "pass": 378,
+      "total": 378
+    },
+    {
+      "check": "assinatura dos kernels = oráculo do host",
+      "env": "hw-free",
+      "pass": 378,
+      "total": 378
+    },
+    {
+      "check": "assinatura dos kernels = oráculo do host",
+      "env": "rn-m100-q1us",
+      "pass": 252,
+      "total": 252
+    },
+    {
+      "check": "assinatura dos kernels = oráculo do host",
+      "env": "rn-m7-q1us",
+      "pass": 252,
+      "total": 252
+    },
+    {
+      "check": "assinatura dos kernels = oráculo do host",
+      "env": "rn-m8-q125ns",
+      "pass": 252,
+      "total": 252
+    }
+  ],
+  "tables": [
+    {
+      "title": "Custo por iteração (inclinação, trials quentes 1..4 × runs)",
+      "unit": "HW: ciclos HCLK; Renode: ticks do DWT virtual (8 MHz)",
+      "rows": [
+        {
+          "kernel": "loop",
+          "instr/iter": 2,
+          "TRM ciclos/iter": 3,
+          "hw /iter": 3.0,
+          "hw faixa": "3..3",
+          "rn-m8-q1us /iter": 1.98828125,
+          "rn-m8-q1us faixa": "1.99..2.02",
+          "hw-free /iter": 3.0,
+          "hw-free faixa": "3..3",
+          "rn-m100-q1us /iter": 0.16015625,
+          "rn-m100-q1us faixa": "0.16..0.16",
+          "rn-m7-q1us /iter": 2.28125,
+          "rn-m7-q1us faixa": "2.25..2.28",
+          "rn-m8-q125ns /iter": 2.0,
+          "rn-m8-q125ns faixa": "2..2",
+          "CPI HW": 1.5,
+          "nota TRM": "SUBS 1 + B<cond> tomado 1+P (P=1)"
+        },
+        {
+          "kernel": "alu",
+          "instr/iter": 18,
+          "TRM ciclos/iter": 19,
+          "hw /iter": 19.0,
+          "hw faixa": "19..19",
+          "rn-m8-q1us /iter": 18.0,
+          "rn-m8-q1us faixa": "18..18",
+          "hw-free /iter": 19.0,
+          "hw-free faixa": "19..19",
+          "rn-m100-q1us /iter": 1.439453125,
+          "rn-m100-q1us faixa": "1.44..1.45",
+          "rn-m7-q1us /iter": 20.5625,
+          "rn-m7-q1us faixa": "20.56..20.56",
+          "rn-m8-q125ns /iter": 18.0,
+          "rn-m8-q125ns faixa": "18..18",
+          "CPI HW": 1.0555555555555556,
+          "nota TRM": "ADDS 1 ciclo"
+        },
+        {
+          "kernel": "mul",
+          "instr/iter": 18,
+          "TRM ciclos/iter": 19,
+          "hw /iter": 19.0,
+          "hw faixa": "19..19",
+          "rn-m8-q1us /iter": 18.0,
+          "rn-m8-q1us faixa": "18..18",
+          "hw-free /iter": 19.0,
+          "hw-free faixa": "19..19",
+          "rn-m100-q1us /iter": 1.44140625,
+          "rn-m100-q1us faixa": "1.44..1.44",
+          "rn-m7-q1us /iter": 20.5625,
+          "rn-m7-q1us faixa": "20.56..20.59",
+          "rn-m8-q125ns /iter": 18.0,
+          "rn-m8-q125ns faixa": "18..18",
+          "CPI HW": 1.0555555555555556,
+          "nota TRM": "MUL 1 ciclo"
+        },
+        {
+          "kernel": "udiv_fast",
+          "instr/iter": 18,
+          "TRM ciclos/iter": null,
+          "hw /iter": 51.0,
+          "hw faixa": "51..51",
+          "rn-m8-q1us /iter": 18.0,
+          "rn-m8-q1us faixa": "18..18",
+          "hw-free /iter": 51.0,
+          "hw-free faixa": "51..51",
+          "rn-m100-q1us /iter": 1.4375,
+          "rn-m100-q1us faixa": "1.44..1.44",
+          "rn-m7-q1us /iter": 20.5625,
+          "rn-m7-q1us faixa": "20.56..20.59",
+          "rn-m8-q125ns /iter": 18.0,
+          "rn-m8-q125ns faixa": "18..18",
+          "CPI HW": 2.8333333333333335,
+          "nota TRM": "UDIV 2–12 ciclos (mínimo quando divisor > dividendo)"
+        },
+        {
+          "kernel": "udiv_slow",
+          "instr/iter": 18,
+          "TRM ciclos/iter": null,
+          "hw /iter": 195.0,
+          "hw faixa": "195..195",
+          "rn-m8-q1us /iter": 18.0,
+          "rn-m8-q1us faixa": "18..18",
+          "hw-free /iter": 195.0,
+          "hw-free faixa": "195..195",
+          "rn-m100-q1us /iter": 1.4375,
+          "rn-m100-q1us faixa": "1.44..1.44",
+          "rn-m7-q1us /iter": 20.578125,
+          "rn-m7-q1us faixa": "20.56..20.59",
+          "rn-m8-q125ns /iter": 18.0,
+          "rn-m8-q125ns faixa": "18..18",
+          "CPI HW": 10.833333333333334,
+          "nota TRM": "UDIV 2–12 ciclos (quociente grande → perto do máximo)"
+        },
+        {
+          "kernel": "ldr",
+          "instr/iter": 18,
+          "TRM ciclos/iter": 20,
+          "hw /iter": 20.0,
+          "hw faixa": "20..20",
+          "rn-m8-q1us /iter": 17.98828125,
+          "rn-m8-q1us faixa": "17.99..17.99",
+          "hw-free /iter": 20.0,
+          "hw-free faixa": "20..20",
+          "rn-m100-q1us /iter": 1.44140625,
+          "rn-m100-q1us faixa": "1.44..1.44",
+          "rn-m7-q1us /iter": 20.5625,
+          "rn-m7-q1us faixa": "20.56..20.59",
+          "rn-m8-q125ns /iter": 18.0,
+          "rn-m8-q125ns faixa": "18..18",
+          "CPI HW": 1.1111111111111112,
+          "nota TRM": "LDR 2; LDRs seguidas pipelinam (N+1)"
+        },
+        {
+          "kernel": "ldr_dep",
+          "instr/iter": 18,
+          "TRM ciclos/iter": 35,
+          "hw /iter": 35.0,
+          "hw faixa": "35..35",
+          "rn-m8-q1us /iter": 17.98828125,
+          "rn-m8-q1us faixa": "17.99..18.01",
+          "hw-free /iter": 35.0,
+          "hw-free faixa": "35..35",
+          "rn-m100-q1us /iter": 1.44140625,
+          "rn-m100-q1us faixa": "1.44..1.44",
+          "rn-m7-q1us /iter": 20.5625,
+          "rn-m7-q1us faixa": "20.56..20.56",
+          "rn-m8-q125ns /iter": 18.0,
+          "rn-m8-q125ns faixa": "18..18",
+          "CPI HW": 1.9444444444444444,
+          "nota TRM": "LDR 2; destino usado no endereço seguinte → sem pipelining"
+        },
+        {
+          "kernel": "str",
+          "instr/iter": 18,
+          "TRM ciclos/iter": 19,
+          "hw /iter": 19.0,
+          "hw faixa": "19..19",
+          "rn-m8-q1us /iter": 17.98828125,
+          "rn-m8-q1us faixa": "17.99..18.02",
+          "hw-free /iter": 19.0,
+          "hw-free faixa": "19..19",
+          "rn-m100-q1us /iter": 1.44140625,
+          "rn-m100-q1us faixa": "1.44..1.44",
+          "rn-m7-q1us /iter": 20.5625,
+          "rn-m7-q1us faixa": "20.56..20.56",
+          "rn-m8-q125ns /iter": 18.0,
+          "rn-m8-q125ns faixa": "18..18",
+          "CPI HW": 1.0555555555555556,
+          "nota TRM": "STR Rx,[Ry,#imm] sempre 1 ciclo"
+        },
+        {
+          "kernel": "ldr_flash",
+          "instr/iter": 18,
+          "TRM ciclos/iter": null,
+          "hw /iter": 26.0,
+          "hw faixa": "26..26",
+          "rn-m8-q1us /iter": 17.98828125,
+          "rn-m8-q1us faixa": "17.99..18.02",
+          "hw-free /iter": 26.0,
+          "hw-free faixa": "26..26",
+          "rn-m100-q1us /iter": 1.4375,
+          "rn-m100-q1us faixa": "1.43..1.44",
+          "rn-m7-q1us /iter": 20.5625,
+          "rn-m7-q1us faixa": "20.56..20.56",
+          "rn-m8-q125ns /iter": 18.0,
+          "rn-m8-q125ns faixa": "18..18",
+          "CPI HW": 1.4444444444444444,
+          "nota TRM": "LDR de flash: 2 + possível contenção com o fetch"
+        },
+        {
+          "kernel": "branch",
+          "instr/iter": 18,
+          "TRM ciclos/iter": 35,
+          "hw /iter": 35.0,
+          "hw faixa": "35..35",
+          "rn-m8-q1us /iter": 17.98828125,
+          "rn-m8-q1us faixa": "17.99..18",
+          "hw-free /iter": 35.0,
+          "hw-free faixa": "35..35",
+          "rn-m100-q1us /iter": 1.435546875,
+          "rn-m100-q1us faixa": "1.43..1.44",
+          "rn-m7-q1us /iter": 20.5625,
+          "rn-m7-q1us faixa": "20.56..20.56",
+          "rn-m8-q125ns /iter": 18.0,
+          "rn-m8-q125ns faixa": "18..18",
+          "CPI HW": 1.9444444444444444,
+          "nota TRM": "B tomado com imediato = 2 ciclos"
+        },
+        {
+          "kernel": "ldm",
+          "instr/iter": 18,
+          "TRM ciclos/iter": 83,
+          "hw /iter": 83.0,
+          "hw faixa": "83..83",
+          "rn-m8-q1us /iter": 17.98828125,
+          "rn-m8-q1us faixa": "17.99..17.99",
+          "hw-free /iter": 83.0,
+          "hw-free faixa": "83..83",
+          "rn-m100-q1us /iter": 1.44140625,
+          "rn-m100-q1us faixa": "1.44..1.45",
+          "rn-m7-q1us /iter": 20.5625,
+          "rn-m7-q1us faixa": "20.56..20.56",
+          "rn-m8-q125ns /iter": 18.0,
+          "rn-m8-q125ns faixa": "18..18",
+          "CPI HW": 4.611111111111111,
+          "nota TRM": "LDM 1+N (N=4)"
+        },
+        {
+          "kernel": "mix",
+          "instr/iter": 18,
+          "TRM ciclos/iter": null,
+          "hw /iter": 22.0,
+          "hw faixa": "22..22",
+          "rn-m8-q1us /iter": 18.0,
+          "rn-m8-q1us faixa": "18..18",
+          "hw-free /iter": 22.0,
+          "hw-free faixa": "22..22",
+          "rn-m100-q1us /iter": 1.44140625,
+          "rn-m100-q1us faixa": "1.44..1.44",
+          "rn-m7-q1us /iter": 20.578125,
+          "rn-m7-q1us faixa": "20.56..20.59",
+          "rn-m8-q125ns /iter": 18.0,
+          "rn-m8-q125ns faixa": "18..18",
+          "CPI HW": 1.2222222222222223,
+          "nota TRM": "mix (calibração): soma nominal 23, pipelining LDR→STR pode tirar 1"
+        },
+        {
+          "kernel": "alu_ram",
+          "instr/iter": 18,
+          "TRM ciclos/iter": null,
+          "hw /iter": 20.0,
+          "hw faixa": "20..20",
+          "rn-m8-q1us /iter": 18.0,
+          "rn-m8-q1us faixa": "18..18",
+          "hw-free /iter": 20.0,
+          "hw-free faixa": "20..20",
+          "rn-m100-q1us /iter": 1.44140625,
+          "rn-m100-q1us faixa": "1.44..1.44",
+          "rn-m7-q1us /iter": 20.578125,
+          "rn-m7-q1us faixa": "20.56..20.59",
+          "rn-m8-q125ns /iter": 18.0,
+          "rn-m8-q125ns faixa": "18..18",
+          "CPI HW": 1.1111111111111112,
+          "nota TRM": "ALU executando da SRAM (barramento System)"
+        },
+        {
+          "kernel": "ldr_ram",
+          "instr/iter": 18,
+          "TRM ciclos/iter": null,
+          "hw /iter": 29.0,
+          "hw faixa": "29..29",
+          "rn-m8-q1us /iter": 18.009765625,
+          "rn-m8-q1us faixa": "18..18.02",
+          "hw-free /iter": 29.0,
+          "hw-free faixa": "29..29",
+          "rn-m100-q1us /iter": 1.439453125,
+          "rn-m100-q1us faixa": "1.43..1.44",
+          "rn-m7-q1us /iter": 20.5625,
+          "rn-m7-q1us faixa": "20.56..20.59",
+          "rn-m8-q125ns /iter": 18.0,
+          "rn-m8-q125ns faixa": "18..18",
+          "CPI HW": 1.6111111111111112,
+          "nota TRM": "LDR com código na SRAM (contenção no barramento System)"
+        }
+      ]
+    },
+    {
+      "title": "Primeira execução após reset (COLD − WARM, mesma N)",
+      "unit": "ciclos/ticks",
+      "rows": [
+        {
+          "kernel": "loop",
+          "hw excesso 1ª exec.": "217..217",
+          "rn-m8-q1us excesso 1ª exec.": "6..6",
+          "hw-free excesso 1ª exec.": "217..217",
+          "rn-m100-q1us excesso 1ª exec.": "0..0",
+          "rn-m7-q1us excesso 1ª exec.": "0..0",
+          "rn-m8-q125ns excesso 1ª exec.": "0..0"
+        },
+        {
+          "kernel": "alu",
+          "hw excesso 1ª exec.": "223..223",
+          "rn-m8-q1us excesso 1ª exec.": "0..0",
+          "hw-free excesso 1ª exec.": "223..223",
+          "rn-m100-q1us excesso 1ª exec.": "0..0",
+          "rn-m7-q1us excesso 1ª exec.": "0..0",
+          "rn-m8-q125ns excesso 1ª exec.": "0..0"
+        },
+        {
+          "kernel": "mul",
+          "hw excesso 1ª exec.": "220..220",
+          "rn-m8-q1us excesso 1ª exec.": "1..1",
+          "hw-free excesso 1ª exec.": "220..220",
+          "rn-m100-q1us excesso 1ª exec.": "0..0",
+          "rn-m7-q1us excesso 1ª exec.": "0..0",
+          "rn-m8-q125ns excesso 1ª exec.": "0..0"
+        },
+        {
+          "kernel": "udiv_fast",
+          "hw excesso 1ª exec.": "440..440",
+          "rn-m8-q1us excesso 1ª exec.": "5..5",
+          "hw-free excesso 1ª exec.": "440..440",
+          "rn-m100-q1us excesso 1ª exec.": "-1..-1",
+          "rn-m7-q1us excesso 1ª exec.": "0..0",
+          "rn-m8-q125ns excesso 1ª exec.": "0..0"
+        },
+        {
+          "kernel": "udiv_slow",
+          "hw excesso 1ª exec.": "270..270",
+          "rn-m8-q1us excesso 1ª exec.": "-2..-2",
+          "hw-free excesso 1ª exec.": "270..270",
+          "rn-m100-q1us excesso 1ª exec.": "0..0",
+          "rn-m7-q1us excesso 1ª exec.": "0..0",
+          "rn-m8-q125ns excesso 1ª exec.": "0..0"
+        },
+        {
+          "kernel": "ldr",
+          "hw excesso 1ª exec.": "328..328",
+          "rn-m8-q1us excesso 1ª exec.": "-3..-3",
+          "hw-free excesso 1ª exec.": "328..328",
+          "rn-m100-q1us excesso 1ª exec.": "0..0",
+          "rn-m7-q1us excesso 1ª exec.": "0..0",
+          "rn-m8-q125ns excesso 1ª exec.": "0..0"
+        },
+        {
+          "kernel": "ldr_dep",
+          "hw excesso 1ª exec.": "210..210",
+          "rn-m8-q1us excesso 1ª exec.": "4..4",
+          "hw-free excesso 1ª exec.": "210..210",
+          "rn-m100-q1us excesso 1ª exec.": "0..0",
+          "rn-m7-q1us excesso 1ª exec.": "0..0",
+          "rn-m8-q125ns excesso 1ª exec.": "0..0"
+        },
+        {
+          "kernel": "str",
+          "hw excesso 1ª exec.": "215..215",
+          "rn-m8-q1us excesso 1ª exec.": "3..3",
+          "hw-free excesso 1ª exec.": "215..215",
+          "rn-m100-q1us excesso 1ª exec.": "0..0",
+          "rn-m7-q1us excesso 1ª exec.": "0..0",
+          "rn-m8-q125ns excesso 1ª exec.": "0..0"
+        },
+        {
+          "kernel": "ldr_flash",
+          "hw excesso 1ª exec.": "219..219",
+          "rn-m8-q1us excesso 1ª exec.": "2..2",
+          "hw-free excesso 1ª exec.": "219..219",
+          "rn-m100-q1us excesso 1ª exec.": "-1..-1",
+          "rn-m7-q1us excesso 1ª exec.": "0..0",
+          "rn-m8-q125ns excesso 1ª exec.": "0..0"
+        },
+        {
+          "kernel": "branch",
+          "hw excesso 1ª exec.": "217..217",
+          "rn-m8-q1us excesso 1ª exec.": "-4..-4",
+          "hw-free excesso 1ª exec.": "217..217",
+          "rn-m100-q1us excesso 1ª exec.": "-1..-1",
+          "rn-m7-q1us excesso 1ª exec.": "0..0",
+          "rn-m8-q125ns excesso 1ª exec.": "0..0"
+        },
+        {
+          "kernel": "ldm",
+          "hw excesso 1ª exec.": "306..306",
+          "rn-m8-q1us excesso 1ª exec.": "0..0",
+          "hw-free excesso 1ª exec.": "306..306",
+          "rn-m100-q1us excesso 1ª exec.": "2..2",
+          "rn-m7-q1us excesso 1ª exec.": "-8..-8",
+          "rn-m8-q125ns excesso 1ª exec.": "0..0"
+        },
+        {
+          "kernel": "mix",
+          "hw excesso 1ª exec.": "110..110",
+          "rn-m8-q1us excesso 1ª exec.": "-1..-1",
+          "hw-free excesso 1ª exec.": "110..110",
+          "rn-m100-q1us excesso 1ª exec.": "0..0",
+          "rn-m7-q1us excesso 1ª exec.": "0..0",
+          "rn-m8-q125ns excesso 1ª exec.": "0..0"
+        },
+        {
+          "kernel": "alu_ram",
+          "hw excesso 1ª exec.": "0..0",
+          "rn-m8-q1us excesso 1ª exec.": "3..3",
+          "hw-free excesso 1ª exec.": "0..0",
+          "rn-m100-q1us excesso 1ª exec.": "-1..-1",
+          "rn-m7-q1us excesso 1ª exec.": "0..0",
+          "rn-m8-q125ns excesso 1ª exec.": "0..0"
+        },
+        {
+          "kernel": "ldr_ram",
+          "hw excesso 1ª exec.": "0..0",
+          "rn-m8-q1us excesso 1ª exec.": "2..2",
+          "hw-free excesso 1ª exec.": "0..0",
+          "rn-m100-q1us excesso 1ª exec.": "-1..-1",
+          "rn-m7-q1us excesso 1ª exec.": "8..8",
+          "rn-m8-q125ns excesso 1ª exec.": "0..0"
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Renode 1.17: tempo = instruções ÷ PerformanceInMips (BaseCPU); com 8 MIPS e DWT a 8 MHz, 1 instrução = 1 tick em qualquer classe."
+  ],
+  "derived": {
+    "calibration": {
+      "kernel": "mix (s1k_mix, congelado)",
+      "hw_cycles_per_iter": 22.0,
+      "instr_per_iter": 18,
+      "cpi": 1.2222222222222223,
+      "mips_exact": 6.545454545454545,
+      "mips_integer": 7,
+      "rule": "MIPS_cal = 8 MHz / CPI_mix; Renode só aceita inteiro"
+    }
+  },
+  "determinism": {
+    "hw": {
+      "runs": 10,
+      "distinct_row_sets": 1,
+      "identical": true
+    },
+    "hw-free": {
+      "runs": 3,
+      "distinct_row_sets": 1,
+      "identical": true
+    },
+    "rn-m100-q1us": {
+      "runs": 2,
+      "distinct_row_sets": 1,
+      "identical": true
+    },
+    "rn-m7-q1us": {
+      "runs": 2,
+      "distinct_row_sets": 1,
+      "identical": true
+    },
+    "rn-m8-q125ns": {
+      "runs": 2,
+      "distinct_row_sets": 1,
+      "identical": true
+    },
+    "rn-m8-q1us": {
+      "runs": 3,
+      "distinct_row_sets": 1,
+      "identical": true
+    }
+  },
+  "runs": {
+    "hw": [
+      "data/fidelity/v1/s1a/hw/run-001",
+      "data/fidelity/v1/s1a/hw/run-002",
+      "data/fidelity/v1/s1a/hw/run-003",
+      "data/fidelity/v1/s1a/hw/run-004",
+      "data/fidelity/v1/s1a/hw/run-005",
+      "data/fidelity/v1/s1a/hw/run-006",
+      "data/fidelity/v1/s1a/hw/run-007",
+      "data/fidelity/v1/s1a/hw/run-008",
+      "data/fidelity/v1/s1a/hw/run-009",
+      "data/fidelity/v1/s1a/hw/run-010"
+    ],
+    "hw-free": [
+      "data/fidelity/v1/s1a/hw-free/run-001",
+      "data/fidelity/v1/s1a/hw-free/run-002",
+      "data/fidelity/v1/s1a/hw-free/run-003"
+    ],
+    "rn-m100-q1us": [
+      "data/fidelity/v1/s1a/rn-m100-q1us/run-001",
+      "data/fidelity/v1/s1a/rn-m100-q1us/run-002"
+    ],
+    "rn-m7-q1us": [
+      "data/fidelity/v1/s1a/rn-m7-q1us/run-001",
+      "data/fidelity/v1/s1a/rn-m7-q1us/run-002"
+    ],
+    "rn-m8-q125ns": [
+      "data/fidelity/v1/s1a/rn-m8-q125ns/run-001",
+      "data/fidelity/v1/s1a/rn-m8-q125ns/run-002"
+    ],
+    "rn-m8-q1us": [
+      "data/fidelity/v1/s1a/rn-m8-q1us/run-001",
+      "data/fidelity/v1/s1a/rn-m8-q1us/run-002",
+      "data/fidelity/v1/s1a/rn-m8-q1us/run-003"
+    ]
+  }
+}

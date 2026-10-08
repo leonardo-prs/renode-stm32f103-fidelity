@@ -1,0 +1,270 @@
+{
+  "functional": [],
+  "tables": [
+    {
+      "title": "Latência TIM2 update → 1ª leitura de CNT na ISR (amostras 1..63)",
+      "unit": "ticks do TIM2 (= ciclos HCLK no HW; tempo virtual no Renode)",
+      "rows": [
+        {
+          "condição": "alu",
+          "hw lat. mín/med/máx": "22/22/22",
+          "hw 1ª IRQ": "466",
+          "hw período med (faixa)": "8000 (8000..8000)",
+          "rn-m8-q1us lat. mín/med/máx": "1/5/5",
+          "rn-m8-q1us 1ª IRQ": "1",
+          "rn-m8-q1us período med (faixa)": "8000 (7993..8000)",
+          "hw-free lat. mín/med/máx": "22/22/22",
+          "hw-free 1ª IRQ": "466",
+          "hw-free período med (faixa)": "8000 (8000..8000)",
+          "rn-m100-q1us lat. mín/med/máx": "0/0/0",
+          "rn-m100-q1us 1ª IRQ": "0",
+          "rn-m100-q1us período med (faixa)": "7999 (7999..7999)",
+          "rn-m7-q1us lat. mín/med/máx": "0/4/7",
+          "rn-m7-q1us 1ª IRQ": "1",
+          "rn-m7-q1us período med (faixa)": "8000 (7992..8000)",
+          "rn-m8-q125ns lat. mín/med/máx": "5/5/5",
+          "rn-m8-q125ns 1ª IRQ": "5",
+          "rn-m8-q125ns período med (faixa)": "7999 (7999..7999)"
+        },
+        {
+          "condição": "div",
+          "hw lat. mín/med/máx": "22/22/22",
+          "hw 1ª IRQ": "22",
+          "hw período med (faixa)": "8000 (8000..8000)",
+          "rn-m8-q1us lat. mín/med/máx": "1/5/5",
+          "rn-m8-q1us 1ª IRQ": "1",
+          "rn-m8-q1us período med (faixa)": "8000 (7993..8000)",
+          "hw-free lat. mín/med/máx": "22/22/22",
+          "hw-free 1ª IRQ": "22",
+          "hw-free período med (faixa)": "8000 (8000..8000)",
+          "rn-m100-q1us lat. mín/med/máx": "0/0/0",
+          "rn-m100-q1us 1ª IRQ": "0",
+          "rn-m100-q1us período med (faixa)": "7999 (7998..8000)",
+          "rn-m7-q1us lat. mín/med/máx": "0/4/7",
+          "rn-m7-q1us 1ª IRQ": "1",
+          "rn-m7-q1us período med (faixa)": "8000 (7992..8000)",
+          "rn-m8-q125ns lat. mín/med/máx": "5/5/5",
+          "rn-m8-q125ns 1ª IRQ": "5",
+          "rn-m8-q125ns período med (faixa)": "7999 (7999..7999)"
+        },
+        {
+          "condição": "ldm",
+          "hw lat. mín/med/máx": "22/22/22",
+          "hw 1ª IRQ": "22",
+          "hw período med (faixa)": "8000 (8000..8000)",
+          "rn-m8-q1us lat. mín/med/máx": "1/5/5",
+          "rn-m8-q1us 1ª IRQ": "1",
+          "rn-m8-q1us período med (faixa)": "8000 (7993..8000)",
+          "hw-free lat. mín/med/máx": "22/22/22",
+          "hw-free 1ª IRQ": "22",
+          "hw-free período med (faixa)": "8000 (8000..8000)",
+          "rn-m100-q1us lat. mín/med/máx": "0/0/0",
+          "rn-m100-q1us 1ª IRQ": "0",
+          "rn-m100-q1us período med (faixa)": "7999 (7999..7999)",
+          "rn-m7-q1us lat. mín/med/máx": "0/4/7",
+          "rn-m7-q1us 1ª IRQ": "1",
+          "rn-m7-q1us período med (faixa)": "8000 (7992..8000)",
+          "rn-m8-q125ns lat. mín/med/máx": "5/5/5",
+          "rn-m8-q125ns 1ª IRQ": "5",
+          "rn-m8-q125ns período med (faixa)": "7999 (7999..7999)"
+        },
+        {
+          "condição": "wfi",
+          "hw lat. mín/med/máx": "22/22/22",
+          "hw 1ª IRQ": "22",
+          "hw período med (faixa)": "8000 (8000..8000)",
+          "rn-m8-q1us lat. mín/med/máx": "1/5/5",
+          "rn-m8-q1us 1ª IRQ": "1",
+          "rn-m8-q1us período med (faixa)": "8000 (7993..8000)",
+          "hw-free lat. mín/med/máx": "22/22/22",
+          "hw-free 1ª IRQ": "22",
+          "hw-free período med (faixa)": "8000 (8000..8000)",
+          "rn-m100-q1us lat. mín/med/máx": "0/0/0",
+          "rn-m100-q1us 1ª IRQ": "0",
+          "rn-m100-q1us período med (faixa)": "7999 (7999..7999)",
+          "rn-m7-q1us lat. mín/med/máx": "0/4/7",
+          "rn-m7-q1us 1ª IRQ": "1",
+          "rn-m7-q1us período med (faixa)": "8000 (7992..8000)",
+          "rn-m8-q125ns lat. mín/med/máx": "5/5/5",
+          "rn-m8-q125ns 1ª IRQ": "5",
+          "rn-m8-q125ns período med (faixa)": "7999 (7999..7999)"
+        },
+        {
+          "condição": "masked",
+          "hw lat. mín/med/máx": "230/233/233",
+          "hw 1ª IRQ": "233",
+          "hw período med (faixa)": "8000 (7997..8003)",
+          "rn-m8-q1us lat. mín/med/máx": "207/211/217",
+          "rn-m8-q1us 1ª IRQ": "209",
+          "rn-m8-q1us período med (faixa)": "7999 (7993..8008)",
+          "hw-free lat. mín/med/máx": "230/233/233",
+          "hw-free 1ª IRQ": "233",
+          "hw-free período med (faixa)": "8000 (7997..8003)",
+          "rn-m100-q1us lat. mín/med/máx": "200/200/200",
+          "rn-m100-q1us 1ª IRQ": "200",
+          "rn-m100-q1us período med (faixa)": "7999 (7998..8000)",
+          "rn-m7-q1us lat. mín/med/máx": "208/212/215",
+          "rn-m7-q1us 1ª IRQ": "209",
+          "rn-m7-q1us período med (faixa)": "8000 (7984..8000)",
+          "rn-m8-q125ns lat. mín/med/máx": "211/211/211",
+          "rn-m8-q125ns 1ª IRQ": "211",
+          "rn-m8-q125ns período med (faixa)": "7999 (7999..7999)"
+        },
+        {
+          "condição": "wfi_nodbg",
+          "hw lat. mín/med/máx": "22/22/22",
+          "hw 1ª IRQ": "22",
+          "hw período med (faixa)": "8000 (8000..8000)",
+          "rn-m8-q1us lat. mín/med/máx": "1/5/5",
+          "rn-m8-q1us 1ª IRQ": "1",
+          "rn-m8-q1us período med (faixa)": "8000 (7993..8000)",
+          "hw-free lat. mín/med/máx": "22/22/22",
+          "hw-free 1ª IRQ": "22",
+          "hw-free período med (faixa)": "8000 (8000..8000)",
+          "rn-m100-q1us lat. mín/med/máx": "0/0/0",
+          "rn-m100-q1us 1ª IRQ": "0",
+          "rn-m100-q1us período med (faixa)": "7999 (7998..8000)",
+          "rn-m7-q1us lat. mín/med/máx": "0/4/7",
+          "rn-m7-q1us 1ª IRQ": "1",
+          "rn-m7-q1us período med (faixa)": "8000 (7992..8000)",
+          "rn-m8-q125ns lat. mín/med/máx": "5/5/5",
+          "rn-m8-q125ns 1ª IRQ": "5",
+          "rn-m8-q125ns período med (faixa)": "7999 (7999..7999)"
+        }
+      ]
+    },
+    {
+      "title": "Trabalho do laço de fundo por período de 8000 ciclos",
+      "unit": "iterações (TRM: ciclos/iteração esperados no HW)",
+      "rows": [
+        {
+          "condição": "alu",
+          "TRM ciclos/iter": 17,
+          "instr/iter": 14,
+          "hw iter/período": 467.0,
+          "rn-m8-q1us iter/período": 569.0,
+          "hw-free iter/período": 467.0,
+          "rn-m100-q1us iter/período": 7140.0,
+          "rn-m7-q1us iter/período": 498.0,
+          "rn-m8-q125ns iter/período": 569.0,
+          "rn-m8-q1us/HW": 1.2184154175588866,
+          "hw-free/HW": 1.0,
+          "rn-m100-q1us/HW": 15.289079229122056,
+          "rn-m7-q1us/HW": 1.0663811563169165,
+          "rn-m8-q125ns/HW": 1.2184154175588866
+        },
+        {
+          "condição": "div",
+          "TRM ciclos/iter": 105,
+          "instr/iter": 14,
+          "hw iter/período": 75.0,
+          "rn-m8-q1us iter/período": 569.0,
+          "hw-free iter/período": 75.0,
+          "rn-m100-q1us iter/período": 7140.0,
+          "rn-m7-q1us iter/período": 498.0,
+          "rn-m8-q125ns iter/período": 569.0,
+          "rn-m8-q1us/HW": 7.586666666666667,
+          "hw-free/HW": 1.0,
+          "rn-m100-q1us/HW": 95.2,
+          "rn-m7-q1us/HW": 6.64,
+          "rn-m8-q125ns/HW": 7.586666666666667
+        },
+        {
+          "condição": "ldm",
+          "TRM ciclos/iter": 49,
+          "instr/iter": 14,
+          "hw iter/período": 162.0,
+          "rn-m8-q1us iter/período": 569.0,
+          "hw-free iter/período": 162.0,
+          "rn-m100-q1us iter/período": 7140.0,
+          "rn-m7-q1us iter/período": 498.0,
+          "rn-m8-q125ns iter/período": 569.0,
+          "rn-m8-q1us/HW": 3.5123456790123457,
+          "hw-free/HW": 1.0,
+          "rn-m100-q1us/HW": 44.074074074074076,
+          "rn-m7-q1us/HW": 3.074074074074074,
+          "rn-m8-q125ns/HW": 3.5123456790123457
+        },
+        {
+          "condição": "wfi"
+        },
+        {
+          "condição": "masked"
+        },
+        {
+          "condição": "wfi_nodbg"
+        }
+      ]
+    }
+  ],
+  "notes": [],
+  "derived": {},
+  "determinism": {
+    "hw": {
+      "runs": 10,
+      "distinct_row_sets": 1,
+      "identical": true
+    },
+    "hw-free": {
+      "runs": 3,
+      "distinct_row_sets": 1,
+      "identical": true
+    },
+    "rn-m100-q1us": {
+      "runs": 2,
+      "distinct_row_sets": 1,
+      "identical": true
+    },
+    "rn-m7-q1us": {
+      "runs": 2,
+      "distinct_row_sets": 1,
+      "identical": true
+    },
+    "rn-m8-q125ns": {
+      "runs": 2,
+      "distinct_row_sets": 1,
+      "identical": true
+    },
+    "rn-m8-q1us": {
+      "runs": 3,
+      "distinct_row_sets": 1,
+      "identical": true
+    }
+  },
+  "runs": {
+    "hw": [
+      "data/fidelity/v1/s2a/hw/run-001",
+      "data/fidelity/v1/s2a/hw/run-002",
+      "data/fidelity/v1/s2a/hw/run-003",
+      "data/fidelity/v1/s2a/hw/run-004",
+      "data/fidelity/v1/s2a/hw/run-005",
+      "data/fidelity/v1/s2a/hw/run-006",
+      "data/fidelity/v1/s2a/hw/run-007",
+      "data/fidelity/v1/s2a/hw/run-008",
+      "data/fidelity/v1/s2a/hw/run-009",
+      "data/fidelity/v1/s2a/hw/run-010"
+    ],
+    "hw-free": [
+      "data/fidelity/v1/s2a/hw-free/run-001",
+      "data/fidelity/v1/s2a/hw-free/run-002",
+      "data/fidelity/v1/s2a/hw-free/run-003"
+    ],
+    "rn-m100-q1us": [
+      "data/fidelity/v1/s2a/rn-m100-q1us/run-001",
+      "data/fidelity/v1/s2a/rn-m100-q1us/run-002"
+    ],
+    "rn-m7-q1us": [
+      "data/fidelity/v1/s2a/rn-m7-q1us/run-001",
+      "data/fidelity/v1/s2a/rn-m7-q1us/run-002"
+    ],
+    "rn-m8-q125ns": [
+      "data/fidelity/v1/s2a/rn-m8-q125ns/run-001",
+      "data/fidelity/v1/s2a/rn-m8-q125ns/run-002"
+    ],
+    "rn-m8-q1us": [
+      "data/fidelity/v1/s2a/rn-m8-q1us/run-001",
+      "data/fidelity/v1/s2a/rn-m8-q1us/run-002",
+      "data/fidelity/v1/s2a/rn-m8-q1us/run-003"
+    ]
+  }
+}

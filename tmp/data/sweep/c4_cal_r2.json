@@ -1,0 +1,15 @@
+{
+ "tag": "c4_cal_r2",
+ "case": "c4",
+ "mips": 50,
+ "scale": 9,
+ "cpi_eff": 1.44,
+ "efficiency": 0.1659,
+ "quantum": "0.000009",
+ "runfor": "8",
+ "done": 1,
+ "n": 1032,
+ "executed_instr": 7373001,
+ "elapsed_cycles": 44444444,
+ "wall_s": 26.5
+}

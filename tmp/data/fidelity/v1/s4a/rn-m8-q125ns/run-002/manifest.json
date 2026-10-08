@@ -1,0 +1,70 @@
+{
+  "config": {
+    "env": "renode",
+    "mips": 8,
+    "quantum": "0.000000125",
+    "uart_delay": true
+  },
+  "elf": "build/s4a/firmware.elf",
+  "elf_sha256": "a1184e021011375a9b56b550c1e180d6098c507cbf207f4b6e10b954f18e6a3c",
+  "environment": "renode",
+  "finished_utc": "2026-10-08T02:41:08+00:00",
+  "firmware": "s4a",
+  "header": {
+    "aircr": 4194640896,
+    "core_hz": 8000000,
+    "cpuid": 1091551793,
+    "dbgmcu_cr": 0,
+    "dwt_ctrl": 1,
+    "end_ticks": 62383,
+    "error": 0,
+    "error_names": [],
+    "flash_acr": 0,
+    "magic": 1179206706,
+    "observer_ticks": 1,
+    "rcc_cfgr": 0,
+    "rcc_cr": 131,
+    "reserved": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "row_capacity": 128,
+    "row_count": 22,
+    "scenario": 4,
+    "seed": 1592590401,
+    "state": 2,
+    "trace_capacity": 128,
+    "trace_count": [
+      1,
+      0,
+      0
+    ],
+    "trace_drop": [
+      0,
+      0,
+      0
+    ],
+    "variant": 1,
+    "version": 2
+  },
+  "host_elapsed_s": 1.421,
+  "platform_sha256": "1c04be0c32a95c4e6f445213e6648272f6e33bc9827ab43944a0a8eb11d9ede1",
+  "renode_executed_instructions": 104261,
+  "renode_virtual_s": 0.013032625,
+  "revision": "upkzpxpvszmy cc5508a3a25c",
+  "scenario": 4,
+  "schema": 2,
+  "snapshot_sha256": "99fa6a7689df327ba6bd090072ec12d818cc0c1ad80f6f236bc4d24d8b4a80b7",
+  "source": {
+    "files": 59,
+    "sha256": "a4659462a1578a6c5c792deb6b1a8778c8c843f7c78400f03776f2183eb7873f"
+  },
+  "started_utc": "2026-10-08T02:41:04+00:00",
+  "status": "complete",
+  "tag": "rn-m8-q125ns",
+  "variant": 1
+}

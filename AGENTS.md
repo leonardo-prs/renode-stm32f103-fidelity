@@ -14,9 +14,9 @@ presets + scripts) — o `.vscode/` é camada de conveniência.
 
 > **Este repositório é somente código e simulação.** Toda documentação,
 > contexto/bibliografia e desenvolvimento dos textos entregáveis do TCC vive
-> em **`C:\Users\Leonardo\projects\tcc`** (WSL: `/mnt/c/Users/Leonardo/projects/tcc`).
+> em **`D:\tcc`** (WSL: `/mnt/d/tcc`).
 > Acesso liberado via `.opencode/opencode.jsonc` (`external_directory` restrito a
-> `/mnt/c/Users/Leonardo/projects/tcc/**` — nada além disso em `C:\`). Não criar
+> `/mnt/d/tcc/**` — nada além disso em `D:\`). Não criar
 > `docs/` ou `context/` aqui; usar o `tcc/` do Windows.
 
 - **Fica aqui (Nix, versionado):** `src/`, `inc/`, `lib/`, `vendor/`, `renode/`,
@@ -337,22 +337,22 @@ Substituídos pelos firmwares finais acima; mantidos como histórico.
       `modm-io/cmsis-svd-stm32` (idêntico pós-normalização CRLF); 67
       periféricos, TIM2/USART1/GPIOC/RCC/EXTI verificados.
 - [ ] Validar `nix develop` em Linux nativo (WSL2 já validado).
-- [x] Portado em 2025-08-31 para `C:\Users\Leonardo\projects\tcc\context/`
-      (WSL: `/mnt/c/Users/Leonardo/projects/tcc/context/`): Yiu, Coleman,
+- [x] Portado em 2025-08-31 para `D:\tcc\context/`
+      (WSL: `/mnt/d/tcc/context/`): Yiu, Coleman,
       Baldassari, Buttazzo, H&P, PM0056, RM0008, docs Renode — **não** criar
       `context/` aqui
 - [ ] Escrever `docs/decisoes-metricas-cenarios.md` e
       `docs/metodologia-cenario-a.md` do zero (não portadas do legado) —
-      **em `C:\Users\Leonardo\projects\tcc\docs/`**
+      **em `D:\tcc\docs/`**
 - [ ] Coletar dados HW e Renode, comparar quantitativamente
 
 ## Cross-references (quando criados)
 
 - `renode/PLAN.md` — diffs e justificativas do `.repl`
 - `renode/<cenario>.resc` — scripts de simulação
-- `C:\Users\Leonardo\projects\tcc\docs\decisoes-metricas-cenarios.md` — metodologia completa, métricas
-- `C:\Users\Leonardo\projects\tcc\docs\metodologia-cenario-a.md` — protocolo de medição
-- `C:\Users\Leonardo\projects\tcc\docs\justificativa-metodologia.md` — fundamentação já portada (b60a48cd)
-- `C:\Users\Leonardo\projects\tcc\docs\plano-execucao-cenarios.md` — plano já portado (629a59c1)
-- `C:\Users\Leonardo\projects\tcc\context\` — bibliografia e manuais (12M)
+- `D:\tcc\docs\decisoes-metricas-cenarios.md` — metodologia completa, métricas
+- `D:\tcc\docs\metodologia-cenario-a.md` — protocolo de medição
+- `D:\tcc\docs\justificativa-metodologia.md` — fundamentação já portada (b60a48cd)
+- `D:\tcc\docs\plano-execucao-cenarios.md` — plano já portado (629a59c1)
+- `D:\tcc\context\` — bibliografia e manuais (12M)
 - `README.md` — quickstart para humanos

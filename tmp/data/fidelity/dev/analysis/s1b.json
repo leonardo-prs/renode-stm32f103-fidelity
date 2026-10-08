@@ -1,0 +1,95 @@
+{
+  "functional": [
+    {
+      "check": "assinatura das cargas = oráculo do host",
+      "env": "hw",
+      "pass": 63,
+      "total": 63
+    },
+    {
+      "check": "assinatura das cargas = oráculo do host",
+      "env": "rn-m8-q1us",
+      "pass": 63,
+      "total": 63
+    }
+  ],
+  "tables": [
+    {
+      "title": "Tempo por carga (trials quentes 1..8; mesmo dado de entrada por trial)",
+      "unit": "HW: ciclos; Renode: ticks DWT; erro = (RN − HW)/HW",
+      "rows": [
+        {
+          "carga": "crc32",
+          "hw mediana": 15634.0,
+          "rn-m8-q1us mediana": 11532.0,
+          "erro rn-m8-q1us %": -26.23768709223487,
+          "CPI efetivo (HW/RN8)": 1.3557058721436301
+        },
+        {
+          "carga": "isort",
+          "hw mediana": 11694.0,
+          "rn-m8-q1us mediana": 9151.0,
+          "erro rn-m8-q1us %": -21.746358543888597,
+          "CPI efetivo (HW/RN8)": 1.2778958279285078
+        },
+        {
+          "carga": "matmul",
+          "hw mediana": 5868.0,
+          "rn-m8-q1us mediana": 3791.0,
+          "erro rn-m8-q1us %": -35.39536468984322,
+          "CPI efetivo (HW/RN8)": 1.5478765497230282
+        },
+        {
+          "carga": "fir",
+          "hw mediana": 19867.0,
+          "rn-m8-q1us mediana": 11536.0,
+          "erro rn-m8-q1us %": -41.933860170131375,
+          "CPI efetivo (HW/RN8)": 1.7221740638002774
+        },
+        {
+          "carga": "memcpy",
+          "hw mediana": 1819.0,
+          "rn-m8-q1us mediana": 1045.5,
+          "erro rn-m8-q1us %": -42.523364485981304,
+          "CPI efetivo (HW/RN8)": 1.7398409797011714
+        },
+        {
+          "carga": "isqrt",
+          "hw mediana": 16169.5,
+          "rn-m8-q1us mediana": 7851.5,
+          "erro rn-m8-q1us %": -51.45207736848994,
+          "CPI efetivo (HW/RN8)": 2.05982037419926
+        },
+        {
+          "carga": "empty",
+          "hw mediana": 5.0,
+          "rn-m8-q1us mediana": 4.0,
+          "erro rn-m8-q1us %": -20.0,
+          "CPI efetivo (HW/RN8)": 1.25
+        }
+      ]
+    }
+  ],
+  "notes": [],
+  "derived": {},
+  "determinism": {
+    "hw": {
+      "runs": 1,
+      "distinct_row_sets": 1,
+      "identical": true
+    },
+    "rn-m8-q1us": {
+      "runs": 1,
+      "distinct_row_sets": 1,
+      "identical": true
+    }
+  },
+  "runs": {
+    "hw": [
+      "data/fidelity/dev/s1b/hw/run-001"
+    ],
+    "rn-m8-q1us": [
+      "data/fidelity/dev/s1b/rn-m8-q1us/run-001"
+    ]
+  }
+}

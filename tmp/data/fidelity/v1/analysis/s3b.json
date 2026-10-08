@@ -1,0 +1,188 @@
+{
+  "functional": [],
+  "tables": [
+    {
+      "title": "Byte isolado: instante de cada flag após escrever DR (amostras 1..31)",
+      "unit": "ciclos/ticks; 1 quadro 8N1 @ BRR 69 = 690",
+      "rows": [
+        {
+          "métrica": "t_txe",
+          "teórico": "≤ 69 (1 bit)",
+          "hw": "66 (37..66)",
+          "rn-m8-q1us": "0 (0..8)",
+          "rn-m8-q1us-nodelay": "0 (0..0)",
+          "rn-m100-q1us": "0 (0..0)",
+          "rn-m7-q1us": "0 (0..8)",
+          "rn-m7-q1us-nodelay": "0 (0..8)",
+          "rn-m8-q125ns": "3 (3..3)"
+        },
+        {
+          "métrica": "t_tc",
+          "teórico": "690",
+          "hw": "743 (738..743)",
+          "rn-m8-q1us": "0 (0..8)",
+          "rn-m8-q1us-nodelay": "0 (0..0)",
+          "rn-m100-q1us": "0 (0..0)",
+          "rn-m7-q1us": "0 (0..8)",
+          "rn-m7-q1us-nodelay": "0 (0..8)",
+          "rn-m8-q125ns": "3 (3..3)"
+        },
+        {
+          "métrica": "t_rxne",
+          "teórico": "≈ 690 − ½ bit",
+          "hw": "768 (738..768)",
+          "rn-m8-q1us": "1390 (1390..1397)",
+          "rn-m8-q1us-nodelay": "704 (704..704)",
+          "rn-m100-q1us": "1382 (1382..1384)",
+          "rn-m7-q1us": "1392 (1392..1400)",
+          "rn-m7-q1us-nodelay": "712 (712..712)",
+          "rn-m8-q125ns": "1391 (1391..1391)"
+        },
+        {
+          "métrica": "t_idle",
+          "teórico": "≈ 1380",
+          "hw": "1405 (1379..1406)",
+          "rn-m8-q1us": "2080 (2080..2088)",
+          "rn-m8-q1us-nodelay": "1398 (1398..1398)",
+          "rn-m100-q1us": "2072 (2072..2074)",
+          "rn-m7-q1us": "2080 (2080..2088)",
+          "rn-m7-q1us-nodelay": "1392 (1392..1400)",
+          "rn-m8-q125ns": "2078 (2078..2078)"
+        }
+      ]
+    },
+    {
+      "title": "Rajada de 16 bytes e vazão",
+      "unit": "ciclos/ticks",
+      "rows": [
+        {
+          "ambiente": "hw",
+          "intervalo RXNE med (faixa)": "685 (673..714)",
+          "TC final 8 bytes (med)": 5585.0,
+          "teórico TC 8 bytes": 5520,
+          "bytes corretos": "640/640"
+        },
+        {
+          "ambiente": "rn-m8-q1us",
+          "intervalo RXNE med (faixa)": "690 (680..699)",
+          "TC final 8 bytes (med)": 78.0,
+          "teórico TC 8 bytes": 5520,
+          "bytes corretos": "192/192"
+        },
+        {
+          "ambiente": "rn-m8-q1us-nodelay",
+          "intervalo RXNE med (faixa)": "694 (679..700)",
+          "TC final 8 bytes (med)": 78.0,
+          "teórico TC 8 bytes": 5520,
+          "bytes corretos": "128/128"
+        },
+        {
+          "ambiente": "rn-m100-q1us",
+          "intervalo RXNE med (faixa)": "690 (689..691)",
+          "TC final 8 bytes (med)": 7.0,
+          "teórico TC 8 bytes": 5520,
+          "bytes corretos": "128/128"
+        },
+        {
+          "ambiente": "rn-m7-q1us",
+          "intervalo RXNE med (faixa)": "688 (680..704)",
+          "TC final 8 bytes (med)": 88.0,
+          "teórico TC 8 bytes": 5520,
+          "bytes corretos": "128/128"
+        },
+        {
+          "ambiente": "rn-m7-q1us-nodelay",
+          "intervalo RXNE med (faixa)": "688 (688..696)",
+          "TC final 8 bytes (med)": 88.0,
+          "teórico TC 8 bytes": 5520,
+          "bytes corretos": "128/128"
+        },
+        {
+          "ambiente": "rn-m8-q125ns",
+          "intervalo RXNE med (faixa)": "694 (685..694)",
+          "TC final 8 bytes (med)": 78.0,
+          "teórico TC 8 bytes": 5520,
+          "bytes corretos": "128/128"
+        }
+      ]
+    }
+  ],
+  "notes": [],
+  "derived": {},
+  "determinism": {
+    "hw": {
+      "runs": 10,
+      "distinct_row_sets": 1,
+      "identical": true
+    },
+    "rn-m100-q1us": {
+      "runs": 2,
+      "distinct_row_sets": 1,
+      "identical": true
+    },
+    "rn-m7-q1us": {
+      "runs": 2,
+      "distinct_row_sets": 1,
+      "identical": true
+    },
+    "rn-m7-q1us-nodelay": {
+      "runs": 2,
+      "distinct_row_sets": 1,
+      "identical": true
+    },
+    "rn-m8-q125ns": {
+      "runs": 2,
+      "distinct_row_sets": 1,
+      "identical": true
+    },
+    "rn-m8-q1us": {
+      "runs": 3,
+      "distinct_row_sets": 1,
+      "identical": true
+    },
+    "rn-m8-q1us-nodelay": {
+      "runs": 2,
+      "distinct_row_sets": 1,
+      "identical": true
+    }
+  },
+  "runs": {
+    "hw": [
+      "data/fidelity/v1/s3b/hw/run-001",
+      "data/fidelity/v1/s3b/hw/run-002",
+      "data/fidelity/v1/s3b/hw/run-003",
+      "data/fidelity/v1/s3b/hw/run-004",
+      "data/fidelity/v1/s3b/hw/run-005",
+      "data/fidelity/v1/s3b/hw/run-006",
+      "data/fidelity/v1/s3b/hw/run-007",
+      "data/fidelity/v1/s3b/hw/run-008",
+      "data/fidelity/v1/s3b/hw/run-009",
+      "data/fidelity/v1/s3b/hw/run-010"
+    ],
+    "rn-m100-q1us": [
+      "data/fidelity/v1/s3b/rn-m100-q1us/run-001",
+      "data/fidelity/v1/s3b/rn-m100-q1us/run-002"
+    ],
+    "rn-m7-q1us": [
+      "data/fidelity/v1/s3b/rn-m7-q1us/run-001",
+      "data/fidelity/v1/s3b/rn-m7-q1us/run-002"
+    ],
+    "rn-m7-q1us-nodelay": [
+      "data/fidelity/v1/s3b/rn-m7-q1us-nodelay/run-001",
+      "data/fidelity/v1/s3b/rn-m7-q1us-nodelay/run-002"
+    ],
+    "rn-m8-q125ns": [
+      "data/fidelity/v1/s3b/rn-m8-q125ns/run-001",
+      "data/fidelity/v1/s3b/rn-m8-q125ns/run-002"
+    ],
+    "rn-m8-q1us": [
+      "data/fidelity/v1/s3b/rn-m8-q1us/run-001",
+      "data/fidelity/v1/s3b/rn-m8-q1us/run-002",
+      "data/fidelity/v1/s3b/rn-m8-q1us/run-003"
+    ],
+    "rn-m8-q1us-nodelay": [
+      "data/fidelity/v1/s3b/rn-m8-q1us-nodelay/run-001",
+      "data/fidelity/v1/s3b/rn-m8-q1us-nodelay/run-002"
+    ]
+  }
+}

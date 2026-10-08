@@ -1,0 +1,14 @@
+{
+ "tag": "qp_0.00000025",
+ "case": "c2busy",
+ "mips": 50,
+ "scale": 9,
+ "cpi_eff": 1.44,
+ "quantum": "0.000002250000",
+ "runfor": "0.09",
+ "done": 0,
+ "n": 0,
+ "executed_instr": 480000,
+ "elapsed_cycles": 480000,
+ "wall_s": 8.0
+}

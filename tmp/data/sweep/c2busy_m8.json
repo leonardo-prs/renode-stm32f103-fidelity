@@ -1,0 +1,13 @@
+{
+ "tag": "c2busy_m8",
+ "case": "c2busy",
+ "mips": "8",
+ "cpi": "1",
+ "quantum": "0.000001",
+ "runfor": "1.2",
+ "done": 1,
+ "n": 2048,
+ "executed_instr": 9600000,
+ "elapsed_cycles": 9600000,
+ "wall_s": 75.9
+}

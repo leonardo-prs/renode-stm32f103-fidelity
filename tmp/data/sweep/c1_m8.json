@@ -1,0 +1,13 @@
+{
+ "tag": "c1_m8",
+ "case": "c1",
+ "mips": "8",
+ "cpi": "1",
+ "quantum": "0.000001",
+ "runfor": "4",
+ "done": 1,
+ "n": 700,
+ "executed_instr": 32000000,
+ "elapsed_cycles": 32000000,
+ "wall_s": 33.0
+}
