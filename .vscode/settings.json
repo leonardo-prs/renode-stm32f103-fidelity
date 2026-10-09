@@ -1,15 +1,13 @@
 // ────────────────────────────────────────────────────────────────────────────
 // .vscode/settings.json — configuração do workspace no VS Code.
 // ────────────────────────────────────────────────────────────────────────────
-// Portado de .theia/settings.json (migração Theia → VS Code, 2026-10-05).
-// A fonte de extensões muda: Open VSX → Marketplace oficial da Microsoft —
-// as recomendações agora são .vscode/extensions.json (nativas do VS Code).
+// Recomendações de extensões em .vscode/extensions.json (Marketplace).
 //
 // Todas as ferramentas (cmake, ninja, clangd, arm-none-eabi-gdb, openocd,
 // renode) vêm do dev shell do flake via direnv. Para que clangd e as tasks
 // encontrem os binários, o VS Code deve rodar com o direnv ativo (ou usar a
 // extensão mkhl.direnv, recomendada — aplica o .envrc ao env do workspace).
-// Ver AGENTS.md § Ambiente de edição.
+// Ver README.md §3.
 // ────────────────────────────────────────────────────────────────────────────
 {
   // ══════════════════════════════════════════════════════════════════════════
@@ -40,8 +38,6 @@
   // ══════════════════════════════════════════════════════════════════════════
   // Cortex-Debug (upstream marus25): toolchain do flake
   // ══════════════════════════════════════════════════════════════════════════
-  // .vscode/launch.json também fixa gdbPath por config (idêntico no upstream;
-  // ${command:...} é suportado no VS Code — refatoração pendente decide).
   "cortex-debug.gdbPath": "arm-none-eabi-gdb",
   "cortex-debug.openocdPath": "openocd",
   "cortex-debug.enableTelemetry": false,

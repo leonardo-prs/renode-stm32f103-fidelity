@@ -202,6 +202,10 @@ def _duration(root: Path, plan: dict) -> list[str]:
         elif prev is not None and msg.startswith("traço ") and ": ok" in msg:
             rows.append((msg.split(":")[0], (t - prev).total_seconds(), None))
         prev = t
+    first = {}
+    for stage, sec, n in rows:                 # retomadas repetem a etapa: vale a 1ª coleta
+        first.setdefault(stage, (stage, sec, n))
+    rows = list(first.values())
     if not rows:
         return []
     size = sum(f.stat().st_size for f in root.rglob("*") if f.is_file())
@@ -214,6 +218,6 @@ def _duration(root: Path, plan: dict) -> list[str]:
     for stage, sec, n in rows:
         scale = (lambda k: sec * k / reps) if n else (lambda k: sec)
         table.append([stage, f"{sec / 60:.1f}", f"{scale(50) / 60:.1f}", f"{scale(100) / 60:.1f}"])
-    out.append(_table(["etapa", f"min (N={reps})", "min (N=50)", "min (N=100)"], table))
+    out.append(_table(["etapa", f"min medidos (N={reps})", "estimativa N=50", "estimativa N=100"], table))
     out.append("")
     return out

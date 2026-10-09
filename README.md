@@ -236,7 +236,7 @@ em cada run:
 |---|---|---|---|
 | c1-functional | 15 452 B | 1 536 B | ≈ 4,6 KiB |
 | c1-timing | 9 940 B | 1 536 B | ≈ 10 KiB |
-| c2 | 12 532 B | 1 536 B | ≈ 7,6 KiB |
+| c2 | 12 516 B | 1 536 B | ≈ 7,6 KiB |
 | c3 | 10 980 B | 1 536 B | ≈ 9 KiB |
 | c4 | 9 528 B | 1 536 B | ≈ 10,5 KiB |
 
@@ -355,9 +355,62 @@ slices, counters e flows; tempo e duração de um slice), em
 
 ## 9. Validações realizadas
 
-<!-- VALIDACOES -->
+Executadas em 2026-10-09 nesta máquina (WSL2, x86_64), com Renode 1.17.0
+(build `1.17.0+gitab721d88`), GCC Arm 15.3.1, OpenOCD 0.12.0, Python 3.14,
+`trace_processor_shell` v58.2 e a placa atual (provável clone; ver §10–11).
 
-## 10. Pendência: campanha final na placa genuína
+| O quê | Como | Resultado |
+|---|---|---|
+| Build dos 5 presets | `cmake --workflow --preset <fw>` a partir de árvore limpa | ok, **0 warnings** (`-Wall -Wextra -Wmissing-prototypes -Wstrict-prototypes`) |
+| Integridade do `vendor/` | SHA-256 contra `vendor/README.md` (na campanha) | ok |
+| Gate do ELF | símbolos, RAM ≤ 20 KiB, literais da USART1 só no C4, `fid_measure` com 6 registros | ok nos 5 |
+| Pilha | pintura em `fid_init`, medida em cada run | ≥ 4,6 KiB nunca usados (pior caso: c1-functional) |
+| Smoke na placa | 1 run de cada firmware (gravação verificada) | DONE, todos os casos, nonce confere |
+| Smoke no Renode | 1 run de cada firmware | DONE, todos os casos, nonce confere |
+| Quantum | C1-timing com 1 µs e 125 ns | 1 µs: ±4 ticks entre repetições idênticas; 125 ns: determinístico → **congelado em 125 ns** |
+| Decodificador (testes de desenvolvimento) | snapshots sintéticos válidos e corrompidos: magic, versão, tamanho, estado, capacidade, palavras fora de ordem, status, truncado, tickets duplicados/decrescentes/faltando, anel sobrescrito, rollover de 32 bits com eventos repetidos, tempo andando para trás, nonce/plano/estado/falha | todos rejeitados/detectados como esperado |
+| Oráculos (testes negativos) | saída errada, entrada fora do plano, byte vizinho alterado em SRAM, sequência do C3 reduzida (2ª entrada de quem se repende removida) | todos detectados |
+| Campanha (testes) | lock duplo; plano congelado (ELF/exemplar diferente na retomada); porta :3333 ocupada; OpenOCD que não sobe; run do Renode com timeout (filho encerrado); campanha cujos runs nunca terminam (tentativas guardadas como falha, limitadas, saída 3) | todos com erro claro / contabilidade correta |
+| Traço por stepi | C1-timing, 25 combinações carga × tamanho, placa e Renode | **sequências de PCs idênticas** nas 25; Renode: ticks = instruções + 1; placa: 24 min, Renode: 3 min |
+| Perfetto | importação com `trace_processor_shell` v58.2: contagem de slices, counters, flows, slices **por trilha** e tempo/duração de um slice vs. ticks | 16/16 arquivos conferidos no piloto. A conferência por trilha pegou um defeito real (tid 0 e tids repetidos misturavam trilhas no comparativo), corrigido antes da campanha |
+| Piloto `pilot-clone2` | `--pilot --calibration`, 10 runs × 5 firmwares × 2 ambientes + calibrado | completo: 110/110 runs válidos, 0 tentativas falhas, 32,6 min, 13 MiB |
+| Repetibilidade | observáveis idênticos em todos os runs | placa 1420/1420, Renode 1419/1419 (determinismo observado) |
+| Campanha preliminar `prelim-clone-50` | `scripts/campaign.sh` (ponto de entrada real), 50 runs, `--calibration` | completa (exit 0): 550/550 runs válidos sem tentativa falha (placa 250, Renode nominal 250, Renode calibrado 50), 52 min, 42 MiB, 550 traces Perfetto, 16/16 importações conferidas; `--resume` sobre ela não recoleta nada e só reanalisa (12 s) |
+
+Os testes de desenvolvimento (`tests/test_fidelity.py`, 20 testes) existiram
+durante a implementação e estão no histórico do repositório; por decisão do
+autor não fazem parte da árvore final.
+
+**Por que 50 repetições:** no piloto, todo observável da placa e do Renode
+foi idêntico nos 10 runs (sem dispersão), então a precisão das medianas não é
+limitada pelo tamanho da amostra. As 50 repetições servem para registrar a
+repetibilidade e detectar falhas ocasionais (que precisam ficar visíveis), não
+para estreitar um intervalo de confiança. Se a placa genuína mostrar
+dispersão, o piloto dela indicará se 50 basta (`--reps 100` disponível).
+
+
+## 10. Resultados preliminares (placa atual — provável clone)
+
+Resumo de `data/fidelity/prelim-clone-50/analysis/report.md` (50 runs). Vale
+para **este exemplar** e serve para mostrar o que a entrega mede; a resposta
+do TCC sai da mesma campanha na placa genuína (§11).
+
+| Nível | Onde o Renode 8 MIPS acompanha a placa | Onde diverge (e mecanismo no fonte do modelo) |
+|---|---|---|
+| **Funcional** | C1 inteiro (29 casos, 595 valores); C3 inteiro (18 sequências completas, inclusive repetição, IPSR, PRIMASK/BASEPRI); C2: contagem parada, ARR com/sem preload, UIF × UIE × pending, atendimento atrasado, coalescência; C4: integridade, rajada, divisor de baud, RE | C2: `RCC_CFGR` lê 0 e o timer **não segue o prescaler APB /4** (sem RCC F1); PSC aplicado na hora (sem preload); UG com URS = 0 não seta UIF quando UIE = 0. C4: TC nunca cai; paridade e palavra de 9 bits não modelados |
+| **Instrução** | C1-timing: **mesma sequência de PCs nas 25 combinações** carga × tamanho (stepi) | — (não avaliado em C2–C4) |
+| **Ciclo** | período do timer com ARR preload; período de quadro da USART (±10 ticks: a serialização é modelada) | tempo = 1 tick por instrução: placa com 1,17 (ALU) a 3,56 (UDIV de quociente grande) ciclos por instrução; UDIV com operandos diferentes custa o mesmo no Renode; latência da IRQ do timer 18 × 3 ticks; intervalos do NVIC ~2× menores no Renode; produtor da USART 25× mais rápido (TXE sempre 1) |
+
+Observações sobre o exemplar: placa e Renode foram **determinísticos** (todos
+os observáveis idênticos nos 50 runs); a placa paga ~110 ciclos na 1ª execução
+de cada trecho de código em flash; e a USART desta placa guarda ≥ 8 bytes sem
+ORE — divergindo do RM0008 **e coincidindo** com o Renode, que tem FIFO
+ilimitada. Essa concordância é coincidência do exemplar, não fidelidade ao
+STM32F103 especificado. Calibração (C1): o MIPS escolhido pela regra foi 6;
+o erro médio caiu de 28% para 11% no treino e de 48% para 31% na avaliação,
+o que melhora a média sem tornar o custo por instrução correto.
+
+## 11. Pendência: campanha final na placa genuína
 
 **A validação final em STM32F103 genuíno NÃO foi realizada nesta entrega.**
 A única placa disponível durante o desenvolvimento é, muito provavelmente, um
@@ -382,7 +435,7 @@ outra densidade de flash ou outro comportamento de USART, isso aparece na
 identificação e nas colunas "placa × especificação"; nenhum oráculo depende
 dos resultados da placa atual.
 
-## 11. Estrutura
+## 12. Estrutura
 
 ```
 src/c1..c4/      firmwares (um main por preset)

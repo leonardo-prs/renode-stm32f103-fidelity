@@ -6,11 +6,9 @@
 # configurado. O CMake substitui @CMAKE_BINARY_DIR@ (definido pelo preset
 # per-cenário — build/<cenario>, ver CMakePresets.json).
 #
-# Workflow (presets per-cenário, SEM extensão CMake Tools):
-#   1. Configure: cmake --preset <cenario> (regera este arquivo p/ a árvore)
-#   2. Build: cmake --build --preset <cenario> / task "Build: <cenario> (Debug)"
-#   3. O clangd reindexa sozinho a cada configure — ele segue o ÚLTIMO preset
-#      configurado (edite/compile o cenário que está trabalhando).
+# Workflow: `cmake --workflow --preset <firmware>` (ou task "Build: <firmware>")
+# regera este arquivo; o clangd segue o ÚLTIMO preset configurado (compile o
+# firmware que está editando).
 #
 # Este arquivo está em .gitignore (gerado por CMake) e em .ignore com
 # !.clangd para que agentes possam lê-lo.
