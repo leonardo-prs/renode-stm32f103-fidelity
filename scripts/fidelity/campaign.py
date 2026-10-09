@@ -180,7 +180,10 @@ def vcs_revision() -> str:
 def build(fw: Firmware, log_dir: Path) -> None:
     log_dir.mkdir(parents=True, exist_ok=True)
     with (log_dir / f"{fw.name}.log").open("w") as out:
-        for argv in (["cmake", "--preset", fw.name], ["cmake", "--build", "--preset", fw.name]):
+        # --fresh: configuração do zero, para que o ELF (inclusive a informação de
+        # debug) dependa só das fontes e não do histórico da árvore build/<fw>.
+        for argv in (["cmake", "--preset", fw.name, "--fresh"],
+                     ["cmake", "--build", "--preset", fw.name]):
             r = subprocess.run(argv, cwd=ROOT, stdout=out, stderr=subprocess.STDOUT)
             if r.returncode != 0:
                 raise CampaignError(f"build de {fw.name} falhou (ver {log_dir / fw.name}.log)")

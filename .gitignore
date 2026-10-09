@@ -40,7 +40,8 @@ Thumbs.db
 
 # ── Logs e temporários ──
 *.log
-# tmp/ é versionado só pela diretiva da entrega (tmp/REQUISITOS-ENTREGA-FINAL-TCC.md).
+# tmp/ é do autor (diretiva da entrega, notas); PDFs de referência ficam só no disco.
+tmp/research/src/*.pdf
 
 # ── Dados das campanhas (snapshots, logs, análise) — grandes e por máquina;
 #     nunca commitar, nunca em /tmp volátil. data/exploratory/ = coletas antigas.

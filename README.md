@@ -87,7 +87,7 @@ O script entra no ambiente Nix se necessário e chama
 
 1. **pré-verificação** (ferramentas, porta :3333 livre, espaço em disco) e
    **locks** (campanha e bancada: duas campanhas nunca usam o mesmo ST-Link);
-2. **build** dos 5 firmwares (zero warnings), **integridade do `vendor/`**
+2. **build** dos 5 firmwares do zero (`--fresh`; zero warnings), **integridade do `vendor/`**
    (SHA-256 de `vendor/README.md`) e **gate do ELF** (símbolos, RAM,
    literais da USART1 fora do C4, `fid_measure` com SP alinhado, flags);
 3. **plano congelado** `plan.json` (hashes dos ELFs e fontes, revisão,
@@ -362,6 +362,7 @@ Executadas em 2026-10-09 nesta máquina (WSL2, x86_64), com Renode 1.17.0
 | O quê | Como | Resultado |
 |---|---|---|
 | Build dos 5 presets | `cmake --workflow --preset <fw>` a partir de árvore limpa | ok, **0 warnings** (`-Wall -Wextra -Wmissing-prototypes -Wstrict-prototypes`) |
+| Reprodutibilidade do ELF | dois builds do zero; build da campanha com `cmake --preset <fw> --fresh` | hashes idênticos. Os ELFs de `prelim-clone-50` vieram de árvores incrementais e diferem do build limpo **só na informação de debug**: o traço por stepi do ELF limpo reproduz as 25 sequências de PCs da campanha. Desde então a campanha sempre reconfigura do zero |
 | Integridade do `vendor/` | SHA-256 contra `vendor/README.md` (na campanha) | ok |
 | Gate do ELF | símbolos, RAM ≤ 20 KiB, literais da USART1 só no C4, `fid_measure` com 6 registros | ok nos 5 |
 | Pilha | pintura em `fid_init`, medida em cada run | ≥ 4,6 KiB nunca usados (pior caso: c1-functional) |
