@@ -9,7 +9,11 @@
 # Política temporal (campanha principal, ver README):
 #   - PerformanceInMips 8: hipótese nominal de 1 instrução por ciclo a
 #     HCLK = 8 MHz. Não é modelo ciclo-preciso. Calibração só no C1-timing.
-#   - quantum global 1 µs (8 instruções a 8 MIPS).
+#   - quantum global 125 ns = 1 instrução a 8 MIPS. Com 1 µs (8 instruções)
+#     o CYCCNT lido pelo firmware variava ±4 ticks entre repetições idênticas
+#     e ganhava deslocamento fixo (piloto de 2026-10-09, C1-timing): a
+#     resolução de 1 tick exigida pelo C1 não era atendida. Com 125 ns a
+#     leitura é determinística. Valor congelado para toda a campanha.
 #   - USART1 ligada a um hub em loopback (equivale ao fio PA9→PA10 da
 #     bancada). AutoUpdateDelay fica DESLIGADO (padrão): o receptor do
 #     STM32_UART já espaça a entrega de cada caractere pelo tempo de um
@@ -18,7 +22,7 @@
 $elf ?= @build/c1-functional/firmware.elf
 $gdb_port ?= 3334
 $mips ?= 8
-$quantum ?= "0.000001"
+$quantum ?= "0.000000125"
 
 mach create "stm32f103"
 machine LoadPlatformDescription @renode/stm32f103_hsi8.repl

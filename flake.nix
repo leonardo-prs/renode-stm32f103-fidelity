@@ -251,14 +251,8 @@
 
           packages = tools;
 
-          # Cabeçalho mínimo + help curto (direnv log silenciado via .envrc).
-          shellHook = ''
-            echo "stm32-renode-fidelity — nix:default (toolchain + renode, sem cubemx)"
-            echo "  cmake -B build/sandbox -DSCENARIO=SANDBOX -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/gcc-arm-none-eabi.cmake"
-            echo "  ninja -C build/sandbox          # compilar"
-            echo "  renode renode/sandbox.resc      # simular"
-            echo "  openocd -f interface/stlink.cfg -f target/stm32f1x.cfg -c \"program build/sandbox/firmware.elf verify reset exit\"  # flash"
-          '';
+          # Sem banner: o uso está no README (e o direnv carrega este shell).
+
         };
       };
     };

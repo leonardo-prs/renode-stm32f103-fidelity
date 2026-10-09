@@ -35,7 +35,7 @@ RENODE_PORT_BASE = 3336
 
 # Política temporal da campanha principal (README, "Configuração Renode").
 NOMINAL_MIPS = 8
-QUANTUM_S = "0.000001"
+QUANTUM_S = "0.000000125"   # 1 instrução a 8 MIPS (ver README, decisões)
 
 
 class TargetError(RuntimeError):
@@ -221,46 +221,64 @@ class Bench:
 
 # ───────────────────────────── Renode ─────────────────────────────
 
-def renode_command(elf: Path, gdb_port: int, mips: int) -> list[str]:
+def renode_command(elf: Path, gdb_port: int, mips: int, quantum_s: str = QUANTUM_S) -> list[str]:
     rel = elf.relative_to(ROOT)
     setup = (f"$elf=@{rel}; $gdb_port={gdb_port}; $mips={mips}; "
-             f'$quantum="{QUANTUM_S}"; i @{RESC.relative_to(ROOT)}')
+             f'$quantum="{quantum_s}"; i @{RESC.relative_to(ROOT)}')
     # --port -1: sem monitor/telnet (com --port N o Renode só executa o -e
     # quando um cliente telnet conecta).
     return ["renode", "--disable-xwt", "--plain", "--port", "-1", "-e", setup]
 
 
+class RenodeSession:
+    """Processo Renode próprio (novo) com servidor GDB numa porta livre >= 3336."""
+
+    def __init__(self, elf: Path, run_dir: Path, mips: int = NOMINAL_MIPS,
+                 quantum_s: str = QUANTUM_S, port_base: int = RENODE_PORT_BASE):
+        self.elf, self.run_dir, self.mips, self.quantum_s = elf, run_dir, mips, quantum_s
+        self.port = find_free_port(port_base)
+        self.child: subprocess.Popen | None = None
+
+    def __enter__(self) -> "RenodeSession":
+        self._log = (self.run_dir / "renode.log").open("w")
+        self.child = subprocess.Popen(
+            renode_command(self.elf, self.port, self.mips, self.quantum_s), stdout=self._log,
+            stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, cwd=ROOT)
+        try:
+            wait_port(self.port, self.child, 90, "Renode")
+        except TargetError:
+            self.__exit__()
+            raise
+        return self
+
+    def __exit__(self, *exc) -> None:
+        stop_child(self.child)
+        self._log.close()
+
+    def unmapped_accesses(self) -> list[str]:
+        text = (self.run_dir / "renode.log").read_text(errors="replace")
+        return sorted(set(re.findall(r"from non existing peripheral at (0x[0-9A-Fa-f]+)", text)))
+
+
 def run_renode(elf: Path, run_dir: Path, timeout_s: float, mips: int = NOMINAL_MIPS,
-               port_base: int = RENODE_PORT_BASE) -> Collected:
+               quantum_s: str = QUANTUM_S, port_base: int = RENODE_PORT_BASE) -> Collected:
     """Processo Renode NOVO por run: estado inicial limpo garantido."""
     nonce = secrets.randbits(32)
     dump = run_dir / "snapshot.bin"
-    port = find_free_port(port_base)
-    child = None
     t0 = time.monotonic()
-    try:
-        with (run_dir / "renode.log").open("w") as log:
-            child = subprocess.Popen(renode_command(elf, port, mips), stdout=log,
-                                     stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                                     cwd=ROOT)
-            wait_port(port, child, 90, "Renode")
-            text = run_gdb(elf, collect_script(
-                port, dump, nonce, "",
-                extra=("monitor sysbus.cpu ExecutedInstructions\n"
-                       "monitor sysbus.cpu PerformanceInMips\n"
-                       "monitor machine GetTimeSourceInfo\n")),
-                run_dir / "gdb.log", timeout_s)
-            check_stopped_at_complete(text)
-    finally:
-        stop_child(child)
-    extra = {}
+    with RenodeSession(elf, run_dir, mips, quantum_s, port_base) as session:
+        text = run_gdb(elf, collect_script(
+            session.port, dump, nonce, "",
+            extra=("monitor sysbus.cpu ExecutedInstructions\n"
+                   "monitor sysbus.cpu PerformanceInMips\n"
+                   "monitor machine GetTimeSourceInfo\n")),
+            run_dir / "gdb.log", timeout_s)
+        check_stopped_at_complete(text)
+    extra = {"unmapped_accesses": session.unmapped_accesses()}
     m = re.search(r"^(0x[0-9A-Fa-f]+)\s*\n(0x[0-9A-Fa-f]+)\s*$", text, re.M)
     if m:
         extra["executed_instructions"] = int(m[1], 16)
         extra["performance_in_mips_effective"] = int(m[2], 16)
-    log_text = (run_dir / "renode.log").read_text(errors="replace")
-    extra["unmapped_accesses"] = sorted(set(re.findall(
-        r"from non existing peripheral at (0x[0-9A-Fa-f]+)", log_text)))
     v = re.search(r"Elapsed Virtual Time: (\d+):(\d+):([\d.]+)", text)
     if v:
         extra["virtual_time_s"] = int(v[1]) * 3600 + int(v[2]) * 60 + float(v[3])

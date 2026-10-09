@@ -12,6 +12,10 @@
  * garantida. O custo fixo do bracket (LDR + BLX + retorno) é medido pela
  * carga vazia do C1 e reportado, não subtraído às cegas.
  *
+ * Os rótulos fid_measure_call/fid_measure_back delimitam, para o traço por
+ * stepi do host (scripts/fidelity/instr.py), exatamente as instruções
+ * executadas entre as duas leituras do contador.
+ *
  * AAPCS: o SP deve estar alinhado a 8 bytes em toda chamada pública.
  * Entramos alinhados (o chamador cumpre o AAPCS) e empilhamos 6 registros
  * (24 bytes: r3 entra só como enchimento), mantendo o alinhamento no BLX.
@@ -33,7 +37,11 @@ fid_measure:
     mov     r1, r2                      @ b
     ldr     r6, =0xE0001004             @ &DWT->CYCCNT
     ldr     r7, [r6]                    @ t0
+    .global fid_measure_call
+fid_measure_call:                       @ 1ª instrução depois da leitura t0
     blx     r4
+    .global fid_measure_back
+fid_measure_back:                       @ leitura t1 (traço por stepi para aqui)
     ldr     r2, [r6]                    @ t1
     str     r0, [r5]                    @ out->result
     str     r7, [r5, #4]                @ out->t0

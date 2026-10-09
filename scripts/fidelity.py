@@ -1,167 +1,119 @@
 #!/usr/bin/env python3
-"""Ponto de entrada único do experimento de fidelidade HW × Renode.
+"""CLI do experimento de fidelidade Renode × STM32F103 (ver README).
 
-    scripts/fidelity.py build s1a [s2a ...]          # cmake --preset + build
-    scripts/fidelity.py run s1a --env hw --runs 10 --campaign v1
-    scripts/fidelity.py run s1a --env renode --mips 8 --runs 2 --campaign v1
-    scripts/fidelity.py show data/fidelity/v1/s1a/hw/run-001
-    scripts/fidelity.py analyze --campaign v1 [s1a ...]
-    scripts/fidelity.py gate [s1a ...]                # verificação estática dos ELFs
-    scripts/fidelity.py campaign --name v1            # plano completo (campaign.py)
-    scripts/fidelity.py resc s1a > x.resc             # .resc de depuração (GDB :3334)
-
-Dados: data/fidelity/<campanha>/<firmware>/<tag>/run-NNN/{manifest.json,
-snapshot.bin, gdb.log, ...}. Um run = um reset → execução completa → dump.
+    campaign  campanha completa: build, gate, bancada, Renode, análise
+    analyze   (re)gera a análise de uma campanha existente
+    run       um único run (diagnóstico): decodifica e avalia
+    check     pré-verificação + build + gate, sem executar nada
 """
 from __future__ import annotations
 
 import argparse
-import dataclasses
 import json
-import subprocess
 import sys
-import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from fidelity import abi, firmware, runner  # noqa: E402
+from fidelity import abi, campaign, targets  # noqa: E402
+from fidelity.firmwares import FIRMWARES  # noqa: E402
 
 
-def cmd_build(args) -> int:
-    for name in args.firmware:
-        firmware.get(name)
-        for step in (["cmake", "--preset", name], ["cmake", "--build", "--preset", name]):
-            done = subprocess.run(step, cwd=firmware.ROOT, capture_output=True, text=True)
-            if done.returncode:
-                print(done.stdout[-3000:], done.stderr[-3000:], sep="\n")
-                return done.returncode
-        size = subprocess.run(["arm-none-eabi-size", str(firmware.get(name).elf)],
-                              capture_output=True, text=True).stdout.strip().splitlines()[-1]
-        print(f"[build] {name}: {size}")
-    return 0
+def parse_args(argv=None):
+    p = argparse.ArgumentParser(prog="fidelity.py", description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    c = sub.add_parser("campaign", help="campanha completa (um comando no laboratório)")
+    c.add_argument("--name", required=True, help="identidade da campanha (diretório em data/fidelity/)")
+    c.add_argument("--board", required=True,
+                   help="identidade física do exemplar (ex.: 'stm32f103c8-genuino-lab-01')")
+    c.add_argument("--board-note", default="", help="observação livre sobre o exemplar (marcação do chip...)")
+    c.add_argument("--reps", type=int, default=None, help="runs por firmware e ambiente (final 50, piloto 10)")
+    c.add_argument("--pilot", action="store_true", help="modo piloto (10 runs por padrão)")
+    c.add_argument("--firmwares", nargs="+", default=list(FIRMWARES), choices=list(FIRMWARES))
+    c.add_argument("--env", dest="envs", nargs="+", default=["hw", "renode"], choices=["hw", "renode"])
+    c.add_argument("--resume", action="store_true", help="retoma uma campanha (exige plano idêntico)")
+    c.add_argument("--calibration", action="store_true",
+                   help="complemento do C1: escolhe MIPS calibrado e roda o Renode calibrado (só C1)")
+    c.add_argument("--no-instr", dest="instr", action="store_false",
+                   help="pula o traço por stepi do C1-timing (nível 'instrução' fica sem evidência)")
+    c.add_argument("--jobs", type=int, default=4, help="processos Renode em paralelo (padrão 4)")
+
+    a = sub.add_parser("analyze", help="(re)gera analysis/ de uma campanha")
+    a.add_argument("--name", required=True)
+
+    r = sub.add_parser("run", help="um run de diagnóstico (não entra em campanha)")
+    r.add_argument("--env", choices=["hw", "renode"], required=True)
+    r.add_argument("--firmware", choices=list(FIRMWARES), required=True)
+    r.add_argument("--mips", type=int, default=targets.NOMINAL_MIPS)
+    r.add_argument("--out", type=Path, default=None)
+
+    k = sub.add_parser("check", help="pré-verificação, build e gate de todos os firmwares")
+    k.add_argument("--env", dest="envs", nargs="+", default=["hw", "renode"], choices=["hw", "renode"])
+    args = p.parse_args(argv)
+    if args.cmd == "campaign" and args.reps is None:
+        args.reps = 10 if args.pilot else 50
+    return args
 
 
 def cmd_run(args) -> int:
-    fws = [firmware.get(n) for n in args.firmware]
-    if args.elf:
-        if len(fws) != 1 or not args.label:
-            raise runner.RunError("--elf exige um único firmware e --label")
-        fws = [dataclasses.replace(fws[0], elf_override=Path(args.elf).resolve())]
-    failures = 0
-    label = f"-{args.label}" if args.label else ""
+    fw = FIRMWARES[args.firmware]
+    out = args.out or campaign.DATA / "diagnostic" / f"{args.env}-{fw.name}-{campaign.utc()}"
+    out.mkdir(parents=True, exist_ok=True)
     if args.env == "hw":
-        with runner.HWBench(firmware.ROOT / "data" / "fidelity" / args.campaign / "_bench") as bench:
-            for fw in fws:
-                batch = runner.batch_identity(fw)
-                base = runner.campaign_dir(args.campaign, fw, ("hw-free" if args.free_run else "hw") + label)
-                bench.flash(fw)
-                runner.record_batch(base, {"utc": runner.utc(), "runs": args.runs,
-                                           "tools": runner.tool_versions(), **batch})
-                for _ in range(args.runs):
-                    res = bench.run(fw, runner.next_run_dir(base), batch, free_run=args.free_run)
-                    failures += not res.ok
-                    print(f"[hw] {fw.name} {res.path.name}: {'ok' if res.ok else 'ERRO ' + res.error}")
+        with targets.Bench(out) as bench:
+            print(json.dumps(bench.identify()))
+            bench.flash(fw.elf, out / "flash.log")
+            collected = bench.run(fw.elf, out, fw.timeout_s)
     else:
-        if args.mips != int(args.mips):
-            # Renode 1.17 trunca PerformanceInMips para inteiro (observado:
-            # 6.545 → 6). Recusar em vez de rotular um valor que não vale.
-            raise runner.RunError(f"--mips {args.mips}: o Renode só aceita MIPS inteiro")
-        cfg = runner.RenodeConfig(mips=args.mips, quantum=args.quantum,
-                                  uart_delay=not args.no_uart_delay)
-        for fw in fws:
-            batch = runner.batch_identity(fw)
-            base = runner.campaign_dir(args.campaign, fw, cfg.tag + label)
-            runner.record_batch(base, {"utc": runner.utc(), "runs": args.runs,
-                                       "tools": runner.tool_versions(), **batch})
-            for _ in range(args.runs):
-                t0 = time.monotonic()
-                res = runner.run_renode(fw, cfg, runner.next_run_dir(base), batch)
-                failures += not res.ok
-                print(f"[{cfg.tag}] {fw.name} {res.path.name}: "
-                      f"{'ok' if res.ok else 'ERRO ' + res.error} ({time.monotonic() - t0:.1f} s)")
-    return 1 if failures else 0
+        mips = args.mips
+        q = targets.QUANTUM_S if mips == targets.NOMINAL_MIPS else campaign.quantum_for(mips)
+        collected = targets.run_renode(fw.elf, out, fw.timeout_s, mips=mips, quantum_s=q)
+    rec = campaign.record_run(out, fw, args.env, {"diagnostic": True}, collected, None)
+    print(json.dumps({k: rec[k] for k in ("status", "problems")}, ensure_ascii=False))
+    if rec["status"] == "valid":
+        ev = fw.evaluate(abi.decode(collected.snapshot))
+        bad = [c for c in ev.checks if not c.ok]
+        print(f"{len(ev.checks)} verificações, {len(bad)} diferentes do oráculo; {len(ev.metrics)} métricas")
+        for c in bad:
+            print(f"  ≠ {c.case} | {c.item} | esperado {c.expected} | observado {c.observed}")
+    print(f"dados: {out}")
+    return 0 if rec["status"] == "valid" else 3
 
 
-def cmd_show(args) -> int:
-    run = Path(args.run)
-    manifest = json.loads((run / "manifest.json").read_text())
-    snap = abi.decode((run / "snapshot.bin").read_bytes())
-    fw = firmware.get(manifest["firmware"])
-    h = snap.header
-    print(f"{fw.title} — {manifest['tag']} — {run}")
-    print(f"state={abi.STATES[h['state']]} error={h['error']:#x} {h['error_names']} "
-          f"rows={h['row_count']}/{h['row_capacity']} trace={h['trace_count']} drop={h['trace_drop']}")
-    print(f"cpuid={h['cpuid']:#x} rcc_cr={h['rcc_cr']:#x} cfgr={h['rcc_cfgr']:#x} "
-          f"acr={h['flash_acr']:#x} aircr={h['aircr']:#x} dbgmcu={h['dbgmcu_cr']:#x} "
-          f"observer={h['observer_ticks']} end={h['end_ticks']}")
-    for r in snap.rows:
-        names = fw.field_names(r[1])
-        cond = fw.conditions.get(r[1], str(r[1]))
-        vals = " ".join(f"{n}={v}" for n, v in zip(names, r[2:]))
-        print(f"  t{r[0]:<3} {cond:<12} {vals}")
-    if args.trace:
-        for e in snap.trace:
-            print(f"  [{abi.WRITERS[e.writer]}#{e.index}] t={e.ticks} ev={e.event:#x} "
-                  f"trial={e.trial} arg={e.arg:#x}")
+def cmd_check(args) -> int:
+    log = campaign.Log(campaign.DATA / "diagnostic" / "check.log")
+    campaign.preflight(args.envs, log)
+    log(f"vendor: {campaign.vendor_integrity()}")
+    for fw in FIRMWARES.values():
+        campaign.build(fw, campaign.DATA / "diagnostic" / "build")
+        log(f"{fw.name}: {campaign.gate(fw)}")
     return 0
 
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    sub = p.add_subparsers(dest="cmd", required=True)
-    b = sub.add_parser("build")
-    b.add_argument("firmware", nargs="+")
-    r = sub.add_parser("run")
-    r.add_argument("firmware", nargs="+")
-    r.add_argument("--env", choices=("hw", "renode"), required=True)
-    r.add_argument("--runs", type=int, default=1)
-    r.add_argument("--campaign", required=True)
-    r.add_argument("--mips", type=float, default=8.0)
-    r.add_argument("--quantum", default="0.000001")
-    r.add_argument("--no-uart-delay", action="store_true")
-    r.add_argument("--elf", help="ELF de diagnóstico (build com FINAL_DEFS)")
-    r.add_argument("--label", help="sufixo do diretório de dados p/ diagnósticos")
-    r.add_argument("--free-run", action="store_true",
-                   help="HW: roda sem debugger conectado; conecta e faz dump depois")
-    s = sub.add_parser("show")
-    s.add_argument("run")
-    s.add_argument("--trace", action="store_true")
-    x = sub.add_parser("resc", help="imprime o .resc de depuração (mesmo gerador da coleta)")
-    x.add_argument("firmware")
-    x.add_argument("--port", type=int, default=3334)
-    x.add_argument("--mips", type=int, default=8)
-    x.add_argument("--quantum", default="0.000001")
-    x.add_argument("--no-uart-delay", action="store_true")
-    c = sub.add_parser("campaign")
-    c.add_argument("firmware", nargs="*")
-    c.add_argument("--name", required=True)
-    g = sub.add_parser("gate")
-    g.add_argument("firmware", nargs="*")
-    g.add_argument("--out", type=Path)
-    a = sub.add_parser("analyze")
-    a.add_argument("firmware", nargs="*")
-    a.add_argument("--campaign", required=True)
-    args = p.parse_args(argv)
-    if args.cmd == "resc":
-        cfg = runner.RenodeConfig(mips=args.mips, quantum=args.quantum,
-                                  uart_delay=not args.no_uart_delay)
-        print(runner.renode_resc(firmware.get(args.firmware), cfg, args.port), end="")
-        return 0
-    if args.cmd == "campaign":
-        from fidelity import campaign
-        return campaign.main(args)
-    if args.cmd == "gate":
-        from fidelity import gate
-        return gate.main(args)
-    if args.cmd == "analyze":
-        from fidelity import analysis
-        return analysis.main(args)
+    args = parse_args(argv)
     try:
-        return {"build": cmd_build, "run": cmd_run, "show": cmd_show}[args.cmd](args)
-    except runner.RunError as exc:
-        print(f"erro: {exc}", file=sys.stderr)
-        return 2
+        if args.cmd == "campaign":
+            return campaign.run_campaign(args)
+        if args.cmd == "analyze":
+            from fidelity.analysis import analyze
+            summary = analyze(campaign.DATA / args.name)
+            print(json.dumps({"complete": summary["complete"], "classes": summary["classes"]},
+                             default=str, ensure_ascii=False))
+            return 0 if summary["complete"] else 3
+        if args.cmd == "run":
+            return cmd_run(args)
+        if args.cmd == "check":
+            return cmd_check(args)
+    except campaign.CampaignError as exc:
+        print(f"ERRO: {exc}", file=sys.stderr)
+        return campaign.EXIT_ERROR
+    except KeyboardInterrupt:
+        print("interrompido: tentativas já gravadas ficam; use --resume", file=sys.stderr)
+        return 130
+    return 1
 
 
 if __name__ == "__main__":
