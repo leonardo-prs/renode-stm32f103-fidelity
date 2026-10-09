@@ -11,33 +11,29 @@ Entrada: data/fidelity/<campanha>/ (plano + tentativas). Saída em analysis/:
     report.md        relatório técnico gerado (não é a monografia)
     figures/*.png, perfetto/*.json
 
-Critérios (declarados ANTES da campanha; ver README "Critérios"):
-  - funcional: igualdade exata com o oráculo (especificação) e, para a
-    fidelidade, igualdade do valor modal Renode × placa em cada item;
-  - temporal no nível de CICLO: mediana do Renode dentro de
-    [mín − res, máx + res] da placa, com res = resolução do ponto de
-    observação; fora disso → divergência temporal, reportada com erro
-    absoluto e relativo (sem tolerância de "aceitável": nenhum prazo de
-    aplicação foi definido);
-  - instrução (C1): sequência de PCs por stepi idêntica nos dois ambientes.
-Classes por caso: 1 concordância funcional e temporal; 2 funcional com
-divergência temporal; 3 divergência funcional; 4 evidência insuficiente.
+Comparações descritivas: funcional exige todas as observações conformes ao
+oráculo e constantes/iguais entre ambientes; falhas ocasionais ficam visíveis.
+Tempo: diferenças entre medianas de runs, sem margem de aceitação universal.
+A resolução declarada pelo oráculo não é um limite instrumental validado.
+Nenhum resultado desta análise demonstra precisão universal de ciclo/ISA.
 """
 from __future__ import annotations
 
 import csv
 import json
+import hashlib
+import math
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from statistics import mean, median, pstdev
+from statistics import mean, median, stdev
 
 from . import abi, c1, c2, c3, c4
 from .firmwares import FIRMWARES
 from .model import RunEval
 
 ENV_LABEL = {"hw": "placa", "renode-nominal": "Renode 8 MIPS", "renode-calibrated": "Renode calibrado"}
-CLASSES = {1: "concordância funcional e temporal", 2: "concordância funcional, divergência temporal",
+CLASSES = {1: "concordância funcional; mesmas medianas temporais observadas", 2: "concordância funcional, diferença temporal observada",
            3: "divergência funcional", 4: "evidência insuficiente"}
 
 
@@ -57,27 +53,45 @@ class Run:
 
 
 def load_runs(root: Path, plan: dict) -> list[Run]:
+    """Lê todas as tentativas e REVALIDA as válidas com o código atual.
+
+    Um run só entra na análise se: o snapshot tem o SHA-256 registrado, foi
+    produzido pelo ELF congelado no plano, decodifica (ABI atual) e passa
+    nas verificações de instrumento do firmware (nonce, casos, estado).
+    """
+    if plan.get("abi_version") != abi.ABI_VERSION:
+        raise ValueError(f"plano de outra ABI ({plan.get('abi_version')}); use a versão do código "
+                         "com que a campanha foi coletada")
     runs = []
     for env in ("hw", "renode-nominal", "renode-calibrated"):
-        for fw in plan["firmwares"]:
-            for rec_path in sorted((root / env / fw).glob("run-*/run.json")):
+        for name, spec in plan["firmwares"].items():
+            fw = FIRMWARES[name]
+            seen_nonces = set()
+            for rec_path in sorted((root / env / name).glob("run-*/run.json")):
                 rec = json.loads(rec_path.read_text())
-                run = Run(env, fw, rec_path.parent.name, rec_path.parent, rec)
-                if rec.get("status") == "valid":
-                    try:
-                        run.snapshot = abi.decode((rec_path.parent / "snapshot.bin").read_bytes())
-                        run.eval = FIRMWARES[fw].evaluate(run.snapshot)
-                        if run.eval.problems:
-                            run.record = {**rec, "status": "invalid",
-                                          "problems": rec.get("problems", []) + run.eval.problems}
-                    except abi.SnapshotError as exc:
-                        run.record = {**rec, "status": "invalid", "problems": [str(exc)]}
-                        run.eval = None
-                    except (ValueError, IndexError, TypeError, KeyError) as exc:
-                        run.record = {**rec, "status": "invalid",
-                                      "problems": [f"avaliação falhou (layout inesperado): {exc!r}"]}
-                        run.eval = None
+                run = Run(env, name, rec_path.parent.name, rec_path.parent, rec)
                 runs.append(run)
+                if rec.get("status") != "valid":
+                    continue
+                problems = []
+                raw = (rec_path.parent / "snapshot.bin").read_bytes()
+                if hashlib.sha256(raw).hexdigest() != rec.get("snapshot_sha256"):
+                    problems.append("snapshot diferente do registrado (hash)")
+                if rec.get("elf_sha256") != spec["elf_sha256"]:
+                    problems.append("run de outro ELF (diferente do plano)")
+                if rec.get("nonce") in seen_nonces:
+                    problems.append("nonce repetido: não é um reset independente")
+                try:
+                    run.snapshot = abi.decode(raw)
+                    problems += fw.validate(run.snapshot, rec.get("nonce"))
+                    run.eval = fw.evaluate(run.snapshot)
+                except (abi.SnapshotError, ValueError, IndexError, KeyError) as exc:
+                    problems.append(f"revalidação falhou: {exc}")
+                if problems:
+                    run.record = {**rec, "status": "invalid", "problems": problems}
+                    run.eval = None
+                else:
+                    seen_nonces.add(rec.get("nonce"))
     return runs
 
 
@@ -100,12 +114,14 @@ def write_csv(path: Path, rows: list[dict]) -> None:
 def accounting(runs: list[Run], plan: dict) -> list[dict]:
     rows = []
     planned_envs = {"hw": "hw", "renode": "renode-nominal"}
-    envs = sorted({r.env for r in runs} | {planned_envs[e] for e in plan["environments"]})
+    envs = sorted({r.env for r in runs} | {planned_envs[e] for e in plan["environments"]}
+                  | ({"renode-calibrated"} if plan.get("calibration", {}).get("enabled") and "c1-timing" in plan["firmwares"] else set()))
     for env in envs:
         for fw in plan["firmwares"]:
             mine = [r for r in runs if r.env == env and r.firmware == fw]
-            if not mine and env == "renode-calibrated":
-                continue
+            if env == "renode-calibrated" and (fw != "c1-timing" or not plan.get("calibration", {}).get("enabled")):
+                if not mine:
+                    continue
             status = Counter(r.record.get("status") if not (r.record.get("status") == "valid" and r.eval is None)
                              else "invalid" for r in mine)
             reasons = Counter(p for r in mine if not r.valid for p in r.record.get("problems", [])[:1])
@@ -130,6 +146,7 @@ def check_rows(runs: list[Run]) -> list[dict]:
         for c in r.eval.checks:
             rows.append({"environment": r.env, "firmware": r.firmware, "run": r.name, "case": c.case,
                          "item": c.item,
+                         "has_oracle": c.expected is not None,
                          "expected": "(sem oráculo)" if c.expected is None else _fmt(c.expected),
                          "observed": _fmt(c.observed), "ok": c.ok})
     return rows
@@ -143,7 +160,11 @@ def metric_rows(runs: list[Run]) -> list[dict]:
         for m in r.eval.metrics:
             rows.append({"environment": r.env, "firmware": r.firmware, "run": r.name, "case": m.case,
                          "metric": m.name, "value": m.value, "unit": m.unit,
-                         "resolution": m.resolution, "predicted": m.predicted})
+                         "resolution": m.resolution, "predicted": m.predicted,
+                         "resolution_basis": getattr(m, "resolution_basis", "não validada"),
+                         "core_hz": r.snapshot.header["core_hz"] if r.snapshot else None,
+                         "session": r.record.get("config", {}).get("session"),
+                         "finished_utc": r.record.get("finished_utc")})
     return rows
 
 
@@ -154,17 +175,30 @@ def _fmt(v) -> str:
 
 
 def stats_rows(metrics: list[dict]) -> list[dict]:
-    groups: dict[tuple, list[dict]] = defaultdict(list)
+    groups = defaultdict(list)
     for m in metrics:
+        if not math.isfinite(m["value"]) or not math.isfinite(m["resolution"]) or m["resolution"] < 0:
+            raise ValueError("métrica não finita ou resolução inválida")
         groups[(m["firmware"], m["case"], m["metric"], m["environment"])].append(m)
     rows = []
     for (fw, case, metric, env), ms in sorted(groups.items()):
-        vals = [m["value"] for m in ms]
+        if len({m["unit"] for m in ms}) != 1:
+            raise ValueError(f"unidades incompatíveis em {fw}/{case}/{metric}/{env}")
+        by_run = defaultdict(list)
+        for m in ms:
+            by_run[m["run"]].append(m["value"])
+        # Uma mediana por reset; eventos internos nunca aumentam n independente.
+        vals = [median(v) for v in by_run.values()]
+        predictions = {m["predicted"] for m in ms}
         rows.append({"firmware": fw, "case": case, "metric": metric, "environment": env,
-                     "n": len(vals), "mean": mean(vals), "std": pstdev(vals) if len(vals) > 1 else 0.0,
+                     "n": len(vals), "samples": len(ms), "aggregation": "mediana por run",
+                     "mean": mean(vals), "std": stdev(vals) if len(vals) > 1 else None,
                      "median": median(vals), "min": min(vals), "max": max(vals),
-                     "distinct_values": len(set(vals)), "predicted": ms[0]["predicted"],
-                     "resolution": ms[0]["resolution"], "unit": ms[0]["unit"]})
+                     "distinct_values": len(set(vals)),
+                     "predicted": next(iter(predictions)) if len(predictions) == 1 else None,
+                     "prediction_consistent": len(predictions) == 1,
+                     "resolution": max(m["resolution"] for m in ms),
+                     "resolution_validated": False, "unit": ms[0]["unit"]})
     return rows
 
 
@@ -181,6 +215,8 @@ def group_of(fw: str, case: str) -> str:
     if fw == "c2":
         return f"C2 · {c2.GROUP[case.split('/')[-1]]}"
     if fw == "c3":
+        if case == "c3/config":
+            return "C3 · configuração do núcleo e clock"
         return f"C3 · {c3.GROUP[int(case.split('/')[1], 16)]}"
     if fw == "c4":
         return f"C4 · {c4.GROUP[int(case.split('/')[1], 16)]}"
@@ -188,13 +224,16 @@ def group_of(fw: str, case: str) -> str:
 
 
 def classify(checks: list[dict], stats: list[dict], ref_env: str, sim_env: str,
-             firmwares: list[str]) -> list[dict]:
+             firmwares: list[str], expected_cases: list[tuple[str, str]] | None = None) -> list[dict]:
     by_case_item: dict[tuple, dict[str, list[dict]]] = defaultdict(lambda: defaultdict(list))
     for c in checks:
         if c["environment"] in (ref_env, sim_env):
             by_case_item[(c["firmware"], c["case"], c["item"])][c["environment"]].append(c)
     st = {(s["firmware"], s["case"], s["metric"], s["environment"]): s for s in stats}
-    cases = sorted({(fw, case) for fw, case, _ in by_case_item} |
+    case_runs = defaultdict(set)
+    for c in checks:
+        case_runs[(c["firmware"], c["case"], c["environment"])].add(c["run"])
+    cases = sorted(set(expected_cases or []) | {(fw, case) for fw, case, _ in by_case_item} |
                    {(s["firmware"], s["case"]) for s in stats if s["environment"] in (ref_env, sim_env)})
     rows = []
     for fw, case in cases:
@@ -205,43 +244,70 @@ def classify(checks: list[dict], stats: list[dict], ref_env: str, sim_env: str,
         insufficient = False
         hw_spec_fail, rn_spec_fail = [], []
         for item, envs in items:
+            if any(not c["ok"] for c in envs.get(ref_env, []) if c.get("has_oracle", True)):
+                hw_spec_fail.append(item)
+            if any(not c["ok"] for c in envs.get(sim_env, []) if c.get("has_oracle", True)):
+                rn_spec_fail.append(item)
             if not envs.get(ref_env) or not envs.get(sim_env):
                 insufficient = True
                 reasons.append(f"'{item}' sem dados nos dois ambientes")
                 continue
+            for env in (ref_env, sim_env):
+                if {c["run"] for c in envs[env]} != case_runs[(fw, case, env)]:
+                    insufficient = True
+                    reasons.append(f"'{item}' omitido em parte dos runs de {env}")
+            if len({c["expected"] for env in (ref_env, sim_env) for c in envs[env]}) > 1:
+                insufficient = True
+                reasons.append(f"'{item}' expectativas incompatíveis entre runs/ambientes")
             ref_vals = Counter(c["observed"] for c in envs[ref_env])
             sim_vals = Counter(c["observed"] for c in envs[sim_env])
-            if not all(c["ok"] for c in envs[ref_env]):
-                hw_spec_fail.append(item)
-            if not all(c["ok"] for c in envs[sim_env]):
-                rn_spec_fail.append(item)
             if len(ref_vals) > 1 or len(sim_vals) > 1:
                 unstable.append(item)
-            if ref_vals.most_common(1)[0][0] != sim_vals.most_common(1)[0][0]:
+            if set(ref_vals) != set(sim_vals):
                 func_div.append(item)
+            elif len(ref_vals) > 1 or len(sim_vals) > 1:
+                insufficient = True
+                reasons.append(f"'{item}' variável: equivalência da distribuição não estabelecida")
         temporal, temporal_div = [], []
-        for (sfw, scase, metric, env), s in st.items():
-            if sfw != fw or scase != case or env != ref_env or s["unit"] == "bytes":
+        metrics = {k[2] for k in st if k[:2] == (fw, case) and k[3] in (ref_env, sim_env)}
+        for metric in sorted(metrics):
+            s, sim = st.get((fw, case, metric, ref_env)), st.get((fw, case, metric, sim_env))
+            if s is None or sim is None:
+                insufficient = True
+                reasons.append(f"'{metric}' sem métrica nos dois ambientes")
                 continue
-            sim = st.get((fw, case, metric, sim_env))
-            if sim is None:
+            if s["unit"] != sim["unit"] or s["predicted"] != sim["predicted"] or not s.get("prediction_consistent", True) or not sim.get("prediction_consistent", True):
+                insufficient = True
+                reasons.append(f"'{metric}' unidade/previsão incompatível")
                 continue
-            res = s["resolution"]
-            agree = s["min"] - res <= sim["median"] <= s["max"] + res
+            if s["unit"] == "bytes":
+                continue
+            for env, value in ((ref_env, s), (sim_env, sim)):
+                if value["n"] < len(case_runs[(fw, case, env)]):
+                    insufficient = True
+                    reasons.append(f"'{metric}' omitido em parte dos runs de {env}")
+            # Igualdade descritiva, sem utilizar bounds instrumentais não provados.
+            agree = sim["median"] == s["median"]
             err = sim["median"] - s["median"]
-            rel = err / s["median"] if s["median"] else float("nan")
+            rel = err / s["median"] if s["median"] else None
             temporal.append((metric, agree, err, rel))
             if not agree:
-                temporal_div.append(f"{metric}: {err:+.1f} ({rel:+.1%})")
-        if insufficient or (not items and not temporal):
-            cls = 4
-        elif func_div:
+                temporal_div.append(f"{metric}: {err:+.6g} {s['unit']}" +
+                                    (f" ({rel:+.1%})" if rel is not None else " (referência zero)"))
+        if func_div or hw_spec_fail or rn_spec_fail:
             cls = 3
+        elif insufficient or (not items and not temporal):
+            cls = 4
         elif temporal_div:
             cls = 2
         else:
             cls = 1
         name = CLASSES[cls]
+        if cls == 3 and not func_div:
+            name = "não conformidade com especificação (sem diferença HW×Renode demonstrada)"
+        comparison = ("valores diferentes observados" if func_div else
+                      "sem evidência suficiente" if insufficient or not items else
+                      "mesmos valores constantes observados")
         if cls == 1 and not temporal:
             name = "concordância funcional (sem observável temporal)"
         elif cls in (1, 2) and not items:
@@ -251,15 +317,22 @@ def classify(checks: list[dict], stats: list[dict], ref_env: str, sim_env: str,
             "firmware": fw, "case": case, "group": group_of(fw, case), "class": cls,
             "class_name": name,
             "functional_divergences": "; ".join(func_div),
-            "hw_vs_spec": "ok" if not hw_spec_fail else "diverge: " + "; ".join(hw_spec_fail),
-            "sim_vs_spec": "ok" if not rn_spec_fail else "diverge: " + "; ".join(rn_spec_fail),
+            "functional_comparison": comparison,
+            "specification_failures": "; ".join([f"{ref_env}: {x}" for x in hw_spec_fail] +
+                                                   [f"{sim_env}: {x}" for x in rn_spec_fail]),
+            "hw_vs_spec": ("diverge: " + "; ".join(hw_spec_fail)) if hw_spec_fail else
+                ("ok" if items and all(v.get(ref_env) for _, v in items) else "sem evidência"),
+            "sim_vs_spec": ("diverge: " + "; ".join(rn_spec_fail)) if rn_spec_fail else
+                ("ok" if items and all(v.get(sim_env) for _, v in items) else "sem evidência"),
             "variable_across_runs": "; ".join(unstable),
+            "functional_items": len(items),
+            "temporal_interpretation": "comparação observada; adequação temporal não estabelecida",
             "temporal_metrics": len(temporal),
             "temporal_agree": sum(1 for t in temporal if t[1]),
             "temporal_divergences": "; ".join(temporal_div),
-            "median_abs_rel_error": median([abs(t[3]) for t in temporal if t[3] == t[3]])
-            if temporal else None,
-            "max_abs_rel_error": max([abs(t[3]) for t in temporal if t[3] == t[3]], default=None),
+            "median_abs_rel_error": median([abs(t[3]) for t in temporal if t[3] is not None])
+            if any(t[3] is not None for t in temporal) else None,
+            "max_abs_rel_error": max([abs(t[3]) for t in temporal if t[3] is not None], default=None),
             "reasons": "; ".join(reasons),
         })
     return rows
@@ -269,27 +342,35 @@ def resource_map(cases: list[dict], instr_rows: list[dict]) -> list[dict]:
     groups: dict[str, list[dict]] = defaultdict(list)
     for c in cases:
         groups[c["group"]].append(c)
-    instr_ok = {r["load"]: r["same_pc_sequence"] for r in instr_rows}
+    instr_ok = {}
+    for r in instr_rows:
+        instr_ok[r["load"]] = instr_ok.get(r["load"], True) and r["same_pc_sequence_all_sizes"]
     rows = []
     for g, cs in groups.items():
         cls = Counter(c["class"] for c in cs)
-        if cls.get(4):
+        functional_cases = [c for c in cs if c["functional_items"]]
+        differences = sum(bool(c["functional_divergences"]) for c in functional_cases)
+        if not functional_cases:
+            functional = "sem observável funcional"
+        elif differences:
+            functional = f"valores diferentes observados ({differences}/{len(functional_cases)} casos funcionais)"
+        elif any(c["functional_comparison"] == "sem evidência suficiente" for c in functional_cases):
             functional = "evidência insuficiente"
-        elif cls.get(3):
-            functional = f"diverge ({cls[3]}/{len(cs)} casos)"
         else:
-            functional = "concorda"
+            functional = "mesmos valores constantes observados"
         n_temp = sum(c["temporal_metrics"] for c in cs)
         if n_temp == 0:
             cycle = "—"
+        elif cls.get(4):
+            cycle = "evidência insuficiente"
         elif all(c["temporal_metrics"] == c["temporal_agree"] for c in cs):
-            cycle = "concorda"
+            cycle = "mesmas medianas observadas; adequação não estabelecida"
         else:
             n_ok = sum(c["temporal_agree"] for c in cs)
             errs = [c["median_abs_rel_error"] for c in cs if c["median_abs_rel_error"] is not None]
             worst = max((c["max_abs_rel_error"] for c in cs if c["max_abs_rel_error"] is not None),
                         default=None)
-            cycle = f"diverge ({n_temp - n_ok}/{n_temp} métricas"
+            cycle = f"diferença observada ({n_temp - n_ok}/{n_temp} métricas"
             if errs:
                 cycle += f"; erro rel. mediano {median(errs):.1%}, máx. {worst:.1%}"
             cycle += ")"
@@ -297,11 +378,14 @@ def resource_map(cases: list[dict], instr_rows: list[dict]) -> list[dict]:
         if g.startswith("C1 · tempo de carga: "):
             load = g.split(": ")[1]
             if load in instr_ok:
-                instruction = "concorda (mesma sequência de PCs)" if instr_ok[load] else "diverge"
+                instruction = "mesmo caminho observado (PCs; não valida estado por instrução)" if instr_ok[load] else "diverge"
             else:
                 instruction = "sem traço"
-        hw_spec = "ok" if all(c["hw_vs_spec"] == "ok" for c in cs) else "diverge da especificação"
-        sim_spec = "ok" if all(c["sim_vs_spec"] == "ok" for c in cs) else "diverge da especificação"
+        def spec_status(key):
+            if any(c[key].startswith("diverge") for c in functional_cases):
+                return "diverge da especificação"
+            return "ok" if functional_cases and all(c[key] == "ok" for c in functional_cases) else "sem evidência"
+        hw_spec, sim_spec = spec_status("hw_vs_spec"), spec_status("sim_vs_spec")
         rows.append({"resource": g, "cases": len(cs), "functional": functional,
                      "instruction": instruction, "cycle": cycle,
                      "hw_vs_spec": hw_spec, "sim_vs_spec": sim_spec,
@@ -311,11 +395,25 @@ def resource_map(cases: list[dict], instr_rows: list[dict]) -> list[dict]:
 
 # ───────────────────────────── C1: instruções e calibração ─────────────────────────────
 
+def _instruction_data(root: Path, env: str) -> dict:
+    """Resultado do stepi de um ambiente, conferido contra o ELF congelado."""
+    plan = json.loads((root / "plan.json").read_text())
+    out = root / "instr" / env
+    meta = json.loads((out / "trace.json").read_text())
+    if meta.get("elf_sha256") != plan["firmwares"]["c1-timing"]["elf_sha256"]:
+        raise ValueError(f"traço stepi de {env} é de outro ELF")
+    doc = json.loads((out / "instructions.json").read_text())
+    expected = {"empty/0"} | {f"{load}/{n}" for load in c1.LOADS[1:] for n in c1.SIZES}
+    if set(doc) != expected:
+        raise ValueError(f"traço stepi de {env}: conjunto de cargas/tamanhos incompleto")
+    return doc
+
+
 def c1_instruction_rows(root: Path, stats: list[dict]) -> list[dict]:
     paths = {env: root / "instr" / env / "instructions.json" for env in ("hw", "renode")}
     if not all(p.exists() for p in paths.values()):
         return []
-    hw, rn = (json.loads(paths[e].read_text()) for e in ("hw", "renode"))
+    hw, rn = (_instruction_data(root, e) for e in ("hw", "renode"))
     warm = {(s["case"], s["environment"]): s["median"] for s in stats
             if s["firmware"] == "c1-timing" and s["metric"] == "warm"}
     rows = []
@@ -325,7 +423,7 @@ def c1_instruction_rows(root: Path, stats: list[dict]) -> list[dict]:
         rows.append({
             "case": key, "load": h["load"], "n": h["n"],
             "instructions_hw": h["count"], "instructions_renode": r["count"] if r else None,
-            "same_pc_sequence": bool(r) and h["pcs_sha256"] == r["pcs_sha256"],
+            "same_pc_sequence": bool(r) and h["count"] == r["count"] and h["pcs_sha256"] == r["pcs_sha256"],
             "ticks_hw_warm": t_hw, "ticks_renode_warm": t_rn,
             "cpi_hw": t_hw / h["count"] if t_hw and h["count"] else None,
             "renode_ticks_minus_instructions": (t_rn - r["count"]) if (t_rn is not None and r) else None,
@@ -344,9 +442,10 @@ def calibration_summary(root: Path, stats: list[dict]) -> dict | None:
     if not cal_path.exists():
         return None
     cal = json.loads(cal_path.read_text())
-    recs = sorted((root / "renode-calibrated" / "c1-timing").glob("run-*/run.json"))
-    if recs:
-        cal["effective_mips"] = json.loads(recs[0].read_text()).get("performance_in_mips_effective")
+    if type(cal.get("chosen_mips")) is not int or not 1 <= cal["chosen_mips"] <= 16:
+        raise ValueError("MIPS calibrado fora da faixa planejada 1..16")
+    # Valor efetivo só é apresentado quando há estatísticas de runs revalidados.
+    cal["effective_mips"] = cal["chosen_mips"] if any(s["environment"] == "renode-calibrated" for s in stats) else None
     warm = {(s["case"], s["environment"]): s["median"] for s in stats
             if s["firmware"] == "c1-timing" and s["metric"] == "warm"}
     rows = []
@@ -359,33 +458,56 @@ def calibration_summary(root: Path, stats: list[dict]) -> dict | None:
             role = ("treino" if load in cal["rule"]["training_loads"] else
                     "avaliação" if load in cal["rule"]["evaluation_loads"] else "—")
             rows.append({"case": key, "role": role, "hw": hw, "nominal": nom, "calibrated": cal_v,
-                         "err_nominal": (nom - hw) / hw if hw and nom else None,
-                         "err_calibrated": (cal_v - hw) / hw if hw and cal_v else None})
+                         "err_nominal": (nom - hw) / hw if hw is not None and hw != 0 and nom is not None else None,
+                         "err_calibrated": (cal_v - hw) / hw if hw is not None and hw != 0 and cal_v is not None else None})
     cal["per_case"] = rows
+    cal["aggregate_size"] = cal["rule"]["size"]
 
     def mare(role, col):
-        vals = [abs(r[col]) for r in rows if r["role"] == role and r[col] is not None]
-        return sum(vals) / len(vals) if vals else None
+        vals = [abs(r[col]) for r in rows if r["role"] == role and r["case"].endswith(f"/{cal['rule']['size']}") and r[col] is not None]
+        wanted = cal["rule"]["training_loads" if role == "treino" else "evaluation_loads"]
+        return sum(vals) / len(vals) if vals and len(vals) == len(wanted) else None
     cal["aggregate"] = {f"{role}_{col}": mare(role, col) for role in ("treino", "avaliação")
                         for col in ("err_nominal", "err_calibrated")}
     return cal
 
 
 def determinism(metrics: list[dict], checks: list[dict]) -> list[dict]:
-    """Fração de observáveis com o MESMO valor em todos os runs, por ambiente."""
+    """Só considera repetibilidade com >=2 runs e cobertura de todos os runs
+    válidos do firmware. A fração usa apenas observáveis elegíveis.
+    """
     rows = []
-    for env in sorted({m["environment"] for m in metrics} | {c["environment"] for c in checks}):
-        vals = defaultdict(set)
-        for m in metrics:
-            if m["environment"] == env:
-                vals[("m", m["firmware"], m["case"], m["metric"])].add(m["value"])
-        for c in checks:
-            if c["environment"] == env:
-                vals[("c", c["firmware"], c["case"], c["item"])].add(c["observed"])
-        constant = sum(1 for v in vals.values() if len(v) == 1)
-        rows.append({"environment": env, "observables": len(vals), "identical_in_all_runs": constant,
-                     "fraction": constant / len(vals) if vals else None})
+    envs = {m["environment"] for m in metrics} | {c["environment"] for c in checks}
+    for env in sorted(envs):
+        vals, runs = defaultdict(dict), defaultdict(set)
+        for kind, data, key, value in (("m", metrics, "metric", "value"),
+                                       ("c", checks, "item", "observed")):
+            for row in data:
+                if row["environment"] != env:
+                    continue
+                runs[row["firmware"]].add(row["run"])
+                ident = (kind, row["firmware"], row["case"], row[key])
+                vals[ident].setdefault(row["run"], []).append(row[value])
+        eligible = [v for k, v in vals.items() if len(v) >= 2 and set(v) == runs[k[1]]]
+        constant = sum(len({tuple(vv) for vv in v.values()}) == 1 for v in eligible)
+        rows.append({"environment": env, "observables": len(vals), "eligible": len(eligible),
+                     "insufficient": len(vals) - len(eligible), "identical_in_all_runs": constant,
+                     "fraction": constant / len(eligible) if eligible else None})
     return rows
+
+
+def expected_case_labels(plan: dict) -> list[tuple[str, str]]:
+    labels = []
+    for fw, spec in plan["firmwares"].items():
+        for cid in spec["planned_cases"]:
+            if fw == "c1-functional":
+                label = c1.CASES[cid]
+            elif fw == "c1-timing":
+                label = f"{c1.LOADS[cid >> 4]}/{0 if cid == 0 else c1.SIZES[cid & 15]}"
+            else:
+                label = {"c2": c2, "c3": c3, "c4": c4}[fw].label(cid)
+            labels.append((fw, label))
+    return labels
 
 
 # ───────────────────────────── orquestração ─────────────────────────────
@@ -400,11 +522,28 @@ def analyze(root: Path, log=print) -> dict:
     metrics = metric_rows(runs)
     stats = stats_rows(metrics)
     fws = list(plan["firmwares"])
-    cases = classify(checks, stats, "hw", "renode-nominal", fws)
-    instr_rows = c1_instruction_rows(root, stats)
+    cases = classify(checks, stats, "hw", "renode-nominal", fws, expected_case_labels(plan))
+    analysis_problems = []
+    try:
+        instr_rows = c1_instruction_rows(root, stats)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        instr_rows = []
+        analysis_problems.append(f"traço de instruções inválido: {exc}")
+    if plan.get("instructions", {}).get("enabled"):
+        for env in plan["environments"]:
+            if not (root / "instr" / env / "instructions.json").exists():
+                analysis_problems.append(f"traço de instruções solicitado ausente: {env}")
     resources = resource_map(cases, instr_rows)
-    cal = calibration_summary(root, stats)
+    try:
+        cal = calibration_summary(root, stats) if plan.get("calibration", {}).get("enabled") else None
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        cal = None
+        analysis_problems.append(f"calibração inválida: {exc}")
     det = determinism(metrics, checks)
+    write_csv(out / "exclusions.csv", [{"environment": r.env, "firmware": r.firmware,
+                                        "run": r.name, "status": r.record.get("status"),
+                                        "problems": "; ".join(r.record.get("problems", []))}
+                                       for r in runs if not r.valid])
     write_csv(out / "accounting.csv", acc)
     write_csv(out / "checks.csv", checks)
     write_csv(out / "metrics.csv", metrics)
@@ -420,7 +559,12 @@ def analyze(root: Path, log=print) -> dict:
     traces = perfetto.export_campaign(root, runs, out / "perfetto", log)
     summary = {
         "campaign": plan["campaign"], "mode": plan["mode"], "board": plan["board"],
-        "complete": all(a["complete"] for a in acc if a["environment"] in ("hw", "renode-nominal")),
+        "acquisition_complete": bool(acc) and all(a["complete"] for a in acc),
+        "complete": (bool(acc) and all(a["complete"] for a in acc) and not analysis_problems
+                     and not traces["errors"] and bool(traces["validation"])
+                     and all(v["ok"] for v in traces["validation"])),
+        "analysis_problems": analysis_problems,
+        "comparison_available": set(plan["environments"]) == {"hw", "renode"},
         "accounting": acc, "classes": Counter(c["class"] for c in cases),
         "figures": figs, "perfetto": traces,
     }

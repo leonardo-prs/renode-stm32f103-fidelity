@@ -35,6 +35,7 @@ class Metric:
     unit: str = "ticks"
     resolution: float = 1.0
     predicted: float | None = None
+    resolution_basis: str = "granularidade do contador; não limita o erro instrumental"
 
 
 @dataclass
@@ -52,10 +53,13 @@ class RunEval:
     def metric(self, case: str, name: str, value: float, *, unit: str = "ticks",
                resolution: float = 1.0, predicted: float | None = None) -> None:
         self.metrics.append(Metric(case, name, float(value), unit, resolution,
-                                   None if predicted is None else float(predicted)))
+                                   None if predicted is None else float(predicted),
+                                   "estimativa heurística do polling; limite não demonstrado"
+                                   if resolution == RES_POLL else
+                                   "granularidade do contador; não limita o erro instrumental"))
 
 
 # Resolução dos pontos de observação (ticks de 8 MHz).
 RES_BRACKET = 1.0     # duas leituras do CYCCNT em ordem fixa (C1)
 RES_LOG = 1.0         # timestamp do logger (fid_log), mesmo código nos 2 ambientes
-RES_POLL = 16.0       # instante visto por um laço de polling (≤ 1 volta do laço, ~10-16 ciclos)
+RES_POLL = 16.0       # estimativa heurística; NÃO é limite demonstrado de uma volta do laço

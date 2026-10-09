@@ -3,11 +3,18 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 pid_file=build/renode.pid
-if [[ -s "$pid_file" ]]; then
-    pid="$(<"$pid_file")"
-    if [[ -r "/proc/$pid/cmdline" ]] && tr '\0' ' ' < "/proc/$pid/cmdline" | grep -qi renode; then
+owner_file=build/renode.owner
+if [[ -s "$owner_file" ]]; then
+    read -r pid started < "$owner_file"
+    if [[ "$pid" =~ ^[0-9]+$ && -r "/proc/$pid/stat" ]]; then
+        proc_stat="$(</proc/$pid/stat)"
+        read -r -a proc_fields <<< "${proc_stat##*) }"
+        cmdline="$(tr '\0' ' ' < "/proc/$pid/cmdline")"
+        if [[ "${proc_fields[19]}" == "$started" && "$cmdline" == *renode* &&
+              "$cmdline" == *"--pid-file build/renode.pid"* ]]; then
         kill "$pid" 2>/dev/null || true
         echo ">>> Renode (pid $pid) encerrado."
+        fi
     fi
-    rm -f "$pid_file"
 fi
+rm -f "$pid_file" "$owner_file"

@@ -97,7 +97,7 @@ CASES = {
     16: "conversion", 17: "u64_ops", 18: "sram_byte_order", 19: "sram_widths",
     20: "sram_patterns", 21: "sram_walking", 22: "flash_words", 23: "flash_narrow",
     24: "copy_unaligned", 25: "fill_region", 26: "sort16", 27: "gcd", 28: "switch",
-    29: "recursion",
+    29: "recursion", 30: "unaligned_access",
 }
 # Área de cada caso (para a tabela de limites por recurso).
 CASE_GROUP = {**{i: "aritmética inteira" for i in range(1, 10)},
@@ -106,11 +106,17 @@ CASE_GROUP = {**{i: "aritmética inteira" for i in range(1, 10)},
               22: "flash (.rodata)", 23: "flash (.rodata)",
               24: "cópia/preenchimento", 25: "cópia/preenchimento",
               26: "controle/algoritmo", 27: "controle/algoritmo", 28: "controle/algoritmo",
-              29: "controle/algoritmo"}
+              29: "controle/algoritmo", 30: "SRAM (acesso desalinhado de 16/32 bits)"}
 IMPL_DEFINED = {"shifts": "asr de negativo (GCC: aritmético)",
                 "conversion": "conversão para int8/int16 fora da faixa (GCC: módulo 2^N)",
                 "flash_narrow": "conversão uint8/16 → int8/16 via LDRSB/LDRSH"}
 PLANNED_FUNCTIONAL = list(CASES)
+FUNCTIONAL_WORDS = {
+    1: 24, 2: 24, 3: 24, 4: 32, 5: 36, 6: 28, 7: 21, 8: 40,
+    9: 24, 10: 56, 11: 80, 12: 24, 13: 27, 14: 24, 15: 8,
+    16: 40, 17: 36, 18: 6, 19: 7, 20: 64, 21: 64, 22: 65,
+    23: 24, 24: 16, 25: 16, 26: 16, 27: 18, 28: 24, 29: 8, 30: 34,
+}
 
 
 # ───────────────────────── expectativas por caso ─────────────────────────
@@ -139,8 +145,25 @@ def _binary(words, pairs, fn, labels, n_out):
 
 def expected_functional(case_id: int, words: tuple[int, ...]):
     """(entradas_ok, [(rótulo, esperado, observado)]) para um caso."""
+    expected_count = FUNCTIONAL_WORDS[case_id]
+    if len(words) != expected_count:
+        raise ValueError(f"caso {case_id}: {len(words)} palavras, esperado {expected_count}")
     w = list(words)
     name = CASES[case_id]
+    if name == "unaligned_access":
+        checks = [("CCR.UNALIGN_TRP", 0, w[0])]
+        for offset, g in zip((1, 2, 3), _chunks(w[1:], 11)):
+            block = bytearray(range(16))
+            checks += [(f"offset {offset}", offset, g[0]),
+                       (f"LDR offset {offset}", int.from_bytes(block[offset:offset + 4], "little"), g[1]),
+                       (f"LDRH offset {offset}", int.from_bytes(block[offset:offset + 2], "little"), g[2])]
+            block[offset:offset + 4] = (0xA1B2C3D4).to_bytes(4, "little")
+            expected = [int.from_bytes(block[i:i + 4], "little") for i in range(0, 16, 4)]
+            checks += [(f"STR offset {offset} word {i}", e, o) for i, (e, o) in enumerate(zip(expected, g[3:7]))]
+            block[offset:offset + 2] = (0xE5F6).to_bytes(2, "little")
+            expected = [int.from_bytes(block[i:i + 4], "little") for i in range(0, 16, 4)]
+            checks += [(f"STRH offset {offset} word {i}", e, o) for i, (e, o) in enumerate(zip(expected, g[7:11]))]
+        return True, checks
     if name == "u32_add":
         return _binary(w, U32_PAIRS, lambda a, b: [a + b], ["add"], 1)
     if name == "u32_sub":
@@ -400,6 +423,8 @@ class TimingRep:
     ticks: int
     t0: int
     result_ok: bool
+    copy_ok: bool = True
+    status: str = "OK"
 
 
 def parse_timing(snap) -> tuple[list[TimingRep], list[str]]:
@@ -414,13 +439,19 @@ def parse_timing(snap) -> tuple[list[TimingRep], list[str]]:
         li, si = case_id >> 4, case_id & 0xF
         load = LOADS[li]
         n = 0 if load == "empty" else SIZES[si]
-        if len(w) != 4 + 3 * REPS or tuple(w[:4]) != (li, n, LOAD_ARGS[load], REPS):
+        stride = 3 + (n if load == "sram_copy" else 0)
+        if len(w) != 4 + stride * REPS or tuple(w[:4]) != (li, n, LOAD_ARGS[load], REPS):
             problems.append(f"caso {load}/{n}: cabeçalho {w[:4]} diferente do plano")
             continue
         expected = expected_timing_result(load, n)
         for r in range(REPS):
-            ticks, t0, result = w[4 + 3 * r: 7 + 3 * r]
-            reps.append(TimingRep(load, n, r, ticks, t0, result == expected))
+            start = 4 + stride * r
+            ticks, t0, result = w[start:start + 3]
+            copy_ok = True
+            if load == "sram_copy":
+                copied = w[start + 3:start + stride]
+                copy_ok = copied == tuple((v + 1) & M32 for v in timing_inputs(load)[:n])
+            reps.append(TimingRep(load, n, r, ticks, t0, result == expected, copy_ok, c.status))
     return reps, problems
 
 
@@ -436,7 +467,11 @@ def evaluate_functional(snap):
         c = snap.case(r.case_id)
         if c is None:
             continue
-        _, checks = expected_functional(r.case_id, c.words)
+        try:
+            _, checks = expected_functional(r.case_id, c.words)
+        except (ValueError, IndexError) as exc:
+            ev.problems.append(f"{r.name}: layout inválido ({exc})")
+            continue
         for label, exp, obs in checks:
             ev.check(r.name, label, exp, obs)
     return ev
@@ -465,8 +500,13 @@ def evaluate_timing(snap):
     warm_by_load: dict[str, list[tuple[int, float]]] = {}
     for (load, n), rs in by_case.items():
         case = f"{load}/{n}"
-        ev.case_status[case] = "OK"
+        ev.case_status[case] = rs[0].status
         ev.check(case, "resultado correto em todas as repetições", True, all(r.result_ok for r in rs))
+        if load == "sram_copy":
+            ev.check(case, "todas as palavras copiadas em todas as repetições", True,
+                     all(r.copy_ok for r in rs))
+        if rs[0].status != "OK":
+            continue
         rs.sort(key=lambda r: r.rep)
         warm = [r.ticks for r in rs[1:]]
         ev.metric(case, "first", rs[0].ticks, resolution=RES_BRACKET)

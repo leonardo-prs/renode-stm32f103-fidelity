@@ -94,7 +94,7 @@ static uint32_t min_observer_ticks(void)
 }
 
 /* Custo de um fid_log: diferença mínima entre timestamps de registros
- * consecutivos. Os 4 eventos ficam no anel MAIN (o host os ignora). */
+ * consecutivos. Os 8 eventos ficam no anel MAIN (o host os ignora). */
 static uint32_t min_log_ticks(void)
 {
     uint32_t best = UINT32_MAX;

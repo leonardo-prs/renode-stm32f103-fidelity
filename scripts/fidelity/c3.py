@@ -15,8 +15,6 @@ e precisa ser IDÊNTICA à esperada, com todas as ocorrências.
 """
 from __future__ import annotations
 
-from statistics import median
-
 from .abi import EV_CASE_BEGIN, EV_CASE_END, EV_FINISH, timeline, SnapshotError
 from .model import RES_LOG, RunEval
 
@@ -98,15 +96,74 @@ def token(e) -> str:
     return f"{WRITER.get(e.writer, '?')}.{name}"
 
 
+# Valores lógicos CMSIS com quatro bits implementados e PRIGROUP=5:
+# grupo * 4 + sub. Não são bytes IPR; esses valores são deslocados por 4.
+CONFIG = {
+    0x01: (4, 8, 0, 0), 0x02: (8, 4, 0, 0),
+    0x03: (4, 5, 0, 0), 0x04: (5, 4, 0, 0),
+    0x05: (5, 5, 0, 0), 0x06: (5, 5, 0, 0),
+    0x11: (8, 4, 1, 0), 0x12: (5, 4, 1, 0),
+    0x13: (4, 8, 1, 0), 0x14: (4, 8, 0, 1),
+    0x15: (5, 5, 1, 0), 0x21: (4, 8, 0, 0),
+    0x22: (0, 8, 0, 0), 0x23: (4, 6, 0, 0),
+    0x31: (4, 8, 1, 0), 0x32: (4, 8, 0, 0),
+    0x41: (4, 8, 2, 0), 0x42: (8, 4, 0, 2),
+}
+REQUESTS = {cid: ([7, 6] if cid == 0x06 else
+                  [7] if cid == 0x14 else
+                  [6, 7] if seq.count("M.REQ") == 2 else [6])
+            for cid, (_, seq) in CASES.items()}
+
+
+def expected_args(case_id):
+    """Contrato exato de cada evento, independente dos logs observados."""
+    req = iter(REQUESTS[case_id])
+    for tok in CASES[case_id][1]:
+        who, event = tok.split(".")
+        if event.startswith("ENTER"):
+            yield int(event[5:]) | (IPSR[who] << 8)
+        elif event.startswith("EXIT"):
+            yield int(event[4:])
+        elif event == "REQ":
+            yield next(req)
+        elif event == "AFTER_PEND":
+            action = CONFIG[case_id][2 if who == "A" else 3]
+            yield (6 if who == "A" else 7) if action == 2 else (7 if who == "A" else 6)
+        else:
+            yield 0
+
+
 def evaluate(snap) -> RunEval:
     ev = RunEval("c3")
+    ev.extra["observer"] = {
+        "log_ticks_min": snap.header["log_ticks"],
+        "observer_ticks_min": snap.header["observer_ticks"],
+        "limits": ["intervalos incluem logger, barreiras e prólogos/epílogos",
+                   "mínimo do logger não limita o custo com preempção/retry LDREX",
+                   "ordem de registros não demonstra os ciclos físicos de tail-chaining"],
+    }
+    if snap.state != "DONE" or snap.header["error"]:
+        ev.problems.append(f"snapshot {snap.state}, erro {snap.header['error']}: instrumento inválido")
+        return ev
+    if [c.case_id for c in snap.cases] != PLANNED:
+        ev.problems.append("conjunto/ordem de casos diferente do plano C3")
+    ev.check("c3/config", "AIRCR.PRIGROUP", 5, (snap.header["aircr"] >> 8) & 7)
+    ev.check("c3/config", "HCLK nominal HSI8", 8_000_000, snap.header["core_hz"])
+    ev.check("c3/config", "HSI habilitado e pronto", 3, snap.header["rcc_cr"] & 3)
+    ev.check("c3/config", "SYSCLK=HSI, AHB/APB=/1", 0, snap.header["rcc_cfgr"] & 0x3FFF)
+    config_ok = all(c.ok for c in ev.checks)
     try:
         times = timeline(snap)
     except SnapshotError as exc:
         ev.problems.append(f"trace inválido ({exc}): ordem e tempos do C3 não avaliáveis")
         times = None
     events = [e for e in snap.all_events()
-              if e.event not in (EV_CASE_BEGIN, EV_CASE_END, EV_FINISH) and e.event >= 0x300]
+              if e.event not in (EV_CASE_BEGIN, EV_CASE_END, EV_FINISH) and e.event >= 0x100]
+    for e in events:
+        if e.case_id not in CASES or e.writer not in WRITER or e.event not in (
+                EV_ENTER, EV_AFTER_PEND, EV_EXIT, EV_REQUEST, EV_RELEASE, EV_BACK):
+            ev.problems.append(f"evento C3 inesperado: ticket {e.ticket}")
+            times = None
     ev.extra["sequences"] = {}
     for case_id, (title, expected) in CASES.items():
         name = label(case_id)
@@ -115,23 +172,34 @@ def evaluate(snap) -> RunEval:
             ev.problems.append(f"{name}: caso ausente")
             continue
         ev.case_status[name] = c.status
-        mine = [e for e in events if e.case_id == case_id]
-        observed = [token(e) for e in mine]
-        ev.extra["sequences"][name] = observed
-        if times is not None:
-            ev.check(name, "sequência completa de eventos", " ".join(expected), " ".join(observed))
-        for e in mine:
-            if e.event == EV_ENTER:
-                who = WRITER[e.writer]
-                ev.check(name, f"IPSR na entrada de {who}{e.arg & 0xFF}", IPSR[who], e.arg >> 8)
         w = list(c.words)
-        tail = w[-4:]
-        for item, exp, obs in zip(["entradas A", "entradas B", "pending A no fim",
-                                   "pending B no fim"], FINAL[case_id], tail):
+        word_count = 8 + len(EXTRA.get(case_id, []))
+        if len(w) != word_count:
+            ev.problems.append(f"{name}: payload tem {len(w)} palavras, esperado {word_count}")
+            continue
+        if c.status != "OK":
+            ev.problems.append(f"{name}: status {c.status}; medições excluídas")
+            continue
+        check_start = len(ev.checks)
+        for item, exp, obs in zip(("prioridade A lida", "prioridade B lida", "ação A", "ação B"),
+                                  CONFIG[case_id], w[:4]):
+            ev.check(name, item, exp, obs)
+        for item, exp, obs in zip(("entradas A", "entradas B", "pending A no fim", "pending B no fim"),
+                                  FINAL[case_id], w[-4:]):
             ev.check(name, item, exp, obs)
         for (item, exp), obs in zip(EXTRA.get(case_id, []), w[4:-4]):
             ev.check(name, item, exp, obs)
-        if times is not None and observed == expected:
+        if times is None:
+            continue
+        mine = [e for e in events if e.case_id == case_id]
+        observed = [token(e) for e in mine]
+        ev.extra["sequences"][name] = observed
+        ev.check(name, "sequência completa de eventos", " ".join(expected), " ".join(observed))
+        # Inclui IPSR, número da ocorrência, IRQ solicitada e zeros dos
+        # marcadores. Não permite que um argumento errado preserve o token.
+        args = list(expected_args(case_id))
+        ev.check(name, "argumentos completos dos eventos", args, [e.arg for e in mine])
+        if config_ok and all(c.ok for c in ev.checks[check_start:]):
             _timing(ev, name, case_id, mine, times)
     return ev
 
@@ -148,6 +216,13 @@ def _timing(ev, name, case_id, mine, times):
     def span(a, b, metric):
         ev.metric(name, metric, first(b) - first(a), resolution=RES_LOG)
 
+    # Solicitação instrumentada → primeira entrada, sem descontar custo
+    # do logger nem interpretar o intervalo como latência pura de exceção.
+    first_enter = next(e for e in mine if e.event == EV_ENTER)
+    request = next(e for e in mine if e.event == EV_REQUEST)
+    ev.metric(name, "first_request_to_entry",
+              times[(first_enter.writer, first_enter.index)] - times[(request.writer, request.index)],
+              resolution=RES_LOG)
     if "M.REL" in t:
         released = [x for k, v in t.items() if k.endswith("ENTER0") for x in v if x > first("M.REL")]
         if released:

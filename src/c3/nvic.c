@@ -24,7 +24,7 @@
  * é escrito pelo próprio handler.
  *
  * Após cada NVIC_SetPendingIRQ vem DSB + ISB: garante que a exceção, se
- * puder preemptar, é tomada antes da instrução seguinte (mesma sequência
+ * puder preemptar, torna-se observável após a sincronização (mesma sequência
  * nos dois ambientes).
  */
 #include "board.h"
@@ -91,7 +91,7 @@ void EXTI1_IRQHandler(void) { handler(H_B); }
 
 /* ───────────────────────────── utilidades ───────────────────────────── */
 
-/* Byte de prioridade (registrador IPR) para grupo g e subprioridade s. */
+/* Prioridade lógica CMSIS (0..15), não byte IPR (bits 7:4). */
 static uint32_t prio(uint32_t group, uint32_t sub)
 {
     return NVIC_EncodePriority(PRIGROUP, group, sub);
@@ -101,6 +101,12 @@ static uint32_t prio(uint32_t group, uint32_t sub)
 static void begin(uint32_t case_id, uint32_t prio_a, uint32_t prio_b,
                   Action action_a, Action action_b)
 {
+    /* Sem escritores ativos durante configuração e abertura do caso. */
+    NVIC_DisableIRQ(IRQ_A);
+    NVIC_DisableIRQ(IRQ_B);
+    __set_BASEPRI(0U);
+    __enable_irq();
+    __ISB();
     NVIC_ClearPendingIRQ(IRQ_A);
     NVIC_ClearPendingIRQ(IRQ_B);
     NVIC_SetPriority(IRQ_A, prio_a);
@@ -110,14 +116,22 @@ static void begin(uint32_t case_id, uint32_t prio_a, uint32_t prio_b,
     s_entries[H_A] = 0U;
     s_entries[H_B] = 0U;
     fid_case_begin(case_id);
-    fid_put(prio_a);
-    fid_put(prio_b);
+    fid_put(NVIC_GetPriority(IRQ_A));
+    fid_put(NVIC_GetPriority(IRQ_B));
     fid_put(action_a.pend_other | (action_a.pend_self << 1));
     fid_put(action_b.pend_other | (action_b.pend_self << 1));
+    __DSB();
+    NVIC_EnableIRQ(IRQ_A);
+    NVIC_EnableIRQ(IRQ_B);
+    __DSB();
+    __ISB();
 }
 
 static void end(void)
 {
+    NVIC_DisableIRQ(IRQ_A);
+    NVIC_DisableIRQ(IRQ_B);
+    __DSB();
     fid_put(s_entries[H_A]);
     fid_put(s_entries[H_B]);
     fid_put(NVIC_GetPendingIRQ(IRQ_A));
@@ -194,6 +208,7 @@ static void case_basepri(uint32_t case_id, uint32_t threshold, uint32_t prio_a, 
 {
     begin(case_id, prio_a, prio_b, NONE, NONE);
     __set_BASEPRI(threshold << (8U - __NVIC_PRIO_BITS));
+    __DSB();
     __ISB();
     fid_log(FID_MAIN, EV_REQUEST, (uint32_t)IRQ_A);
     pend(IRQ_A);
@@ -217,7 +232,8 @@ static void case_basepri(uint32_t case_id, uint32_t threshold, uint32_t prio_a, 
 }
 
 /* Encadeamento: A (grupo 1) pende B (grupo 2) e termina; B roda na saída
- * de A, sem voltar à thread. */
+ * de A, sem voltar à thread. Os timestamps incluem logger e epílogo/
+ * prólogo; não medem isoladamente os ciclos de tail-chaining. */
 static void case_tail_chain(uint32_t case_id)
 {
     begin(case_id, prio(1U, 0U), prio(2U, 0U), PEND_OTHER, NONE);
@@ -268,8 +284,16 @@ int main(void)
     board_init();
     fid_init(FIRMWARE_ID, CASE_COUNT);
     NVIC_SetPriorityGrouping(PRIGROUP);
-    NVIC_EnableIRQ(IRQ_A);
-    NVIC_EnableIRQ(IRQ_B);
+    /* Linhas EXTI0/1 sem estímulos periféricos, inclusive após reset
+     * do debugger: somente ISPR gera pedidos neste cenário. */
+    RCC->APB2ENR |= RCC_APB2ENR_AFIOEN;
+    (void)RCC->APB2ENR;
+    EXTI->IMR &= ~3U;
+    EXTI->EMR &= ~3U;
+    EXTI->RTSR &= ~3U;
+    EXTI->FTSR &= ~3U;
+    EXTI->PR = 3U;
+    __DSB();
 
     /* Arbitragem entre pendentes (ids 0x01..0x06). */
     case_arbitration(0x01U, prio(1U, 0U), prio(2U, 0U), IRQ_A, IRQ_B);   /* grupo: A */

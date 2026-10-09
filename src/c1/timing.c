@@ -25,7 +25,9 @@
  * host (scripts/fidelity/instr.py), na placa e no Renode.
  *
  * Registro por caso (uma combinação carga × tamanho):
- *   words = [load_id, n, arg, REPS, {ticks, t0, result} × REPS]
+ *   words = [load_id, n, arg, REPS, {ticks, t0, result, [dst[0..n)]} × REPS]
+ *   dst aparece somente em SRAM_COPY, lido fora do bracket: o host verifica
+ *   TODAS as palavras copiadas em cada repetição, não só a última.
  */
 #include "board.h"
 #include "fidelity.h"
@@ -197,6 +199,11 @@ static void measure_case(uint32_t load, uint32_t size_index, uint32_t n)
         fid_put(ticks);
         fid_put(span.t0);
         fid_put(span.result);
+        if (load == LOAD_SRAM_COPY) {
+            for (uint32_t i = 0U; i < n; ++i) {
+                fid_put(((const volatile uint32_t *)s_dst)[i]);
+            }
+        }
     }
     fid_case_end(FID_CASE_OK);
 }

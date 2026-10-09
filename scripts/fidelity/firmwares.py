@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from . import c1, c2, c3, c4
+from . import abi, c1, c2, c3, c4
 from .targets import ROOT
 
 
@@ -22,6 +22,17 @@ class Firmware:
     @property
     def elf(self) -> Path:
         return ROOT / "build" / self.name / "firmware.elf"
+
+    def validate(self, snap: abi.Snapshot, nonce: int | None) -> list[str]:
+        """Problemas que invalidam o run como INSTRUMENTO (lista vazia = íntegro).
+
+        Divergência funcional é dado científico, não aparece aqui."""
+        problems = abi.run_checks(snap, self.firmware_id, nonce, self.planned_cases)
+        if snap.header["core_hz"] != 8_000_000:
+            problems.append("clock diferente do protocolo HSI 8 MHz")
+        problems += [f"caso {c.case_id:#x}: {c.status}" for c in snap.cases if c.status != "OK"]
+        problems += self.evaluate(snap).problems
+        return problems
 
 
 FIRMWARES = {

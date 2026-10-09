@@ -134,11 +134,26 @@ def decode(raw: bytes) -> Snapshot:
         raise SnapshotError(f"tamanho declarado {h['snapshot_bytes']} != lido {len(raw)}")
     if h["state"] not in STATES:
         raise SnapshotError(f"estado inválido {h['state']}")
+    if h["reserved0"] or h["reserved1"]:
+        raise SnapshotError("campos reservados não zerados (layout incompatível)")
+    if h["error"] & ~sum(1 << b for b in ERROR_BITS):
+        raise SnapshotError("bits de erro desconhecidos")
+    if not h["core_hz"] or not h["case_capacity"] or not h["word_capacity"]:
+        raise SnapshotError("capacidades/clock nulos")
+    if h["case_planned"] > h["case_capacity"]:
+        raise SnapshotError("plano acima da capacidade de casos")
+    if h["state"] == 2 and (h["error"] or h["fault_pc"] or h["fault_cfsr"]
+                             or h["case_count"] != h["case_planned"]):
+        raise SnapshotError("DONE inconsistente com erros/fault/plano")
+    if h["state"] == 3 and not h["error"]:
+        raise SnapshotError("FAILED sem erro de instrumento")
     ring_cap, writers = h["ring_capacity"], h["writer_count"]
     if writers != 4 or ring_cap == 0 or ring_cap & (ring_cap - 1):
         raise SnapshotError(f"capacidades de anel inválidas: {writers} x {ring_cap}")
     cases_off, words_off, ring_off, total = layout(
         h["case_capacity"], h["word_capacity"], writers, ring_cap)
+    if total > 20 * 1024:
+        raise SnapshotError("snapshot acima da SRAM disponível (20 KiB)")
     if total != len(raw):
         raise SnapshotError(f"layout derivado ({total} B) != snapshot ({len(raw)} B)")
     if h["case_count"] > h["case_capacity"] or h["word_count"] > h["word_capacity"]:
@@ -151,6 +166,8 @@ def decode(raw: bytes) -> Snapshot:
         cid, status, first, count = struct.unpack_from("<4I", raw, cases_off + i * CASE_BYTES)
         if status not in CASE_STATUS:
             raise SnapshotError(f"caso {i}: status {status} inválido")
+        if cid > 0xFFFF or (h["state"] == 2 and status == 0):
+            raise SnapshotError(f"caso {i}: ID/status incompatível com trace/estado DONE")
         if first != expected_first or first + count > h["word_count"]:
             raise SnapshotError(f"caso {i} (id {cid}): palavras [{first}, +{count}) fora de ordem")
         expected_first = first + count
@@ -171,6 +188,8 @@ def decode(raw: bytes) -> Snapshot:
             index = first_index + k
             off = ring_off + EVENT_BYTES * (w * ring_cap + (index & (ring_cap - 1)))
             ticks, ticket, ev, case_id, arg = struct.unpack_from("<IIHHI", raw, off)
+            if ev == 0 or (ev < 0x100 and ev not in GENERIC_EVENTS):
+                raise SnapshotError(f"escritor {w}: ID de evento inválido {ev}")
             lst.append(Event(w, index, ticks, ticket, ev, case_id, arg))
         for a, b in zip(lst, lst[1:]):
             if b.ticket <= a.ticket:
@@ -179,6 +198,8 @@ def decode(raw: bytes) -> Snapshot:
         lost.append(first_index)
 
     tickets = [e.ticket for w in events for e in w]
+    if sum(h[f"ring_head{w}"] for w in range(writers)) != h["ticket_next"]:
+        raise SnapshotError("soma dos heads != ticket_next (registro parcial ou contador estourado)")
     if len(set(tickets)) != len(tickets):
         raise SnapshotError("ticket repetido entre escritores (registro concorrente corrompido)")
     if tickets and max(tickets) >= h["ticket_next"]:
@@ -192,6 +213,8 @@ def decode(raw: bytes) -> Snapshot:
 def timeline(snap: Snapshot) -> dict[tuple[int, int], int]:
     """Tempo contínuo (ticks desde dwt_start) de cada evento, chave (writer, index).
 
+    Pressupõe intervalo REAL entre eventos < MAX_STEP, garantido pelo
+    protocolo/timeout; o módulo sozinho não detecta múltiplos wraps ocultos.
     Só é válido com trace completo (sem perdas): com eventos sobrescritos a
     cadeia de tickets tem lacunas e a reconstrução seria um palpite.
     """
@@ -207,7 +230,19 @@ def timeline(snap: Snapshot) -> dict[tuple[int, int], int]:
         t += step
         prev_raw = e.ticks
         out[(e.writer, e.index)] = t
+    if snap.state in ("DONE", "FAILED"):
+        unwrap_from(prev_raw, snap.header["dwt_end"])
     return out
+
+
+def run_duration(snap: Snapshot) -> int:
+    """Duração reconstruída, incluindo wraps sustentados por eventos completos."""
+    times = timeline(snap)
+    events = snap.all_events()
+    if not events:
+        return unwrap_from(snap.header["dwt_start"], snap.header["dwt_end"])
+    last = events[-1]
+    return times[(last.writer, last.index)] + unwrap_from(last.ticks, snap.header["dwt_end"])
 
 
 def unwrap_from(anchor_raw: int, raw: int) -> int:
@@ -229,6 +264,8 @@ def run_checks(snap: Snapshot, firmware_id: int, nonce: int | None,
         problems.append(f"nonce 0x{h['run_nonce']:08x} != 0x{nonce:08x} (snapshot de outro run?)")
     if snap.state != "DONE":
         problems.append(f"estado {snap.state} {snap.errors}")
+    if h["error"]:
+        problems.append(f"erros do instrumento: {snap.errors}")
     if h["case_planned"] != len(planned_cases):
         problems.append(f"firmware planeja {h['case_planned']} casos, host espera {len(planned_cases)}")
     got = [c.case_id for c in snap.cases]
@@ -239,6 +276,24 @@ def run_checks(snap: Snapshot, firmware_id: int, nonce: int | None,
     open_cases = [c.case_id for c in snap.cases if c.status == "OPEN"]
     if open_cases:
         problems.append(f"casos não encerrados: {open_cases}")
-    if h["fault_pc"]:
+    if h["fault_pc"] or h["fault_cfsr"]:
         problems.append(f"falha no PC 0x{h['fault_pc']:08x} CFSR 0x{h['fault_cfsr']:08x}")
+    if snap.complete_trace:
+        try:
+            timeline(snap)
+            main = snap.events[0]
+            bounds = [e for e in main if e.event in (EV_CASE_BEGIN, EV_CASE_END)]
+            expected = [(ev, c.case_id, c.case_id if ev == EV_CASE_BEGIN else
+                         next(k for k, v in CASE_STATUS.items() if v == c.status))
+                        for c in snap.cases for ev in (EV_CASE_BEGIN, EV_CASE_END)]
+            if [(e.event, e.case_id, e.arg) for e in bounds] != expected:
+                problems.append("limites de caso/trace não conferem com tabela de casos")
+            boots = [e for e in main if e.event == EV_BOOT]
+            finishes = [e for e in main if e.event == EV_FINISH]
+            if len(boots) != 1 or boots[0].arg != firmware_id:
+                problems.append("BOOT ausente/inconsistente")
+            if len(finishes) != 1 or finishes[0].arg != len(snap.cases) or main[-1] != finishes[0]:
+                problems.append("FINISH ausente/inconsistente")
+        except SnapshotError as exc:
+            problems.append(str(exc))
     return problems

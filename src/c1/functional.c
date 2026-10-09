@@ -32,6 +32,37 @@
 #define NOIPA __attribute__((noipa))
 #define COUNT(a) (sizeof(a) / sizeof((a)[0]))
 
+/* GNU C: acesso de 16 bits à representação de objetos uint32_t. Volatile
+ * exige o acesso, mas NÃO remove as regras de aliasing (C 6.5p7). O atributo
+ * may_alias do GCC permite explicitamente estes acessos de largura diferente
+ * sem desabilitar strict-aliasing para o firmware inteiro. */
+typedef uint16_t AliasU16 __attribute__((may_alias));
+typedef int16_t AliasS16 __attribute__((may_alias));
+typedef struct __attribute__((packed, may_alias)) { uint32_t value; } UnalignedWord;
+typedef struct __attribute__((packed, may_alias)) { uint16_t value; } UnalignedHalf;
+
+static NOIPA uint32_t unaligned_read_word(const void *address)
+{
+    return ((const UnalignedWord *)address)->value;
+}
+
+static NOIPA uint16_t unaligned_read_half(const void *address)
+{
+    return ((const UnalignedHalf *)address)->value;
+}
+
+static NOIPA void unaligned_write_word(void *address, uint32_t value)
+{
+    ((UnalignedWord *)address)->value = value;
+}
+
+static NOIPA void unaligned_write_half(void *address, uint16_t value)
+{
+    ((UnalignedHalf *)address)->value = value;
+}
+
+_Static_assert(sizeof(int) == 4U && sizeof(uintptr_t) == 4U, "ABI ARM32 esperada");
+
 enum C1Case {
     C1_U32_ADD = 1,
     C1_U32_SUB,
@@ -62,7 +93,8 @@ enum C1Case {
     C1_GCD,
     C1_SWITCH,
     C1_RECURSION,
-    C1_CASE_COUNT = C1_RECURSION
+    C1_UNALIGNED_ACCESS,
+    C1_CASE_COUNT = C1_UNALIGNED_ACCESS
 };
 
 /* ─────────────────────────── entradas ─────────────────────────── */
@@ -506,7 +538,7 @@ static volatile uint32_t s_sram[64];
 static void case_sram_byte_order(void)
 {
     volatile uint8_t *bytes = (volatile uint8_t *)&s_sram[0];
-    volatile uint16_t *halves = (volatile uint16_t *)&s_sram[0];
+    volatile AliasU16 *halves = (volatile AliasU16 *)&s_sram[0];
 
     s_sram[0] = 0x11223344U;
     fid_case_begin(C1_SRAM_BYTE_ORDER);
@@ -524,7 +556,7 @@ static void case_sram_byte_order(void)
 static void case_sram_widths(void)
 {
     volatile uint8_t *bytes = (volatile uint8_t *)&s_sram[0];
-    volatile uint16_t *halves = (volatile uint16_t *)&s_sram[0];
+    volatile AliasU16 *halves = (volatile AliasU16 *)&s_sram[0];
 
     for (uint32_t i = 0U; i < 4U; ++i) {
         s_sram[i] = 0xEEEEEEEEU;
@@ -592,8 +624,8 @@ static void case_flash_narrow(void)
 {
     const volatile uint8_t *u8 = (const volatile uint8_t *)C1_TABLE;
     const volatile int8_t *s8 = (const volatile int8_t *)C1_TABLE;
-    const volatile uint16_t *u16 = (const volatile uint16_t *)C1_TABLE;
-    const volatile int16_t *s16 = (const volatile int16_t *)C1_TABLE;
+    const volatile AliasU16 *u16 = (const volatile AliasU16 *)C1_TABLE;
+    const volatile AliasS16 *s16 = (const volatile AliasS16 *)C1_TABLE;
 
     fid_case_begin(C1_FLASH_NARROW);
     for (uint32_t i = 0U; i < 8U; ++i) {
@@ -629,9 +661,10 @@ static NOIPA void fill_bytes(uint8_t *dst, uint8_t value, uint32_t n)
 /* Lê o bloco inteiro como palavras (o host confere os 64 bytes). */
 static void put_block(void)
 {
-    const volatile uint32_t *words = (const volatile uint32_t *)s_block;
     for (uint32_t i = 0U; i < BLOCK_BYTES / 4U; ++i) {
-        fid_put(words[i]);
+        uint32_t word;
+        memcpy(&word, &s_block[4U * i], sizeof word);
+        fid_put(word);
     }
 }
 
@@ -651,6 +684,39 @@ static void case_fill_region(void)
     fill_bytes(&s_block[5], 0x3CU, 38U);
     fid_case_begin(C1_FILL_REGION);
     put_block();
+    fid_case_end(FID_CASE_OK);
+}
+
+/* A cópia por bytes não exercita um LDR/STR desalinhado. Aqui os tipos
+ * packed/may_alias do GCC permitem acessos de palavra/meia palavra nos
+ * offsets 1, 2 e 3 sem um cast inválido para uint32_t*. Cortex-M3 suporta
+ * esses acessos à SRAM normal com CCR.UNALIGN_TRP=0 (PM0056 §2.2.3/§3.3.5).
+ * Conferir LDR/STR/LDRH/STRH no ELF; arm-none-eabi-gcc habilita unaligned
+ * access para Cortex-M3. O host verifica também os bytes vizinhos. */
+static void case_unaligned_access(void)
+{
+    fid_case_begin(C1_UNALIGNED_ACCESS);
+    fid_put(SCB->CCR & SCB_CCR_UNALIGN_TRP_Msk);
+    for (uint32_t offset = 1U; offset <= 3U; ++offset) {
+        for (uint32_t i = 0U; i < BLOCK_BYTES; ++i) {
+            s_block[i] = (uint8_t)i;
+        }
+        fid_put(offset);
+        fid_put(unaligned_read_word(&s_block[offset]));
+        fid_put(unaligned_read_half(&s_block[offset]));
+        unaligned_write_word(&s_block[offset], 0xA1B2C3D4U);
+        for (uint32_t i = 0U; i < 4U; ++i) {
+            uint32_t observed;
+            memcpy(&observed, &s_block[4U * i], sizeof observed);
+            fid_put(observed);
+        }
+        unaligned_write_half(&s_block[offset], 0xE5F6U);
+        for (uint32_t i = 0U; i < 4U; ++i) {
+            uint32_t observed;
+            memcpy(&observed, &s_block[4U * i], sizeof observed);
+            fid_put(observed);
+        }
+    }
     fid_case_end(FID_CASE_OK);
 }
 
@@ -778,6 +844,7 @@ int main(void)
     case_gcd();
     case_switch();
     case_recursion();
+    case_unaligned_access();
 
     fid_finish();
 }

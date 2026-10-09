@@ -3,6 +3,7 @@ a monografia. Todos os números vêm das tabelas CSV ao lado."""
 from __future__ import annotations
 
 import json
+import math
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -12,9 +13,7 @@ ENV = {"hw": "placa", "renode-nominal": "Renode 8 MIPS", "renode-calibrated": "R
 def _table(headers: list[str], rows: list[list]) -> str:
     def cell(v):
         if isinstance(v, float):
-            if v == int(v) or abs(v) >= 1000:
-                return f"{v:.0f}"
-            return f"{v:.4g}"
+            return f"{v:.8g}" if math.isfinite(v) else "—"
         return str(v).replace("|", "\\|").replace("\n", " ") if v is not None else "—"
     out = ["| " + " | ".join(headers) + " |", "|" + "---|" * len(headers)]
     out += ["| " + " | ".join(cell(v) for v in r) + " |" for r in rows]
@@ -40,14 +39,17 @@ def write(path: Path, plan: dict, summary: dict, acc, cases, resources, stats, i
         L.append(f"- Identificação lida pelo SWD (metadado, não autenticação): CPUID {i.get('CPUID')}, "
                  f"IDCODE {i.get('IDCODE')}, F_SIZE {i.get('FLASH_KB')} KiB, UID {i.get('UID')}, "
                  f"ST-Link {i.get('stlink')}, alvo {i.get('target_voltage')} V")
-        if i.get("UID", "").strip("0") == "":
+        if _zero_uid(i.get("UID")):
             L.append("  - **UID todo zero**: atípico para um STM32 genuíno — dados desta placa "
                      "devem ser tratados como de um exemplar possivelmente compatível/clone.")
     rn = plan["renode_nominal"]
     L.append(f"- Renode: `{plan['tools'].get('renode')}`, PerformanceInMips {rn['performance_in_mips']}, "
              f"quantum {rn['quantum_s']} s, plataforma sha256 `{rn['platform_sha256'][:12]}…`, "
-             "processo novo por run, AutoUpdateDelay desligado.")
-    L.append(f"- Revisão do código: `{plan['revision']}`; fontes sha256 `{plan['sources']['sha256'][:12]}…`.")
+             f"processo novo por run: {rn.get('fresh_process_per_run')}, "
+             f"AutoUpdateDelay: {rn.get('uart_auto_update_delay')}.")
+    L.append(f"- Revisão base: `{plan['revision']}`; fontes da aquisição sha256 `{plan['sources']['sha256'][:12]}…`.")
+    L.append("- Cada run válido foi produzido pelo ELF congelado (SHA-256 no `run.json`) e "
+             "revalidado por esta análise; reanálise não altera snapshots nem o plano.")
     L.append(f"- Toolchain: {plan['tools'].get('arm-none-eabi-gcc')}; OpenOCD: {plan['tools'].get('openocd')}.")
     for name, fw in plan["firmwares"].items():
         L.append(f"- `{name}` ({fw['scenario']}): ELF `{fw['elf_sha256'][:12]}…`, RAM {fw['ram_bytes']} B "
@@ -63,33 +65,47 @@ def write(path: Path, plan: dict, summary: dict, acc, cases, resources, stats, i
     L.append("")
 
     L.append("## Mapa de limites por recurso (Renode 8 MIPS × placa)\n")
-    L.append("Funcional = igualdade dos valores observados; Instrução = mesma sequência de PCs "
-             "por stepi (só C1); Ciclo = mediana do Renode dentro da faixa da placa ± resolução. "
-             "As colunas 'placa × especificação' e 'Renode × especificação' mostram a conformidade "
-             "de cada ambiente com o oráculo do manual.\n")
-    L.append(_table(["recurso", "casos", "funcional", "instrução", "ciclo", "placa × espec.",
+    L.append("Funcional HW×Renode: igualdade de todos os valores constantes observados. "
+             "Conformidade com especificação: eixo separado; valores iguais mas errados nos "
+             "dois ambientes não sustentam fidelidade ao contrato e recebem classe 3. "
+             "Falhas ocasionais contam. Instrução: caminho observado de PCs por stepi "
+             "(só C1), sem validação do estado após cada instrução. Tempo: comparação descritiva "
+             "das medianas entre resets, sem margem de aceitação. Igualdade observada não prova "
+             "precisão universal de ciclo. Adequação temporal a uma aplicação não estabelecida. "
+             "A resolução declarada pelos oráculos (incluindo RES_POLL=16) não tem bound "
+             "instrumental validado e não é usada para declarar concordância.\n")
+    L.append(_table(["recurso", "casos", "funcional HW×Renode", "instrução", "tempo observado", "placa × espec.",
                      "Renode × espec."],
                     [[r["resource"], r["cases"], r["functional"], r["instruction"], r["cycle"],
                       r["hw_vs_spec"], r["sim_vs_spec"]] for r in resources]))
     L.append("")
     counts = Counter(c["class_name"] for c in cases)
-    L.append("Classes por caso: " + "; ".join(f"{k}: {v}" for k, v in counts.most_common()) + ".\n")
+    L.append("Linhas por carga sem tamanho são ajustes derivados dos mesmos resets; "
+             "linhas de configuração são leituras de contexto. Não são novos "
+             "experimentos funcionais nem aumentam o tamanho da amostra.\n")
+    L.append("Classes por caso tabular: " + "; ".join(f"{k}: {v}" for k, v in counts.most_common()) + ".\n")
 
-    L.append("## Divergências funcionais (valor modal por ambiente)\n")
-    modal = defaultdict(lambda: defaultdict(Counter))
+    L.append("## Observações funcionais e falhas por tentativa\n")
+    observed = defaultdict(lambda: defaultdict(Counter))
+    failed = defaultdict(Counter)
     expected = {}
     for c in checks:
-        modal[(c["firmware"], c["case"], c["item"])][c["environment"]][c["observed"]] += 1
-        expected[(c["firmware"], c["case"], c["item"])] = c["expected"]
+        key = (c["firmware"], c["case"], c["item"])
+        observed[key][c["environment"]][c["observed"]] += 1
+        failed[key][c["environment"]] += not c["ok"]
+        expected[key] = c["expected"]
     rows = []
-    for key, envs in sorted(modal.items()):
-        hw, sim = envs.get("hw"), envs.get("renode-nominal")
-        if hw and sim and hw.most_common(1)[0][0] != sim.most_common(1)[0][0]:
-            rows.append([key[0], key[1], key[2], _short(expected[key]), _short(hw.most_common(1)[0][0]),
-                         _short(sim.most_common(1)[0][0])])
-    L.append(_table(["firmware", "caso", "item", "especificação", "placa", "Renode"], rows)
-             if rows else "Nenhuma.")
-    L.append("")
+    for key, envs in sorted(observed.items()):
+        hw, sim = envs.get("hw", {}), envs.get("renode-nominal", {})
+        if failed[key] and any(failed[key].values()) or set(hw) != set(sim) or len(hw) > 1 or len(sim) > 1:
+            def counts(env):
+                return "; ".join(f"{v} (×{n})" for v, n in envs.get(env, {}).items()) or "sem dados"
+            rows.append([*key, expected[key], counts("hw"), counts("renode-nominal"),
+                         failed[key].get("hw", 0), failed[key].get("renode-nominal", 0)])
+    L.append(_table(["firmware", "caso", "item", "especificação", "placa: valor (contagem)",
+                     "Renode: valor (contagem)", "falhas placa", "falhas Renode"], rows)
+             if rows else "Nenhuma falha ou variação observada nos itens disponíveis.")
+    L.append("\nEvidência integral, inclusive buffers, em checks.csv; nenhum valor modal decide a classe.\n")
     unstable = [[c["firmware"], c["case"], c["variable_across_runs"]] for c in cases
                 if c["variable_across_runs"]]
     if unstable:
@@ -97,7 +113,7 @@ def write(path: Path, plan: dict, summary: dict, acc, cases, resources, stats, i
         L.append(_table(["firmware", "caso", "itens"], unstable))
         L.append("")
 
-    L.append("## Métricas temporais (mediana entre runs; ticks de 8 MHz)\n")
+    L.append("## Métricas temporais (mediana por reset; unidades por métrica)\n")
     st = defaultdict(dict)
     for s in stats:
         st[(s["firmware"], s["case"], s["metric"])][s["environment"]] = s
@@ -106,20 +122,29 @@ def write(path: Path, plan: dict, summary: dict, acc, cases, resources, stats, i
         hw, sim = envs.get("hw"), envs.get("renode-nominal")
         if not hw or not sim or hw["unit"] == "bytes":
             continue
-        agree = hw["min"] - hw["resolution"] <= sim["median"] <= hw["max"] + hw["resolution"]
+        agree = hw["unit"] == sim["unit"] and hw["median"] == sim["median"]
+        if hw["unit"] != sim["unit"]:
+            continue
         err = sim["median"] - hw["median"]
-        rows.append([fw, case, metric, hw["predicted"], f"{hw['median']:.6g} [{hw['min']:.6g}, {hw['max']:.6g}]",
+        rows.append([fw, case, metric, hw["unit"], hw["n"], sim["n"], hw["predicted"], f"{hw['median']:.6g} [{hw['min']:.6g}, {hw['max']:.6g}]",
                      f"{sim['median']:.6g} [{sim['min']:.6g}, {sim['max']:.6g}]", f"{err:+.6g}",
-                     f"{err / hw['median']:+.1%}" if hw["median"] else "—", hw["resolution"],
+                     f"{err / hw['median']:+.1%}" if hw["median"] else "—", f"{hw['resolution']} / {sim['resolution']} (não validada)",
                      "sim" if agree else "não"])
-    L.append(_table(["firmware", "caso", "métrica", "previsto", "placa med [mín, máx]",
-                     "Renode med [mín, máx]", "Δ", "Δ rel.", "resolução", "ciclo ok"], rows))
+    L.append(_table(["firmware", "caso", "métrica", "unidade", "N placa", "N Renode", "previsto", "placa med [mín, máx]",
+                     "Renode med [mín, máx]", "Δ", "Δ rel.", "resolução placa / Renode", "mesma mediana"], rows))
     L.append("")
 
+    L.append("N = resets com métrica disponível; múltiplos eventos por run são reduzidos à "
+             "mediana antes de calcular média, desvio padrão amostral, mediana e extremos "
+             "(stats.csv). Não se presume independência entre resets: podem existir drift e "
+             "efeitos de sessão; não se calculam intervalos de confiança. Falhas/omissões "
+             "permanecem em checks.csv/accounting.csv e não viram tempos de sucesso.\n")
     if instr_rows:
         L.append("## C1: instruções executadas (stepi) × ticks\n")
         L.append("`ticks/instr. placa` é o CPI físico do intervalo medido (contagem dinâmica medida "
-                 "por stepi, não inferida). `Renode − instr.` constante indica tempo = instruções.\n")
+                 "por stepi, não inferida; a contagem de rep0 é confrontada com warm, portanto essa "
+                 "razão é diagnóstica, não prova do CPI por instrução). `Renode − instr.` caracteriza "
+                 "a diferença observada, sem demonstrar a regra universal tempo = instruções.\n")
         L.append(_table(["carga/n", "instr. placa", "instr. Renode", "mesma sequência de PCs",
                          "ticks placa", "ticks Renode", "ticks/instr. placa", "Renode − instr."],
                         [[r["case"], r["instructions_hw"], r["instructions_renode"],
@@ -138,18 +163,35 @@ def write(path: Path, plan: dict, summary: dict, acc, cases, resources, stats, i
                  f"MIPS (inteiro; efetivo lido do Renode: {cal.get('effective_mips')}). "
                  f"Erro médio no treino previsto: {cal['training_mare']:.1%}.\n")
         agg = cal.get("aggregate", {})
+        L.append(f"Agregado apenas no tamanho pré-registrado n={cal.get('aggregate_size')}; "
+                 "conjunto incompleto não recebe média agregada.\n")
         L.append(_table(["conjunto", "erro médio nominal", "erro médio calibrado"],
                         [["treino", agg.get("treino_err_nominal"), agg.get("treino_err_calibrated")],
                          ["avaliação", agg.get("avaliação_err_nominal"), agg.get("avaliação_err_calibrated")]]))
         L.append("\nMelhorar a média não demonstra custo correto por instrução nem validade geral; "
-                 "o valor calibrado nunca é usado em C2–C4.\n")
+                 "o valor calibrado nunca é usado em C2–C4. O quantum pode mudar junto "
+                 "com MIPS para representar instruções em ns inteiros: compara-se a "
+                 "configuração calibrada, sem isolar o efeito causal de MIPS. Um controle "
+                 "8 MIPS com o mesmo quantum seria necessário para essa atribuição.\n")
 
     L.append("## Repetibilidade\n")
-    L.append(_table(["ambiente", "observáveis", "idênticos em todos os runs", "fração"],
+    L.append(_table(["ambiente", "observáveis", "elegíveis (N≥2)", "insuficientes", "idênticos em todos os runs", "fração"],
                     [[ENV.get(d["environment"], d["environment"]), d["observables"],
-                      d["identical_in_all_runs"], d["fraction"]] for d in det]))
+                      d["eligible"], d["insufficient"], d["identical_in_all_runs"], d["fraction"]] for d in det]))
     L.append("\nIdentidade entre N runs = determinismo OBSERVADO nestas condições, não prova geral.\n")
 
+    L.append("## Integridade da análise e dos traces\n")
+    L.append(f"Aquisição planejada completa: {summary.get('acquisition_complete', False)}; "
+             f"comparação placa × Renode planejada: {summary.get('comparison_available', False)}.")
+    for problem in summary.get("analysis_problems", []):
+        L.append(f"- {problem}")
+    traces = summary.get("perfetto", {})
+    for error in traces.get("errors", []):
+        L.append(f"- Trace recusado {error['environment']}/{error['firmware']}/{error['run']}: {error['error']}")
+    validations = traces.get("validation", [])
+    L.append(f"Importações Perfetto conferidas: {sum(v['ok'] for v in validations)}/{len(validations)}. "
+             "Ausência de validação ou falha de importação impede declarar entrega completa.")
+    L.append("")
     L += _duration(root, plan)
     L.append("## Limites desta campanha\n")
     lim = []
@@ -158,16 +200,18 @@ def write(path: Path, plan: dict, summary: dict, acc, cases, resources, stats, i
                    "ambientes ficam como 'evidência insuficiente'.")
     if plan["mode"] == "piloto":
         lim.append("Modo piloto: serve para medir dispersão e duração, não para conclusão final.")
-    if any(i.get("UID", "").strip("0") == "" for i in ids):
+    if any(_zero_uid(i.get("UID")) for i in ids):
         lim.append("Exemplar com UID zerado (provável compatível/clone): conclusões valem para ESTE "
                    "exemplar; a campanha final deve ser repetida no STM32F103 genuíno.")
+    lim.append("O traço por stepi só é usado se for do ELF congelado; o caminho de PCs não "
+               "comprova estado arquitetural correto após cada instrução.")
     lim.append("Repetições em uma placa não representam uma amostra de placas; reset não é "
                "power-cycle; o debugger permanece conectado durante os runs (sem polling de SRAM).")
     lim.append("Tempos do Renode são tempo virtual; o CYCCNT do Renode não é contador de ciclos.")
     L += [f"- {x}" for x in lim]
     L.append("")
     L.append("## Arquivos\n")
-    L.append("`accounting.csv`, `checks.csv`, `metrics.csv`, `stats.csv`, `cases.csv`, `resources.csv`, "
+    L.append("`exclusions.csv`, `accounting.csv`, `checks.csv`, `metrics.csv`, `stats.csv`, `cases.csv`, `resources.csv`, "
              "`c1_instructions.csv`, `determinism.csv`, `figures/`, `perfetto/` (um trace por run, "
              "`compare-<firmware>.json` com o run mediano de cada ambiente, `validation.json`).")
     figs = summary.get("figures") or []
@@ -182,42 +226,38 @@ def _short(v, n=80) -> str:
     return s if len(s) <= n else s[:n] + "…"
 
 
+def _zero_uid(uid) -> bool:
+    if isinstance(uid, (list, tuple)):
+        return bool(uid) and all(_zero_uid(x) for x in uid)
+    if isinstance(uid, int):
+        return uid == 0
+    if isinstance(uid, str) and uid.strip():
+        try:
+            return all(int(x.removeprefix("0x"), 16) == 0 for x in uid.replace(",", " ").split())
+        except ValueError:
+            return False
+    return False
+
+
 def _duration(root: Path, plan: dict) -> list[str]:
-    """Duração por etapa (do campaign.log) e extrapolação linear para 50/100 runs."""
-    import datetime as dt
-    import re
-    log = root / "campaign.log"
-    if not log.exists():
+    """Tempos host de tentativas; nenhum intervalo entre mensagens é uma etapa."""
+    stages = defaultdict(list)
+    for p in root.glob("*/**/run-*/run.json"):
+        try:
+            rec = json.loads(p.read_text())
+            elapsed = rec.get("host_elapsed_s")
+            if isinstance(elapsed, (int, float)) and math.isfinite(elapsed) and elapsed >= 0:
+                stages[(rec["environment"], rec["firmware"])].append(elapsed)
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+    if not stages:
         return []
-    stamps = []
-    for line in log.read_text().splitlines():
-        m = re.match(r"^(\S+)\s{2}(.*)$", line)
-        if m:
-            stamps.append((dt.datetime.fromisoformat(m[1]), m[2]))
-    rows, prev = [], None
-    for t, msg in stamps:
-        m = re.match(r"^(hw|renode-nominal|renode-calibrated)/(\S+): (\d+) válidos", msg)
-        if prev is not None and m:
-            rows.append((f"{m[1]}/{m[2]}", (t - prev).total_seconds(), int(m[3])))
-        elif prev is not None and msg.startswith("traço ") and ": ok" in msg:
-            rows.append((msg.split(":")[0], (t - prev).total_seconds(), None))
-        prev = t
-    first = {}
-    for stage, sec, n in rows:                 # retomadas repetem a etapa: vale a 1ª coleta
-        first.setdefault(stage, (stage, sec, n))
-    rows = list(first.values())
-    if not rows:
-        return []
-    size = sum(f.stat().st_size for f in root.rglob("*") if f.is_file())
-    reps = plan["repetitions"]
-    out = ["## Duração e tamanho (medidos nesta campanha)\n",
-           f"Duração total registrada: {(stamps[-1][0] - stamps[0][0]).total_seconds() / 60:.1f} min; "
-           f"dados: {size / 1024**2:.1f} MiB. Extrapolação LINEAR nas repetições (estimativa, não "
-           "promessa; o traço por stepi não depende de N):\n"]
-    table = []
-    for stage, sec, n in rows:
-        scale = (lambda k: sec * k / reps) if n else (lambda k: sec)
-        table.append([stage, f"{sec / 60:.1f}", f"{scale(50) / 60:.1f}", f"{scale(100) / 60:.1f}"])
-    out.append(_table(["etapa", f"min medidos (N={reps})", "estimativa N=50", "estimativa N=100"], table))
-    out.append("")
-    return out
+    rows = [[f"{env}/{fw}", len(v), sum(v) / 60, sum(v) / len(v),
+             sum(v) / len(v) * 50 / 60, sum(v) / len(v) * 100 / 60]
+            for (env, fw), v in sorted(stages.items())]
+    return ["## Duração host das tentativas\n",
+            "Soma dos tempos host registrados (não é duração de parede com jobs paralelos). "
+            "Estimativas lineares por tentativa, excluindo build, stepi, análise e tentativas "
+            "sem tempo registrado; retries podem aumentar o custo por run válido.\n",
+            _table(["etapa", "tentativas cronometradas", "min somados", "s/tentativa",
+                    "min para 50 tentativas", "min para 100 tentativas"], rows), ""]

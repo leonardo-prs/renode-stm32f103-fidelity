@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from pathlib import Path
+from statistics import median
 
 import matplotlib
 
@@ -61,7 +62,7 @@ def _ecdf(path: Path, title: str, xlabel: str, samples: dict[str, list[float]]) 
         if not vals:
             continue
         ys = [(i + 1) / len(vals) for i in range(len(vals))]
-        ax.step(vals, ys, where="post", color=COLORS.get(env, MUTED), linewidth=2,
+        ax.step([vals[0], *vals], [0, *ys], where="post", color=COLORS.get(env, MUTED), linewidth=2,
                 label=f"{LABELS.get(env, env)} (n={len(vals)})")
     _style(ax, title, "fração acumulada")
     ax.set_xlabel(xlabel, color=MUTED)
@@ -93,19 +94,23 @@ def make_all(out: Path, stats: list[dict], metrics: list[dict], instr_rows: list
         rows = [r for r in instr_rows if r["n"] == 256 and r["cpi_hw"]]
         if rows:
             fig_series = {"hw": [r["cpi_hw"] for r in rows],
-                          "renode-nominal": [(r["ticks_renode_warm"] or 0) / r["instructions_hw"]
+                          "renode-nominal": [r["ticks_renode_warm"] / r["instructions_renode"]
+                                             if r["ticks_renode_warm"] is not None and r["instructions_renode"] else None
                                              for r in rows]}
             made.append(_grouped_bars(out / "c1_cpi_n256.png",
                                       "C1-timing: ticks por instrução executada (stepi), n = 256",
                                       "ticks / instrução", [r["case"] for r in rows], fig_series))
 
     # Distribuições entre runs de métricas temporais selecionadas.
-    per_run = defaultdict(lambda: defaultdict(list))
+    by_run = defaultdict(list)
     for m in metrics:
-        per_run[(m["firmware"], m["case"], m["metric"])][m["environment"]].append(m["value"])
+        by_run[(m["firmware"], m["case"], m["metric"], m["environment"], m["run"])].append(m["value"])
+    per_run = defaultdict(lambda: defaultdict(list))
+    for (fw, case, metric, env, run), vals in by_run.items():
+        per_run[(fw, case, metric)][env].append(median(vals))
     selected = [
-        ("c2", "tim2/apb1/irq_idle", "latency_cnt_median", "C2: latência update→CNT lido na ISR (TIM2)"),
-        ("c2", "tim2/apb1/irq_load", "latency_cnt_median", "C2: latência com MAIN em carga (TIM2)"),
+        ("c2", "tim2/apb1/irq_idle", "phase_cnt_median", "C2: fase CNT observada na ISR (TIM2)"),
+        ("c2", "tim2/apb1/irq_load", "phase_cnt_median", "C2: fase CNT com MAIN em carga (TIM2)"),
         ("c3", "c3/31", "a_exit_to_b_entry", "C3: saída de A → entrada de B (encadeado)"),
         ("c3", "c3/32", "a_exit_to_b_entry", "C3: saída de A → entrada de B (via thread)"),
         ("c4", "c4/44", "producer_time", "C4: tempo do produtor, 64 bytes por TXE"),
@@ -118,8 +123,8 @@ def make_all(out: Path, stats: list[dict], metrics: list[dict], instr_rows: list
 
     if cal and cal.get("per_case"):
         rows = [r for r in cal["per_case"] if r["case"].endswith("/256")]
-        series = {"renode-nominal": [abs(r["err_nominal"] or 0) * 100 for r in rows],
-                  "renode-calibrated": [abs(r["err_calibrated"] or 0) * 100 for r in rows]}
+        series = {"renode-nominal": [abs(r["err_nominal"]) * 100 if r["err_nominal"] is not None else None for r in rows],
+                  "renode-calibrated": [abs(r["err_calibrated"]) * 100 if r["err_calibrated"] is not None else None for r in rows]}
         made.append(_grouped_bars(out / "c1_calibration_error.png",
                                   "C1: erro relativo |Renode − placa| (n = 256), nominal × calibrado",
                                   "% do tempo na placa",

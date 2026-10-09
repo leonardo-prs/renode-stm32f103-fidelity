@@ -23,15 +23,13 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import subprocess
 from pathlib import Path
 
 from . import c1, targets
 
 
 def symbols(elf: Path) -> dict[str, int]:
-    out = subprocess.run(["arm-none-eabi-nm", str(elf)], capture_output=True, text=True,
-                         check=True).stdout
+    out = targets.run_command(["arm-none-eabi-nm", str(elf)]).stdout
     return {name: int(addr, 16) for addr, _, name in
             (line.split() for line in out.splitlines() if len(line.split()) == 3)}
 
@@ -52,12 +50,16 @@ def gdb_script(port: int, reset: str, sym: dict[str, int]) -> str:
              f"hbreak *0x{call:x}"]
     for load, n, rep in call_plan():
         lines.append("continue")
+        lines += [f"if (((unsigned int)$pc & ~1) != 0x{call & ~1:x})",
+                  '  echo parada fora de fid_measure_call\\n', "  quit 1", "end"]
         if rep != 0:
             continue
         lines += [
             f'printf "BEGIN {load} {n} fn=0x%x arg=%u\\n", $r4, $r0',
             "set $count = 0",
-            f"while ($pc != 0x{back:x})",
+            f"while (((unsigned int)$pc & ~1) != 0x{back & ~1:x})",
+            "  if ($count >= 100000)",
+            '    echo limite de instrucoes excedido\\n', "    quit 1", "  end",
             '  printf "PC %x\\n", $pc',
             "  stepi",
             "  set $count = $count + 1",
@@ -73,6 +75,7 @@ def parse(text: str, sym: dict[str, int]) -> dict:
     fn_addr = {name.removeprefix("load_"): addr for name, addr in sym.items()
                if name.startswith("load_")}
     out = {}
+    order = []
     for m in re.finditer(r"BEGIN (\w+) (\d+) fn=0x([0-9a-f]+) arg=(\d+)\n(.*?)END count=(\d+)",
                          text, re.S):
         load, n, fn, arg, body, count = m[1], int(m[2]), int(m[3], 16), int(m[4]), m[5], int(m[6])
@@ -80,18 +83,26 @@ def parse(text: str, sym: dict[str, int]) -> dict:
         if (fn & ~1) != (expected_fn & ~1) or arg != n:
             raise ValueError(f"traço {load}/{n}: chamada fora da ordem (fn 0x{fn:x}, n {arg})")
         pcs = re.findall(r"^PC ([0-9a-f]+)$", body, re.M)
-        if len(pcs) != count:
+        if len(pcs) != count or not 0 < count <= 100000:
             raise ValueError(f"traço {load}/{n}: {len(pcs)} PCs para count={count}")
-        out[f"{load}/{n}"] = {"load": load, "n": n, "count": count,
+        if int(pcs[0], 16) != (sym["fid_measure_call"] & ~1):
+            raise ValueError(f"traço {load}/{n}: primeiro PC fora do bracket")
+        key = f"{load}/{n}"
+        if key in out:
+            raise ValueError(f"traço duplicado: {key}")
+        order.append(key)
+        out[key] = {"load": load, "n": n, "count": count,
                               "pcs_sha256": hashlib.sha256(" ".join(pcs).encode()).hexdigest(),
                               "first_pcs": pcs[:8]}
-    expected = {f"{load}/{n}" for load, n, rep in call_plan() if rep == 0}
-    if set(out) != expected:
-        raise ValueError(f"traços ausentes: {sorted(expected - set(out))}")
+    expected = [f"{load}/{n}" for load, n, rep in call_plan() if rep == 0]
+    if order != expected or len(re.findall(r"^BEGIN ", text, re.M)) != len(expected) \
+            or len(re.findall(r"^END count=", text, re.M)) != len(expected):
+        raise ValueError("traços ausentes, extras ou fora da ordem do plano")
     return out
 
 
-def trace_hw(elf: Path, out_dir: Path, timeout_s: float = 3600) -> dict:
+def trace_hw(elf: Path, out_dir: Path, timeout_s: float = 3600,
+             expected_identity: dict | None = None) -> dict:
     """Traço na placa: OpenOCD próprio, grava o ELF e roda o MESMO script GDB.
 
     Custo medido: ~25–30 passos/s (o passo único via ST-Link domina; um laço
@@ -100,10 +111,17 @@ def trace_hw(elf: Path, out_dir: Path, timeout_s: float = 3600) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     sym = symbols(elf)
     with targets.Bench(out_dir) as bench:
+        ident = bench.identify(elf)
+        (out_dir / "identify.json").write_text(json.dumps(ident, indent=2))
+        if expected_identity is not None and any(ident.get(k) != expected_identity.get(k)
+                for k in ("CPUID", "IDCODE", "FLASH_KB", "UID")):
+            raise targets.TargetError("exemplar mudou antes do traço de instruções")
         bench.flash(elf, out_dir / "flash.log")
-        text = targets.run_gdb(elf, gdb_script(targets.HW_GDB_PORT, "monitor reset halt", sym),
-                               out_dir / "stepi.log", timeout_s)
-        bench.recover(elf, out_dir)
+        try:
+            text = targets.run_gdb(elf, gdb_script(targets.HW_GDB_PORT, "monitor reset halt", sym),
+                                   out_dir / "stepi.log", timeout_s)
+        finally:
+            bench.recover(elf, out_dir)
     return _save(parse(text, sym), out_dir)
 
 
@@ -117,5 +135,9 @@ def trace_renode(elf: Path, out_dir: Path, timeout_s: float = 1800) -> dict:
 
 
 def _save(result: dict, out_dir: Path) -> dict:
-    (out_dir / "instructions.json").write_text(json.dumps(result, indent=2, sort_keys=True))
+    path = out_dir / "instructions.json"
+    if path.exists():
+        raise targets.TargetError(f"traço já finalizado: {path}")
+    path.write_text(json.dumps(result, indent=2, sort_keys=True))
+    path.chmod(0o444)
     return result

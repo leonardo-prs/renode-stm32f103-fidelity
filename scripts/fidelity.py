@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -54,23 +55,43 @@ def parse_args(argv=None):
     args = p.parse_args(argv)
     if args.cmd == "campaign" and args.reps is None:
         args.reps = 10 if args.pilot else 50
+    if args.cmd in ("campaign", "analyze") and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", args.name):
+        p.error("--name: só letras, dígitos, '.', '_' e '-' (vira um diretório em data/fidelity/)")
+    if args.cmd == "campaign":
+        if args.reps < 1 or args.jobs < 1:
+            p.error("--reps e --jobs devem ser positivos")
+        if args.calibration and ("c1-timing" not in args.firmwares or set(args.envs) != {"hw", "renode"}):
+            p.error("--calibration exige c1-timing e os dois ambientes (hw e renode)")
+    if args.cmd == "run" and args.mips != targets.NOMINAL_MIPS and args.env != "renode":
+        p.error("--mips só se aplica ao Renode")
     return args
 
 
 def cmd_run(args) -> int:
+    """Um run de diagnóstico, fora de campanha (build + execução + avaliação)."""
     fw = FIRMWARES[args.firmware]
     out = args.out or campaign.DATA / "diagnostic" / f"{args.env}-{fw.name}-{campaign.utc()}"
-    out.mkdir(parents=True, exist_ok=True)
-    if args.env == "hw":
-        with targets.Bench(out) as bench:
-            print(json.dumps(bench.identify()))
-            bench.flash(fw.elf, out / "flash.log")
-            collected = bench.run(fw.elf, out, fw.timeout_s)
-    else:
-        mips = args.mips
-        q = targets.QUANTUM_S if mips == targets.NOMINAL_MIPS else campaign.quantum_for(mips)
-        collected = targets.run_renode(fw.elf, out, fw.timeout_s, mips=mips, quantum_s=q)
-    rec = campaign.record_run(out, fw, args.env, {"diagnostic": True}, collected, None)
+    out.mkdir(parents=True, exist_ok=False)
+    with campaign.Lock(campaign.DATA / ".build.lock", "os ELFs em build/"):
+        campaign.build(fw, out / "build")
+        campaign.save_json(out / "elf.json", campaign.gate(fw))
+        collected, error = None, None
+        try:
+            if args.env == "hw":
+                with campaign.Lock(campaign.DATA / ".hardware.lock", "a bancada (ST-Link)"), \
+                        targets.Bench(out) as bench:
+                    print(json.dumps(bench.identify(fw.elf)))
+                    bench.flash(fw.elf, out / "flash.log")
+                    collected = bench.run(fw.elf, out, fw.timeout_s)
+                config = {"diagnostic": True}
+            else:
+                q = targets.QUANTUM_S if args.mips == targets.NOMINAL_MIPS else campaign.quantum_for(args.mips)
+                config = {"diagnostic": True, "performance_in_mips": args.mips, "quantum_s": q}
+                collected = targets.run_renode(fw.elf, out, fw.timeout_s, mips=args.mips, quantum_s=q)
+        except targets.TargetError as exc:
+            error = str(exc)
+            config = {"diagnostic": True}
+        rec = campaign.record_run(out, fw, args.env, config, collected, error)
     print(json.dumps({k: rec[k] for k in ("status", "problems")}, ensure_ascii=False))
     if rec["status"] == "valid":
         ev = fw.evaluate(abi.decode(collected.snapshot))
@@ -86,9 +107,10 @@ def cmd_check(args) -> int:
     log = campaign.Log(campaign.DATA / "diagnostic" / "check.log")
     campaign.preflight(args.envs, log)
     log(f"vendor: {campaign.vendor_integrity()}")
-    for fw in FIRMWARES.values():
-        campaign.build(fw, campaign.DATA / "diagnostic" / "build")
-        log(f"{fw.name}: {campaign.gate(fw)}")
+    with campaign.Lock(campaign.DATA / ".build.lock", "os ELFs compartilhados (build/)"):
+        for fw in FIRMWARES.values():
+            campaign.build(fw, campaign.DATA / "diagnostic" / "build")
+            log(f"{fw.name}: {campaign.gate(fw)}")
     return 0
 
 
@@ -98,8 +120,11 @@ def main(argv=None) -> int:
         if args.cmd == "campaign":
             return campaign.run_campaign(args)
         if args.cmd == "analyze":
-            from fidelity.analysis import analyze
-            summary = analyze(campaign.DATA / args.name)
+            paths = campaign.Paths(args.name)
+            if not paths.plan.exists():
+                raise campaign.CampaignError(f"campanha inexistente: {args.name}")
+            with campaign.Lock(paths.root / ".lock", f"campanha '{args.name}'"):
+                summary = campaign.analyze_campaign(paths)
             print(json.dumps({"complete": summary["complete"], "classes": summary["classes"]},
                              default=str, ensure_ascii=False))
             return 0 if summary["complete"] else 3
@@ -107,7 +132,7 @@ def main(argv=None) -> int:
             return cmd_run(args)
         if args.cmd == "check":
             return cmd_check(args)
-    except campaign.CampaignError as exc:
+    except (campaign.CampaignError, targets.TargetError, OSError, ValueError, KeyError, TypeError) as exc:
         print(f"ERRO: {exc}", file=sys.stderr)
         return campaign.EXIT_ERROR
     except KeyboardInterrupt:

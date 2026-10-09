@@ -29,8 +29,8 @@
  * Tempo: `ticks` = DWT->CYCCNT. Na placa: ciclos do núcleo (HCLK). No
  * Renode: contador derivado do TEMPO VIRTUAL (frequency do .repl), não
  * ciclos microarquiteturais. O CYCCNT é pré-carregado em FID_DWT_START,
- * perto do estouro de 32 bits, para que todo run exercite a reconstrução
- * do rollover no host (ver scripts/fidelity/abi.py).
+ * perto do estouro de 32 bits; runs acima de 2^20 ticks exercitam a
+ * reconstrução do rollover no host (ver scripts/fidelity/abi.py).
  */
 #ifndef FIDELITY_H
 #define FIDELITY_H

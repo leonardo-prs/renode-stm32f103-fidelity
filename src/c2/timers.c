@@ -85,9 +85,10 @@ static void timer_isr(uint32_t t)
 {
     TIM_TypeDef *tim = TIMERS[t].tim;
     uint32_t cnt = tim->CNT;                  /* primeiro ponto observado */
-    fid_log(TIMERS[t].writer, EV_ISR_ENTRY, cnt);
     tim->SR = ~TIM_SR_UIF;                    /* rc_w0: zera só UIF */
     (void)tim->SR;                            /* garante a escrita antes do retorno */
+    /* Limpa a fonte antes do logger: o registro não prolonga a linha. */
+    fid_log(TIMERS[t].writer, EV_ISR_ENTRY, cnt);
     s_entries[t] = s_entries[t] + 1U;
 }
 
@@ -104,9 +105,20 @@ void TIM1_UP_IRQHandler(void) { timer_isr(T_TIM1); }
 static void timer_quiesce(uint32_t t)
 {
     TIM_TypeDef *tim = TIMERS[t].tim;
-    tim->CR1 = 0U;
     tim->DIER = 0U;
+    tim->CR1 = 0U;
+    (void)tim->SR;
+    __DSB();
     NVIC_DisableIRQ(TIMERS[t].irq);
+    tim->CR2 = 0U;
+    tim->SMCR = 0U;
+    tim->CCER = 0U;
+    tim->CCMR1 = 0U;
+    tim->CCMR2 = 0U;
+    if (t == T_TIM1) {
+        tim->RCR = 0U;
+        tim->BDTR = 0U;
+    }
     tim->PSC = 0U;
     tim->ARR = 0xFFFFU;
     tim->CNT = 0U;
@@ -173,12 +185,21 @@ static void begin(uint32_t kind, uint32_t t, uint32_t profile, uint32_t psc, uin
     fid_put(t);
     fid_put(profile);
     fid_put(cfgr);
-    fid_put(psc);
-    fid_put(arr);
+    /* Leituras reais, não os valores pedidos. */
+    (void)psc;
+    (void)arr;
+    fid_put(TIMERS[t].tim->PSC);
+    fid_put(TIMERS[t].tim->ARR);
 }
 
 static void end(uint32_t t, uint32_t ok)
 {
+    /* Sufixo do payload C2: estado efetivo antes da limpeza. O host
+     * rejeita payloads antigos pela quantidade de palavras. */
+    fid_put(TIMERS[t].tim->CR1);
+    fid_put(TIMERS[t].tim->DIER);
+    fid_put(TIMERS[t].tim->CCER);
+    fid_put(t == T_TIM1 ? RCC->APB2ENR : RCC->APB1ENR);
     timer_quiesce(t);
     board_set_apb(LL_RCC_APB1_DIV_1, LL_RCC_APB2_DIV_1);
     fid_case_end(ok ? FID_CASE_OK : FID_CASE_TIMEOUT);
@@ -209,13 +230,17 @@ static void case_count_rate(uint32_t t, uint32_t profile)
     fid_delay(100U);
     uint32_t t0 = fid_now();
     uint32_t c0 = tim->CNT;
+    uint32_t t0_after = fid_now();
     fid_delay(RATE_WINDOW);
     uint32_t t1 = fid_now();
     uint32_t c1 = tim->CNT;
+    uint32_t t1_after = fid_now();
     fid_put(t0);
     fid_put(c0);
+    fid_put(t0_after);
     fid_put(t1);
     fid_put(c1);
+    fid_put(t1_after);
     fid_put(tim->SR);
     end(t, 1U);
 }
@@ -277,8 +302,9 @@ static void case_preload(uint32_t kind, uint32_t t)
 /* UG com o contador andando (CNT >= 500), UIE = 0. RM0008 §15.4.1/§15.4.5:
  * UG zera CNT e o contador do prescaler; com URS = 0 o UG seta UIF.
  * CNT é lido logo após o UG e de novo 24 ticks depois (3 contagens com
- * PSC = 7): separa "efeito ainda não visível na leitura seguinte" de
- * "contador não reiniciado". */
+ * PSC = 7, mais custo das instruções): separa "efeito ainda não visível na leitura seguinte" de
+ * "contador não reiniciado". Os dois timestamps delimitam o tempo real
+ * gasto, sem presumir que fid_delay(24) custa exatamente 24 ticks. */
 static void case_ug(uint32_t kind, uint32_t t)
 {
     TIM_TypeDef *tim = TIMERS[t].tim;
@@ -288,15 +314,19 @@ static void case_ug(uint32_t kind, uint32_t t)
     uint32_t ok = wait_cnt_at_least(tim, 500U);
     tim->SR = 0U;
     uint32_t cnt_before = tim->CNT;
+    uint32_t t_ug = fid_now();
     tim->EGR = TIM_EGR_UG;
     uint32_t cnt_after = tim->CNT;
     fid_delay(24U);
     uint32_t cnt_later = tim->CNT;
+    uint32_t t_later = fid_now();
     uint32_t sr_after = tim->SR;
     fid_put(cnt_before);
     fid_put(cnt_after);
     fid_put(cnt_later);
     fid_put(sr_after);
+    fid_put(t_ug);
+    fid_put(t_later);
     end(t, ok);
 }
 
@@ -392,7 +422,8 @@ static void case_irq_periodic(uint32_t kind, uint32_t t, uint32_t profile)
  * Separa o evento do atendimento: UIE = 1 mas a IRQ fica desabilitada no
  * NVIC; MAIN observa UIF (instante t_seen), espera `delay` ticks e só então
  * habilita a IRQ. Com delay maior que um período, outros updates acontecem
- * com UIF já em 1: a ISR deve rodar uma vez só (eventos coalescidos). O
+ * com UIF já em 1. O timer é parado antes da liberação e a ISR deve
+ * rodar uma vez só (eventos coalescidos). O
  * número de updates no intervalo é INFERIDO da configuração, não observado.
  */
 static void case_irq_delayed(uint32_t kind, uint32_t t, uint32_t delay)
@@ -407,14 +438,26 @@ static void case_irq_delayed(uint32_t kind, uint32_t t, uint32_t delay)
     uint32_t ok = wait_uif(tim, &t_seen);
     uint32_t cnt_seen = tim->CNT;
     fid_delay(delay);
-    uint32_t t_enable = fid_now();
+    /* Congela a fonte antes de liberar: nenhum novo update pode se
+     * confundir com um atendimento do pedido acumulado. CNT conserva a
+     * fase no momento da parada, não a latência até a ISR. */
+    tim->CR1 = 0U;
+    (void)tim->CR1;
+    __DSB();
+    uint32_t cnt_stopped = tim->CNT;
+    uint32_t t_enable = fid_now();          /* marcador antes da liberação */
     NVIC_EnableIRQ(TIMERS[t].irq);
     ok &= wait_entries(t, 1U);
     tim->CR1 = 0U;                         /* para antes do próximo update */
     tim->DIER = 0U;
+    (void)tim->SR;
+    __DSB();
+    /* Janela sem novos eventos: detecta atendimento duplicado tardio. */
+    fid_delay(100U);
     fid_put(delay);
     fid_put(t_seen);
     fid_put(cnt_seen);
+    fid_put(cnt_stopped);
     fid_put(t_enable);
     fid_put(s_entries[t]);
     end(t, ok);
@@ -431,7 +474,9 @@ int main(void)
 
     RCC->APB1ENR |= RCC_APB1ENR_TIM2EN | RCC_APB1ENR_TIM3EN;
     RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;
+    (void)RCC->APB1ENR;
     (void)RCC->APB2ENR;
+    __DSB();
     NVIC_SetPriorityGrouping(0U);
 
     for (uint32_t t = 0U; t < TIMER_COUNT; ++t) {

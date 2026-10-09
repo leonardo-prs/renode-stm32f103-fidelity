@@ -5,8 +5,8 @@ opcional) → análise.
 Estrutura em data/fidelity/<campanha>/:
     plan.json                       plano congelado (hashes, configs, casos)
     campaign.log                    linha do tempo da campanha (UTC do host)
-    build/<fw>.log                  saída do build de cada firmware
-    hw/session-NN/                  logs do OpenOCD e identificação do exemplar
+    build/run-NNN/<fw>.log          saída do build de cada firmware
+    hw/sessions/run-NNN/            logs do OpenOCD e identificação do exemplar
     hw/<fw>/run-NNN/                um diretório por TENTATIVA (válida ou não)
     renode-nominal/<fw>/run-NNN/
     renode-calibrated/c1-timing/run-NNN/   (só com --calibration)
@@ -14,6 +14,13 @@ Estrutura em data/fidelity/<campanha>/:
     calibration.json                regra pré-registrada + valor derivado
     analysis/                       tabelas, relatório, figuras, Perfetto
 
+O que garante que um número pertence ao experimento declarado:
+  - plan.json congela ELFs (SHA-256), ABI, exemplar, repetições e
+    configuração do Renode; a retomada recusa qualquer diferença nesses itens;
+  - cada run.json registra o SHA-256 do ELF executado e o do snapshot, e o
+    snapshot traz o nonce aleatório gravado pelo host naquele run;
+  - na retomada, a identificação física (CPUID/IDCODE/F_SIZE/UID) tem de ser
+    a mesma da primeira sessão.
 Uma tentativa nunca é apagada: falhas de infraestrutura e snapshots
 inválidos ficam registrados com o motivo e entram na contabilidade.
 """
@@ -32,13 +39,14 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
+from statistics import median
 
 from . import abi, instr, targets
 from .firmwares import FIRMWARES, Firmware
 from .targets import ROOT, TargetError
 
 DATA = ROOT / "data" / "fidelity"
-PLAN_SCHEMA = 1
+PLAN_SCHEMA = 2
 SOURCE_DIRS = ("src", "inc", "lib", "renode", "cmake", "scripts")
 SOURCE_FILES = ("CMakeLists.txt", "CMakePresets.json", "flake.nix", "flake.lock")
 
@@ -55,7 +63,17 @@ def sha256_file(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-# ───────────────────────────── diretórios e log ─────────────────────────────
+def save_json(path: Path, value: dict) -> None:
+    """Grava um registro e o deixa somente-leitura (evidência finalizada)."""
+    path.write_text(json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False))
+    path.chmod(0o444)
+
+
+def read_json(path: Path) -> dict:
+    return json.loads(path.read_text())
+
+
+# ───────────────────────────── diretórios, log e locks ─────────────────────────────
 
 @dataclass
 class Paths:
@@ -105,8 +123,6 @@ class Lock:
         except BlockingIOError:
             self.fd.close()
             raise CampaignError(f"{self.what} já em uso por outro processo ({self.path})")
-        self.fd.write(f"{utc()}\n")
-        self.fd.flush()
         return self
 
     def __exit__(self, *exc):
@@ -121,16 +137,13 @@ def preflight(envs: list[str], log: Log) -> dict:
              "arm-none-eabi-objdump", "arm-none-eabi-size"]
     if "hw" in envs:
         tools.append("openocd")
-    if any(e.startswith("renode") for e in envs):
+    if "renode" in envs:
         tools.append("renode")
     missing = [t for t in tools if shutil.which(t) is None]
     if missing:
         raise CampaignError(f"ferramentas ausentes no PATH: {missing} (use o ambiente Nix: "
                             "`nix develop` ou scripts/campaign.sh)")
-    if "hw" in envs and targets.port_in_use(targets.HW_GDB_PORT):
-        raise CampaignError(f":{targets.HW_GDB_PORT} ocupada (outro OpenOCD/GDB?). Não será "
-                            "encerrado: libere a porta e repita.")
-    free = shutil.disk_usage(DATA.parent if DATA.parent.exists() else ROOT).free
+    free = shutil.disk_usage(ROOT).free
     if free < 2 * 1024**3:
         raise CampaignError(f"pouco espaço em disco: {free / 1024**3:.1f} GiB (< 2 GiB)")
     versions = targets.tool_versions()
@@ -167,10 +180,10 @@ def vcs_revision() -> str:
                   'change_id.short() ++ " " ++ commit_id.short()'],
                  ["git", "rev-parse", "--short", "HEAD"]):
         try:
-            out = subprocess.run(argv, cwd=ROOT, capture_output=True, text=True, timeout=10)
+            out = targets.run_command(argv, timeout_s=10, check=False)
             if out.returncode == 0 and out.stdout.strip():
                 return out.stdout.strip()
-        except (OSError, subprocess.TimeoutExpired):
+        except TargetError:
             continue
     return "desconhecida"
 
@@ -179,21 +192,24 @@ def vcs_revision() -> str:
 
 def build(fw: Firmware, log_dir: Path) -> None:
     log_dir.mkdir(parents=True, exist_ok=True)
-    with (log_dir / f"{fw.name}.log").open("w") as out:
+    log = log_dir / f"{fw.name}.log"
+    with log.open("w") as out:
         # --fresh: configuração do zero, para que o ELF (inclusive a informação de
         # debug) dependa só das fontes e não do histórico da árvore build/<fw>.
         for argv in (["cmake", "--preset", fw.name, "--fresh"],
                      ["cmake", "--build", "--preset", fw.name]):
-            r = subprocess.run(argv, cwd=ROOT, stdout=out, stderr=subprocess.STDOUT)
-            if r.returncode != 0:
-                raise CampaignError(f"build de {fw.name} falhou (ver {log_dir / fw.name}.log)")
-    text = (log_dir / f"{fw.name}.log").read_text()
-    warnings = [line for line in text.splitlines() if "warning:" in line]
+            try:
+                targets.run_command(argv, stdout=out, stderr=subprocess.STDOUT, timeout_s=180)
+            except TargetError as exc:
+                raise CampaignError(f"build de {fw.name} falhou (ver {log}): {exc}") from exc
+    warnings = [line for line in log.read_text().splitlines() if "warning:" in line]
     if warnings:
         raise CampaignError(f"{fw.name}: warnings no build (política: zero): {warnings[:3]}")
 
 
 USART1_RANGE = (0x40013800, 0x40013C00)
+UNALIGNED_HELPERS = (("unaligned_read_word", "ldr"), ("unaligned_read_half", "ldrh"),
+                     ("unaligned_write_word", "str"), ("unaligned_write_half", "strh"))
 
 
 def gate(fw: Firmware) -> dict:
@@ -206,17 +222,19 @@ def gate(fw: Firmware) -> dict:
     missing = [s for s in required if s not in sym]
     if missing:
         raise CampaignError(f"{fw.name}: símbolos ausentes no ELF: {missing}")
-    sections = subprocess.run(["arm-none-eabi-size", "-A", str(elf)], capture_output=True,
-                              text=True, check=True).stdout
+
+    # Memória: o linker já recusa estourar 64 KiB/20 KiB; aqui só registramos.
+    sections = targets.run_command(["arm-none-eabi-size", "-A", str(elf)]).stdout
     size = {m[1]: int(m[2]) for m in re.finditer(r"^(\S+)\s+(\d+)\s+(\d+)$", sections, re.M)}
     ram = size.get(".data", 0) + size.get(".bss", 0)
-    flash = size.get(".isr_vector", 0) + size.get(".text", 0) + size.get(".rodata", 0) + size.get(".data", 0)
+    flash = sum(size.get(s, 0) for s in (".isr_vector", ".text", ".rodata", ".data"))
     reserved = size.get("._user_heap_stack", 0)
     if ram + reserved > 20 * 1024:
         raise CampaignError(f"{fw.name}: RAM {ram} B + pilha/heap {reserved} B > 20 KiB")
-    # Literais do endereço da USART1 no código (.text/.rodata): só o C4 pode tê-los.
-    dump = subprocess.run(["arm-none-eabi-objdump", "-s", "-j", ".text", "-j", ".rodata", str(elf)],
-                          capture_output=True, text=True, check=True).stdout
+
+    # Literais do endereço da USART1 no código: só o C4 pode tê-los (fio PA9→PA10).
+    dump = targets.run_command(["arm-none-eabi-objdump", "-s", "-j", ".text", "-j", ".rodata",
+                                str(elf)]).stdout
     words = []
     for line in dump.splitlines():
         m = re.match(r"^ ([0-9a-f]{8}) ((?:[0-9a-f]{8} ?){1,4})", line)
@@ -226,17 +244,25 @@ def gate(fw: Firmware) -> dict:
     if fw.name != "c4" and usart_literals:
         raise CampaignError(f"{fw.name}: referência à USART1 {usart_literals} — só o C4 pode "
                             "tocar PA9/PA10 (loopback permanente)")
-    disasm = subprocess.run(["arm-none-eabi-objdump", "-d", str(elf)], capture_output=True,
-                            text=True, check=True).stdout
+
+    disasm = targets.run_command(["arm-none-eabi-objdump", "-d", "--no-show-raw-insn", str(elf)]).stdout
     measure = re.search(r"<fid_measure>:\n(.*?)\n\n", disasm, re.S)
     if measure and "push\t{r3, r4, r5, r6, r7, lr}" not in measure[1]:
         raise CampaignError(f"{fw.name}: fid_measure não empilha 6 registros (AAPCS 8 bytes)")
+    # C1: o caso desalinhado só vale se o GCC emitiu de fato LDR/LDRH/STR/STRH.
+    if fw.name == "c1-functional":
+        for name, opcode in UNALIGNED_HELPERS:
+            body = re.search(r"<" + name + r">:\n(.*?)(?:\n\n|$)", disasm, re.S)
+            ops = re.findall(r"^\s*[0-9a-f]+:\s+(\S+)", body[1], re.M) if body else []
+            if ops != [opcode, "bx"]:
+                raise CampaignError(f"{fw.name}: {name} não emite {opcode} único: {ops}")
+
     cc = json.loads((ROOT / "build" / fw.name / "compile_commands.json").read_text())
     flags = sorted({f for e in cc if e["file"].endswith(".c") and "/src/" in e["file"]
                     for f in e["command"].split() if f.startswith(("-O", "-g", "-std", "-mcpu"))})
     return {"elf_sha256": sha256_file(elf), "ram_bytes": ram, "flash_bytes": flash,
             "stack_heap_reserved": reserved, "usart1_literals": usart_literals,
-            "compile_flags": flags, "symbols_checked": required}
+            "compile_flags": flags}
 
 
 # ───────────────────────────── plano ─────────────────────────────
@@ -251,6 +277,7 @@ def quantum_for(mips: int) -> str:
 def make_plan(args, versions: dict, builds: dict, vendor: dict) -> dict:
     return {
         "schema": PLAN_SCHEMA,
+        "abi_version": abi.ABI_VERSION,
         "campaign": args.name,
         "created_utc": utc(),
         "mode": "piloto" if args.pilot else "final",
@@ -267,8 +294,10 @@ def make_plan(args, versions: dict, builds: dict, vendor: dict) -> dict:
                            "script_sha256": sha256_file(targets.RESC),
                            "uart_auto_update_delay": False, "fresh_process_per_run": True},
         "calibration": {"enabled": bool(args.calibration), "rule": CALIBRATION_RULE},
+        "instructions": {"enabled": bool(args.instr and "c1-timing" in args.firmwares)},
         "collector": {"protocol": "reset → hbreak main → nonce → hbreak fid_complete → dump",
-                      "debugger_attached_during_run": True, "sram_polling_during_run": False},
+                      "debugger_attached_during_run": True, "sram_polling_during_run": False,
+                      "reset_is_power_cycle": False},
         "tools": versions,
         "vendor": vendor,
         "sources": source_digest(),
@@ -276,28 +305,33 @@ def make_plan(args, versions: dict, builds: dict, vendor: dict) -> dict:
     }
 
 
+# O que define o experimento. Ferramentas, fontes e revisão ficam registradas
+# no plano, mas mudar a análise (ou a documentação) não invalida a coleta: os
+# dados pertencem aos ELFs congelados.
+FROZEN_KEYS = ("schema", "abi_version", "mode", "board", "repetitions", "environments",
+               "renode_nominal", "calibration", "instructions")
+
+
 def freeze_plan(paths: Paths, plan: dict, resume: bool) -> dict:
     """Grava o plano ou, na retomada, exige que nada que define o experimento mudou."""
     if paths.plan.exists():
         if not resume:
             raise CampaignError(f"campanha '{paths.name}' já existe; use --resume ou outro --name")
-        old = json.loads(paths.plan.read_text())
-        keys = ["schema", "board", "repetitions", "environments", "renode_nominal", "mode"]
-        diff = [k for k in keys if old.get(k) != plan.get(k)]
+        old = read_json(paths.plan)
+        diff = [k for k in FROZEN_KEYS if old.get(k) != plan.get(k)]
+        if set(old["firmwares"]) != set(plan["firmwares"]):
+            diff.append("conjunto de firmwares")
         for name, fw in plan["firmwares"].items():
-            o = old["firmwares"].get(name)
-            if o is None or o["elf_sha256"] != fw["elf_sha256"] or o["planned_cases"] != fw["planned_cases"]:
-                diff.append(f"firmware {name}")
-        if old["calibration"]["rule"] != plan["calibration"]["rule"]:
-            diff.append("regra de calibração")
+            o = old["firmwares"].get(name, {})
+            if o.get("elf_sha256") != fw["elf_sha256"] or o.get("planned_cases") != fw["planned_cases"]:
+                diff.append(f"firmware {name} (ELF ou casos)")
         if diff:
             raise CampaignError(f"retomada incompatível com o plano congelado: {diff}")
         return old
     if resume:
         raise CampaignError(f"--resume: campanha '{paths.name}' não existe")
     paths.root.mkdir(parents=True, exist_ok=True)
-    paths.plan.write_text(json.dumps(plan, indent=2, sort_keys=True, ensure_ascii=False))
-    paths.plan.chmod(0o444)
+    save_json(paths.plan, plan)
     return plan
 
 
@@ -311,26 +345,35 @@ def next_attempt_dir(base: Path) -> Path:
     return d
 
 
-def count_valid(base: Path) -> tuple[int, int]:
+def count_valid(base: Path, elf_sha256: str) -> tuple[int, int]:
+    """(runs válidos do ELF congelado, tentativas) já gravados em `base`."""
     valid = attempts = 0
-    for rec in base.glob("run-*/run.json"):
+    for run_dir in sorted(base.glob("run-*")):
         attempts += 1
-        valid += json.loads(rec.read_text()).get("status") == "valid"
+        rec_path = run_dir / "run.json"
+        if not rec_path.exists():        # interrompido antes de gravar: conta só como tentativa
+            continue
+        rec = read_json(rec_path)
+        valid += rec.get("status") == "valid" and rec.get("elf_sha256") == elf_sha256
     return valid, attempts
 
 
 def record_run(run_dir: Path, fw: Firmware, env: str, config: dict, collected, error: str | None) -> dict:
+    """Decodifica, valida e grava run.json (somente-leitura) de uma tentativa."""
     rec = {"firmware": fw.name, "environment": env, "config": config,
-           "attempt_dir": run_dir.name, "finished_utc": utc()}
+           "attempt_dir": run_dir.name, "finished_utc": utc(),
+           "elf_sha256": sha256_file(fw.elf), "abi_version": abi.ABI_VERSION}
     if collected is None:
         rec.update(status="infra_error", problems=[error or "?"])
     else:
         raw = run_dir / "snapshot.bin"
+        raw.write_bytes(collected.snapshot)
+        raw.chmod(0o444)
         rec.update(host_elapsed_s=round(collected.host_elapsed_s, 3), nonce=collected.nonce,
                    snapshot_sha256=hashlib.sha256(collected.snapshot).hexdigest(), **collected.extra)
         try:
             snap = abi.decode(collected.snapshot)
-            problems = abi.run_checks(snap, fw.firmware_id, collected.nonce, fw.planned_cases)
+            problems = fw.validate(snap, collected.nonce)
             rec["header"] = {k: snap.header[k] for k in (
                 "state", "error", "case_count", "word_count", "ticket_next", "dwt_start", "dwt_end",
                 "observer_ticks", "log_ticks", "cpuid", "idcode", "flash_kb", "uid0", "uid1", "uid2",
@@ -339,10 +382,7 @@ def record_run(run_dir: Path, fw: Firmware, env: str, config: dict, collected, e
         except abi.SnapshotError as exc:
             problems = [f"snapshot inválido: {exc}"]
         rec.update(status="valid" if not problems else "invalid", problems=problems)
-        raw.chmod(0o444)
-    path = run_dir / "run.json"
-    path.write_text(json.dumps(rec, indent=2, sort_keys=True, ensure_ascii=False))
-    path.chmod(0o444)
+    save_json(run_dir / "run.json", rec)
     return rec
 
 
@@ -350,22 +390,37 @@ def max_attempts(reps: int) -> int:
     return reps + max(3, reps // 5)
 
 
+def identity_key(ident: dict) -> tuple:
+    return tuple(ident.get(k) for k in ("CPUID", "IDCODE", "FLASH_KB", "UID"))
+
+
+def first_board_identity(paths: Paths) -> dict | None:
+    records = sorted((paths.root / "hw" / "sessions").glob("run-*/identify.json"))
+    return read_json(records[0]) if records else None
+
+
 def run_hw(paths: Paths, plan: dict, fws: list[Firmware], log: Log) -> None:
+    reps = plan["repetitions"]
+    pending = [fw for fw in fws if count_valid(paths.env_dir("hw", fw.name),
+                                               plan["firmwares"][fw.name]["elf_sha256"])[0] < reps]
+    if not pending:
+        log("bancada: todos os runs planejados já coletados")
+        return
     session = next_attempt_dir(paths.root / "hw" / "sessions")
     with targets.Bench(session) as bench:
-        ident = bench.identify()
-        (session / "identify.json").write_text(json.dumps(ident, indent=2))
+        ident = bench.identify(pending[0].elf)
+        first = first_board_identity(paths)
+        save_json(session / "identify.json", ident)
+        if first is not None and identity_key(first) != identity_key(ident):
+            raise CampaignError("retomada recusada: a identificação física do exemplar mudou")
         log(f"bancada: exemplar informado '{plan['board']}', identificação {ident}")
-        for fw in fws:
+        for fw in pending:
             base = paths.env_dir("hw", fw.name)
-            valid, attempts = count_valid(base)
-            if valid >= plan["repetitions"]:
-                log(f"hw/{fw.name}: {valid} runs válidos já coletados")
-                continue
+            valid, attempts = count_valid(base, plan["firmwares"][fw.name]["elf_sha256"])
             bench.flash(fw.elf, session / f"flash-{fw.name}.log")
             log(f"hw/{fw.name}: gravado e verificado (sessão {session.name}); "
-                f"coletando {plan['repetitions'] - valid} runs")
-            while valid < plan["repetitions"] and attempts < max_attempts(plan["repetitions"]):
+                f"coletando {reps - valid} runs")
+            while valid < reps and attempts < max_attempts(reps):
                 run_dir = next_attempt_dir(base)
                 attempts += 1
                 collected, error = None, None
@@ -383,7 +438,9 @@ def run_hw(paths: Paths, plan: dict, fws: list[Firmware], log: Log) -> None:
 def run_renode(paths: Paths, plan: dict, fws: list[Firmware], env: str, mips: int,
                jobs: int, log: Log) -> None:
     quantum = targets.QUANTUM_S if mips == targets.NOMINAL_MIPS else quantum_for(mips)
-    slots: queue.Queue = queue.Queue()
+    config = {"performance_in_mips": mips, "quantum_s": quantum}
+    reps = plan["repetitions"]
+    slots: queue.Queue = queue.Queue()          # faixas de porta distintas por processo paralelo
     for k in range(jobs):
         slots.put(targets.RENODE_PORT_BASE + 20 * k)
 
@@ -396,18 +453,15 @@ def run_renode(paths: Paths, plan: dict, fws: list[Firmware], env: str, mips: in
                                                quantum_s=quantum, port_base=port_base)
             except TargetError as exc:
                 error = str(exc)
-            except Exception as exc:          # registra e segue: nunca derruba o lote
-                error = f"{type(exc).__name__}: {exc}"
-            return record_run(run_dir, fw, env, {"performance_in_mips": mips, "quantum_s": quantum},
-                              collected, error)
+            return record_run(run_dir, fw, env, config, collected, error)
         finally:
             slots.put(port_base)
 
     for fw in fws:
         base = paths.env_dir(env, fw.name)
-        valid, attempts = count_valid(base)
-        while valid < plan["repetitions"] and attempts < max_attempts(plan["repetitions"]):
-            batch = min(plan["repetitions"] - valid, max_attempts(plan["repetitions"]) - attempts)
+        valid, attempts = count_valid(base, plan["firmwares"][fw.name]["elf_sha256"])
+        while valid < reps and attempts < max_attempts(reps):
+            batch = min(reps - valid, max_attempts(reps) - attempts)
             dirs = [next_attempt_dir(base) for _ in range(batch)]
             attempts += batch
             with ThreadPoolExecutor(max_workers=jobs) as pool:
@@ -419,20 +473,31 @@ def run_renode(paths: Paths, plan: dict, fws: list[Firmware], env: str, mips: in
 
 
 def run_instruction_traces(paths: Paths, plan: dict, envs: list[str], log: Log) -> None:
+    """Traço por stepi do C1-timing, uma vez por ambiente (refeito se o ELF mudou)."""
     fw = FIRMWARES["c1-timing"]
+    elf_sha = plan["firmwares"]["c1-timing"]["elf_sha256"]
     for env in envs:
-        out = paths.root / "instr" / ("hw" if env == "hw" else "renode")
-        if (out / "instructions.json").exists():
+        out = paths.root / "instr" / env
+        meta_path = out / "trace.json"
+        if meta_path.exists() and read_json(meta_path).get("elf_sha256") == elf_sha:
             continue
         log(f"traço de instruções (stepi) do c1-timing em {env} — pode levar dezenas de minutos")
+        attempt = next_attempt_dir(out)
         try:
             if env == "hw":
-                instr.trace_hw(fw.elf, out)
+                instr.trace_hw(fw.elf, attempt, expected_identity=first_board_identity(paths))
             else:
-                instr.trace_renode(fw.elf, out)
-            log(f"traço {env}: ok")
+                instr.trace_renode(fw.elf, attempt)
         except (TargetError, ValueError) as exc:
             log(f"traço {env}: FALHOU ({exc}); nível 'instrução' fica sem evidência")
+            continue
+        # O resultado vigente fica em instr/<env>/; as tentativas, em run-NNN/.
+        (out / "instructions.json").unlink(missing_ok=True)
+        shutil.copy(attempt / "instructions.json", out / "instructions.json")
+        meta_path.unlink(missing_ok=True)
+        save_json(meta_path, {"environment": env, "attempt_dir": attempt.name,
+                              "elf_sha256": elf_sha, "finished_utc": utc()})
+        log(f"traço {env}: ok")
 
 
 # ───────────────────────────── calibração (C1) ─────────────────────────────
@@ -467,6 +532,39 @@ def choose_mips(hw_warm: dict, rn_warm: dict) -> dict:
     return {"chosen_mips": best["mips"], "training_mare": best["training_mare"], "search": table}
 
 
+def warm_medians(paths: Paths, env: str) -> dict:
+    """Mediana entre runs válidos do tempo 'warm' de cada carga no tamanho da regra."""
+    fw = FIRMWARES["c1-timing"]
+    loads = CALIBRATION_RULE["training_loads"] + CALIBRATION_RULE["evaluation_loads"]
+    values = {ld: [] for ld in loads}
+    for rec_path in sorted(paths.env_dir(env, fw.name).glob("run-*/run.json")):
+        if read_json(rec_path).get("status") != "valid":
+            continue
+        ev = fw.evaluate(abi.decode((rec_path.parent / "snapshot.bin").read_bytes()))
+        for m in ev.metrics:
+            load, _, size = m.case.partition("/")
+            if m.name == "warm" and load in values and size == str(CALIBRATION_RULE["size"]):
+                values[load].append(m.value)
+    return {ld: median(v) for ld, v in values.items() if v}
+
+
+def calibrate(paths: Paths, plan: dict, jobs: int, log: Log) -> None:
+    """Complemento do C1: aplica a regra pré-registrada e roda o Renode calibrado."""
+    cal_path = paths.root / "calibration.json"
+    if not cal_path.exists():
+        warm = {env: warm_medians(paths, env) for env in ("hw", "renode-nominal")}
+        if any(ld not in warm[env] for env in warm for ld in CALIBRATION_RULE["training_loads"]):
+            log("calibração: faltam dados de treino (placa e Renode nominal); complemento pulado")
+            return
+        result = choose_mips(warm["hw"], warm["renode-nominal"])
+        save_json(cal_path, {"rule": CALIBRATION_RULE, "inputs_median_warm": warm, **result,
+                             "requested_mips": result["chosen_mips"], "computed_utc": utc()})
+        log(f"calibração: MIPS escolhido {result['chosen_mips']} (erro médio de treino previsto "
+            f"{result['training_mare']:.1%})")
+    cal = read_json(cal_path)
+    run_renode(paths, plan, [FIRMWARES["c1-timing"]], "renode-calibrated", cal["chosen_mips"], jobs, log)
+
+
 # ───────────────────────────── fluxo principal ─────────────────────────────
 
 EXIT_COMPLETE, EXIT_ERROR, EXIT_INCOMPLETE = 0, 1, 3
@@ -479,18 +577,20 @@ def run_campaign(args) -> int:
     1 = erro que impediu a campanha (pré-condição, build, plano incompatível)."""
     paths = Paths(args.name)
     paths.root.mkdir(parents=True, exist_ok=True)
-    log = Log(paths.root / "campaign.log")
     fws = [FIRMWARES[n] for n in args.firmwares]
     with Lock(paths.root / ".lock", f"campanha '{args.name}'"), \
+            Lock(DATA / ".build.lock", "os ELFs em build/ (outra campanha compilando)"), \
             Lock(DATA / ".hardware.lock" if "hw" in args.envs else paths.root / ".nohw.lock",
                  "a bancada (ST-Link)"):
+        log = Log(paths.root / "campaign.log")
         log(f"campanha '{args.name}' ({'piloto' if args.pilot else 'final'}), exemplar '{args.board}', "
             f"{args.reps} runs, firmwares {args.firmwares}, ambientes {args.envs}")
         versions = preflight(args.envs, log)
         vendor = vendor_integrity()
         builds = {}
+        build_dir = next_attempt_dir(paths.root / "build")
         for fw in fws:
-            build(fw, paths.root / "build")
+            build(fw, build_dir)
             builds[fw.name] = gate(fw)
             log(f"build+gate {fw.name}: ELF {builds[fw.name]['elf_sha256'][:12]}…, "
                 f"RAM {builds[fw.name]['ram_bytes']} B")
@@ -502,48 +602,16 @@ def run_campaign(args) -> int:
                 log(f"BANCADA INDISPONÍVEL: {exc} — etapa da placa incompleta; seguindo com o resto")
         if "renode" in args.envs:
             run_renode(paths, plan, fws, "renode-nominal", targets.NOMINAL_MIPS, args.jobs, log)
-        if args.instr and "c1-timing" in args.firmwares:
-            run_instruction_traces(paths, plan,
-                                   [e for e in ("hw", "renode") if e in args.envs], log)
-        if args.calibration and "c1-timing" in args.firmwares:
+        if plan["instructions"]["enabled"]:
+            run_instruction_traces(paths, plan, list(args.envs), log)
+        if plan["calibration"]["enabled"]:
             calibrate(paths, plan, args.jobs, log)
+        summary = analyze_campaign(paths, log)
+    log(f"análise: {paths.analysis / 'report.md'}; campanha "
+        f"{'COMPLETA' if summary['complete'] else 'INCOMPLETA'}")
+    return EXIT_COMPLETE if summary["complete"] else EXIT_INCOMPLETE
+
+
+def analyze_campaign(paths: Paths, log=print) -> dict:
     from .analysis import analyze
-    summary = analyze(paths.root, log)
-    complete = summary["complete"]
-    if args.instr and "c1-timing" in args.firmwares:
-        traced = [e for e in ("hw", "renode") if e in args.envs]
-        complete &= all((paths.root / "instr" / e / "instructions.json").exists() for e in traced)
-    log(f"análise: {paths.analysis / 'report.md'}; campanha {'COMPLETA' if complete else 'INCOMPLETA'}")
-    return EXIT_COMPLETE if complete else EXIT_INCOMPLETE
-
-
-def calibrate(paths: Paths, plan: dict, jobs: int, log: Log) -> None:
-    """Complemento do C1: aplica a regra pré-registrada e roda o Renode calibrado."""
-    from statistics import median
-
-    from .analysis import load_runs
-    cal_path = paths.root / "calibration.json"
-    if not cal_path.exists():
-        runs = [r for r in load_runs(paths.root, plan) if r.valid and r.firmware == "c1-timing"]
-        warm = {}
-        for env in ("hw", "renode-nominal"):
-            per_load = {}
-            for load in CALIBRATION_RULE["training_loads"] + CALIBRATION_RULE["evaluation_loads"]:
-                vals = [m.value for r in runs if r.env == env for m in r.eval.metrics
-                        if m.case == f"{load}/{CALIBRATION_RULE['size']}" and m.name == "warm"]
-                if vals:
-                    per_load[load] = median(vals)
-            warm[env] = per_load
-        if any(ld not in warm["hw"] or ld not in warm["renode-nominal"]
-               for ld in CALIBRATION_RULE["training_loads"]):
-            log("calibração: dados de treino insuficientes (placa e Renode nominal); pulada")
-            return
-        result = choose_mips(warm["hw"], warm["renode-nominal"])
-        cal = {"rule": CALIBRATION_RULE, "inputs_median_warm": warm, **result,
-               "requested_mips": result["chosen_mips"], "computed_utc": utc()}
-        cal_path.write_text(json.dumps(cal, indent=2, ensure_ascii=False))
-        cal_path.chmod(0o444)
-        log(f"calibração: MIPS escolhido {result['chosen_mips']} (erro médio de treino previsto "
-            f"{result['training_mare']:.1%})")
-    cal = json.loads(cal_path.read_text())
-    run_renode(paths, plan, [FIRMWARES["c1-timing"]], "renode-calibrated", cal["chosen_mips"], jobs, log)
+    return analyze(paths.root, log)

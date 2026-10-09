@@ -19,11 +19,14 @@ por isso todo passo tem timeout e o log do Renode é guardado no run.
 from __future__ import annotations
 
 import os
+from importlib.metadata import PackageNotFoundError, version
 import re
 import secrets
+import signal
 import socket
 import subprocess
 import time
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -36,6 +39,8 @@ RENODE_PORT_BASE = 3336
 # Política temporal da campanha principal (README, "Configuração Renode").
 NOMINAL_MIPS = 8
 QUANTUM_S = "0.000000125"   # 1 instrução a 8 MIPS (ver README, decisões)
+_PORT_LOCK = threading.Lock()
+_PORTS: set[int] = set()
 
 
 class TargetError(RuntimeError):
@@ -45,15 +50,19 @@ class TargetError(RuntimeError):
 # ───────────────────────────── processos ─────────────────────────────
 
 def port_in_use(port: int) -> bool:
-    try:
-        with socket.create_connection(("127.0.0.1", port), timeout=0.2):
+    # Teste por bind (não conecta a um servidor GDB de terceiros).
+    with socket.socket() as sock:
+        try:
+            sock.bind(("127.0.0.1", port))
+            return False
+        except OSError:
             return True
-    except OSError:
-        return False
 
 
 def find_free_port(start: int) -> int:
-    for port in range(start, start + 400):
+    for port in range(start, min(start + 400, 65536)):
+        if port in _PORTS:
+            continue
         if port_in_use(port):
             continue
         with socket.socket() as s:
@@ -66,6 +75,7 @@ def find_free_port(start: int) -> int:
 
 
 def wait_port(port: int, child: subprocess.Popen, timeout_s: float, what: str) -> None:
+    """Espera o servidor FILHO abrir a porta (a porta foi escolhida livre antes)."""
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
         if child.poll() is not None:
@@ -77,15 +87,47 @@ def wait_port(port: int, child: subprocess.Popen, timeout_s: float, what: str) -
 
 
 def stop_child(child: subprocess.Popen | None) -> None:
-    """Encerra um processo FILHO deste coletor (SIGTERM, depois SIGKILL)."""
-    if child is None or child.poll() is not None:
+    """Encerra somente o grupo próprio criado com start_new_session=True."""
+    if child is None:
         return
-    child.terminate()
     try:
+        os.killpg(child.pid, signal.SIGTERM)
+        child.wait(timeout=5)
+    except ProcessLookupError:
         child.wait(timeout=5)
     except subprocess.TimeoutExpired:
-        child.kill()
+        pass
+    finally:
+        # O wrapper pode sair antes dos seus descendentes.
+        try:
+            os.killpg(child.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
         child.wait(timeout=5)
+
+
+def run_command(argv: list[str], *, timeout_s: float = 30, check: bool = True,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE) -> subprocess.CompletedProcess:
+    """Comando host com prazo e cleanup, inclusive ao receber Ctrl-C."""
+    child = None
+    try:
+        child = subprocess.Popen(argv, cwd=ROOT, stdout=stdout, stderr=stderr, text=True,
+                                 stdin=subprocess.DEVNULL, start_new_session=True)
+        out, err = child.communicate(timeout=timeout_s)
+        result = subprocess.CompletedProcess(argv, child.returncode, out, err)
+        if check and result.returncode:
+            raise TargetError(f"{argv[0]} saiu com código {result.returncode}: {(err or out or '')[-300:]}")
+        return result
+    except subprocess.TimeoutExpired as exc:
+        raise TargetError(f"{argv[0]} excedeu {timeout_s:g} s") from exc
+    except OSError as exc:
+        raise TargetError(f"não foi possível executar {argv[0]}: {exc}") from exc
+    finally:
+        stop_child(child)
+        if child is not None:
+            for stream in (child.stdout, child.stderr):
+                if stream is not None:
+                    stream.close()
 
 
 def run_gdb(elf: Path, script: str, log: Path, timeout_s: float) -> str:
@@ -93,16 +135,11 @@ def run_gdb(elf: Path, script: str, log: Path, timeout_s: float) -> str:
     script_path.write_text(script)
     argv = ["arm-none-eabi-gdb", "--nx", "--batch", str(elf), "-x", str(script_path)]
     with log.open("w") as out:
-        child = subprocess.Popen(argv, stdout=out, stderr=subprocess.STDOUT,
-                                 stdin=subprocess.DEVNULL, cwd=ROOT)
-        try:
-            child.wait(timeout=timeout_s)
-        except subprocess.TimeoutExpired:
-            stop_child(child)
-            raise TargetError(f"GDB excedeu {timeout_s:.0f} s (alvo não chegou a fid_complete?)")
+        result = run_command(argv, stdout=out, stderr=subprocess.STDOUT,
+                             timeout_s=timeout_s, check=False)
     text = log.read_text(errors="replace")
-    if child.returncode != 0:
-        raise TargetError(f"GDB saiu com código {child.returncode}: {text[-300:]}")
+    if result.returncode != 0:
+        raise TargetError(f"GDB saiu com código {result.returncode}: {text[-300:]}")
     return text
 
 
@@ -157,14 +194,15 @@ class Bench:
                               "(OpenOCD de terceiros?) — não será encerrado; libere a porta")
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self._log = (self.log_dir / "openocd.log").open("a")
-        self.child = subprocess.Popen(
-            ["openocd", "-f", "interface/stlink.cfg", "-f", "target/stm32f1x.cfg",
-             "-c", "bindto 127.0.0.1", "-c", f"gdb_port {HW_GDB_PORT}",
-             "-c", "telnet_port disabled", "-c", "tcl_port disabled"],
-            stdout=self._log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, cwd=ROOT)
         try:
+            self.child = subprocess.Popen(
+                ["openocd", "-f", "interface/stlink.cfg", "-f", "target/stm32f1x.cfg",
+                 "-c", "bindto 127.0.0.1", "-c", f"gdb_port {HW_GDB_PORT}",
+                 "-c", "telnet_port disabled", "-c", "tcl_port disabled"],
+                stdout=self._log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                cwd=ROOT, start_new_session=True)
             wait_port(HW_GDB_PORT, self.child, 20, "OpenOCD")
-        except TargetError:
+        except BaseException:          # inclusive Ctrl-C: não deixa OpenOCD órfão
             self.__exit__()
             raise
         return self
@@ -173,9 +211,9 @@ class Bench:
         stop_child(self.child)
         self._log.close()
 
-    def identify(self) -> dict:
+    def identify(self, elf: Path | None = None) -> dict:
         """Metadados do exemplar (diagnóstico, não autenticação)."""
-        text = run_gdb(ROOT / "build" / "c1-functional" / "firmware.elf", (
+        text = run_gdb(elf or ROOT / "build" / "c1-functional" / "firmware.elf", (
             "set pagination off\n"
             f"target extended-remote 127.0.0.1:{HW_GDB_PORT}\n"
             "monitor reset halt\n"
@@ -186,6 +224,8 @@ class Bench:
             '*(unsigned int*)0x1FFFF7EC, *(unsigned int*)0x1FFFF7E8\n'
             "detach\nquit 0\n"), self.log_dir / "identify.log", 30)
         info = dict(re.findall(r"^(CPUID|IDCODE|FLASH_KB|UID)=(\S+)$", text, re.M))
+        if set(info) != {"CPUID", "IDCODE", "FLASH_KB", "UID"}:
+            raise TargetError("identificação incompleta do exemplar (ver identify.log)")
         version = re.search(r"STLINK (V\S+)", (self.log_dir / "openocd.log").read_text(errors="replace"))
         voltage = re.search(r"Target voltage: ([\d.]+)", (self.log_dir / "openocd.log").read_text(errors="replace"))
         info["stlink"] = version[1] if version else "?"
@@ -212,7 +252,11 @@ class Bench:
         except TargetError:
             self.recover(elf, run_dir)
             raise
-        return Collected(dump.read_bytes(), nonce, time.monotonic() - t0, {})
+        try:
+            snapshot = dump.read_bytes()
+        except OSError as exc:
+            raise TargetError(f"snapshot não coletado: {exc}") from exc
+        return Collected(snapshot, nonce, time.monotonic() - t0, {})
 
     def recover(self, elf: Path, run_dir: Path) -> None:
         """Deixa o alvo parado em reset para o próximo run (não apaga nada)."""
@@ -240,24 +284,36 @@ class RenodeSession:
     def __init__(self, elf: Path, run_dir: Path, mips: int = NOMINAL_MIPS,
                  quantum_s: str = QUANTUM_S, port_base: int = RENODE_PORT_BASE):
         self.elf, self.run_dir, self.mips, self.quantum_s = elf, run_dir, mips, quantum_s
-        self.port = find_free_port(port_base)
+        self.port_base = port_base
+        self.port: int | None = None
         self.child: subprocess.Popen | None = None
 
     def __enter__(self) -> "RenodeSession":
-        self._log = (self.run_dir / "renode.log").open("w")
-        self.child = subprocess.Popen(
-            renode_command(self.elf, self.port, self.mips, self.quantum_s), stdout=self._log,
-            stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, cwd=ROOT)
+        self._log = None
         try:
+            with _PORT_LOCK:
+                self.port = find_free_port(self.port_base)
+                _PORTS.add(self.port)
+            self.run_dir.mkdir(parents=True, exist_ok=True)
+            self._log = (self.run_dir / "renode.log").open("w")
+            self.child = subprocess.Popen(
+                renode_command(self.elf, self.port, self.mips, self.quantum_s), stdout=self._log,
+                stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, cwd=ROOT,
+                start_new_session=True)
             wait_port(self.port, self.child, 90, "Renode")
-        except TargetError:
+        except BaseException:
             self.__exit__()
             raise
         return self
 
     def __exit__(self, *exc) -> None:
-        stop_child(self.child)
-        self._log.close()
+        try:
+            stop_child(self.child)
+        finally:
+            if self._log is not None:
+                self._log.close()
+            with _PORT_LOCK:
+                _PORTS.discard(self.port)
 
     def unmapped_accesses(self) -> list[str]:
         text = (self.run_dir / "renode.log").read_text(errors="replace")
@@ -286,21 +342,34 @@ def run_renode(elf: Path, run_dir: Path, timeout_s: float, mips: int = NOMINAL_M
     v = re.search(r"Elapsed Virtual Time: (\d+):(\d+):([\d.]+)", text)
     if v:
         extra["virtual_time_s"] = int(v[1]) * 3600 + int(v[2]) * 60 + float(v[3])
-    return Collected(dump.read_bytes(), nonce, time.monotonic() - t0, extra)
+    if extra.get("performance_in_mips_effective") != mips:
+        raise TargetError("Renode não confirmou o MIPS solicitado (ver gdb.log)")
+    try:
+        snapshot = dump.read_bytes()
+    except OSError as exc:
+        raise TargetError(f"snapshot não coletado: {exc}") from exc
+    return Collected(snapshot, nonce, time.monotonic() - t0, extra)
 
 
 def tool_versions() -> dict:
     """Versões das ferramentas (texto da 1ª linha de --version)."""
     out = {}
     for tool, args in (("arm-none-eabi-gcc", ["--version"]), ("arm-none-eabi-gdb", ["--version"]),
+                       ("cmake", ["--version"]), ("ninja", ["--version"]),
+                       ("arm-none-eabi-nm", ["--version"]), ("arm-none-eabi-size", ["--version"]),
+                       ("arm-none-eabi-objdump", ["--version"]),
                        ("openocd", ["--version"]), ("renode", ["--version"]),
                        ("trace_processor_shell", ["--version"])):
         try:
-            r = subprocess.run([tool, *args], capture_output=True, text=True, timeout=60,
-                               stdin=subprocess.DEVNULL)
+            r = run_command([tool, *args], timeout_s=20)
             lines = (r.stdout + r.stderr).strip().splitlines()
             out[tool] = lines[0] if lines else "?"
-        except (OSError, subprocess.TimeoutExpired) as exc:
+        except TargetError as exc:
             out[tool] = f"indisponível ({type(exc).__name__})"
     out["python"] = os.sys.version.split()[0]
+    for package in ("numpy", "matplotlib"):
+        try:
+            out[package] = version(package)
+        except PackageNotFoundError:
+            out[package] = "indisponível"
     return out

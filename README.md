@@ -12,7 +12,7 @@ níveis, por recurso e por condição:
 |---|---|---|
 | **Funcional** | O mesmo ELF produz os mesmos resultados, flags, ordens e contagens? | oráculos da especificação (RM0008, PM0056, C17) + comparação placa × Renode em todos os casos C1–C4 |
 | **Instrução** | O simulador executa a mesma sequência dinâmica de instruções? | traço por `stepi` (placa e Renode) das cargas do C1-timing: sequência de PCs e contagem |
-| **Ciclo** | Os tempos coincidem com os ciclos da placa? | DWT CYCCNT no mesmo código, comparado com critério de resolução declarado |
+| **Ciclo** | Os tempos coincidem com os ciclos da placa? | DWT CYCCNT no mesmo código; diferenças por carga e por condição, sem tolerância instrumental presumida |
 
 Tudo roda por terminal (Nix + CMake + Python). O VS Code em `.vscode/` é só
 conveniência.
@@ -35,7 +35,7 @@ Os quatro cenários seguem a ordem do plano de trabalho:
 - **C1** mede primeiro núcleo e memória (resultados e tempos com a referência
   nominal); a calibração do Renode é um **complemento** empírico, executado
   separadamente e **nunca** aplicado a C2–C4. O C1 **não** é uma suíte
-  exaustiva da ISA: são 29 casos funcionais nomeados (595 valores) e 8 cargas
+  exaustiva da ISA: são 30 casos funcionais nomeados (629 verificações) e 8 cargas
   temporais em 3 tamanhos.
 - **C4** trata "concorrência" como **transmissão e recepção em andamento
   enquanto o software tem capacidade limitada de atender a recepção** (leitura
@@ -118,12 +118,17 @@ resultado científico, não erro); `3` infraestrutura incompleta (runs válidos
 abaixo do planejado, traço ausente); `1` erro de pré-condição, build, gate ou
 plano incompatível.
 
-**Robustez:** cada run tem timeout no host; uma tentativa que falha
-(timeout, snapshot inválido, nonce errado) é **guardada** com o motivo e
-uma nova tentativa é feita, até `N + max(3, N/5)` tentativas. Nenhum
-processo de terceiros é encerrado (porta ocupada = erro claro); só os
-filhos da campanha são finalizados, pelo PID. Snapshots e `run.json`
-ficam somente-leitura.
+**Robustez e identidade dos dados:** cada run tem timeout no host; uma
+tentativa que falha (timeout, snapshot inválido, nonce errado) é **guardada**
+com o motivo e uma nova é feita, até `N + max(3, N/5)` tentativas. Cada
+`run.json` registra o SHA-256 do ELF executado e do snapshot; a análise só
+usa runs do ELF congelado no plano e os revalida com o código atual. Na
+retomada, ELFs, exemplar (CPUID/IDCODE/F_SIZE/UID), repetições e
+configuração do Renode precisam ser os mesmos; mudar só a análise ou a
+documentação não bloqueia a retomada. Nenhum processo de terceiros é
+encerrado (porta ocupada = erro claro): OpenOCD/Renode/GDB rodam num grupo
+de processos próprio, encerrado inteiro ao fim. Snapshots e `run.json` ficam
+somente-leitura.
 
 Outros comandos: `scripts/fidelity.py analyze --name N` (refaz a análise),
 `run --env hw|renode --firmware F` (um run de diagnóstico, fora de
@@ -208,10 +213,13 @@ fid_snapshot (objeto global único, little-endian, campos de largura fixa)
   registro é escrito inteiro antes de o `head` avançar (DMB). Os tamanhos
   foram dimensionados para que nenhum caso obrigatório perca eventos; se
   perder, métricas dependentes do trace são invalidadas e o trace leva aviso.
-- **Rollover:** o CYCCNT é pré-carregado em `0xFFF00000` (estoura ~131 ms após
-  o início), então **todo run** exercita a reconstrução de 32 bits: o host
-  percorre os eventos na ordem dos tickets somando diferenças módulo 2^32 e
-  rejeita passos ≥ 2^31 ticks (268 s).
+- **Rollover:** o CYCCNT é pré-carregado em `0xFFF00000`; o primeiro estouro
+  ocorre após 2^20 ticks (≈131 ms nominais). Runs mais curtos não cruzam o
+  estouro. O host reconstrói o tempo pelos tickets e diferenças módulo 2^32,
+  incluindo o trecho final, e rejeita passos ≥ 2^31 ticks (≈268 s nominais).
+  A reconstrução exige trace completo e intervalos reais menores que esse
+  limite; aritmética modular sozinha não identifica wraps inteiros ocultos.
+  Os testes sintéticos incluem mais de um wrap distribuído entre eventos.
 - **Prova de run:** o host para em `main`, grava um nonce aleatório em
   `fid_host_nonce`; o firmware o copia para o header. Snapshot de outro run
   (a SRAM sobrevive ao reset) é rejeitado.
@@ -235,7 +243,7 @@ em cada run:
 | Firmware | `.data + .bss` | pilha/heap reservados | pilha nunca usada (placa) |
 |---|---|---|---|
 | c1-functional | 15 452 B | 1 536 B | ≈ 4,6 KiB |
-| c1-timing | 9 940 B | 1 536 B | ≈ 10 KiB |
+| c1-timing | 15 060 B | 1 536 B | ≈ 5,2 KiB |
 | c2 | 12 516 B | 1 536 B | ≈ 7,6 KiB |
 | c3 | 10 980 B | 1 536 B | ≈ 9 KiB |
 | c4 | 9 528 B | 1 536 B | ≈ 10,5 KiB |
@@ -245,14 +253,21 @@ em cada run:
 Os oráculos são escritos à mão a partir do manual, **não** a partir de
 resultados da placa ou do Renode (`scripts/fidelity/c1.py` … `c4.py`):
 
-- **C1-functional** (29 casos, 595 valores): `uint32`/`int32`/`uint64`
+- **C1-functional** (30 casos, 629 verificações): `uint32`/`int32`/`uint64`
   (wrap, divisão truncada, sem UB), comparações, lógica, deslocamentos
   (≥ 0 e ≤ 31), rotações, campos de bits, CLZ/CTZ/popcount, promoções de 8/16
   bits, extensão de sinal/zero e truncamento, SRAM por 8/16/32 bits (ordem de
   bytes, vizinhos preservados, padrões 0/1/alternados, bit caminhante), flash
   `.rodata` por 8/16/32 bits (leituras por ponteiro `volatile`, endereço
   conferido), cópia desalinhada e preenchimento (bloco inteiro conferido),
-  ordenação, MDC, `switch` com tabela de salto, recursão. Cada caso grava
+  ordenação, MDC, `switch` e recursão. O `switch` testa o resultado do
+  despacho: neste ELF o GCC o reduz a seleção aritmética/condicional, não a
+  tabela de salto. O caso adicional usa acessos desalinhados de 16/32 bits
+  em SRAM (offsets 1/2/3, `UNALIGN_TRP=0`) e verifica os bytes vizinhos; o
+  gate exige LDR/LDRH/STR/STRH nos quatro helpers. Acessos de 16 bits à
+  representação de objetos de 32 bits usam `may_alias`, e os helpers
+  desalinhados usam `packed` + `may_alias`, extensões GNU documentadas.
+  `volatile` sozinho não torna aliasing incompatível válido. Cada caso grava
   ENTRADAS e SAÍDAS; o host confere as entradas com o plano. Conversões
   dependentes da implementação seguem a convenção do GCC (módulo 2^N,
   `>>` aritmético) e estão marcadas.
@@ -261,7 +276,9 @@ resultados da placa ou do Renode (`scripts/fidelity/c1.py` … `c4.py`):
   SRAM, soma em flash, desvios dependentes de dados, CRC-32 bit a bit — em
   n = 16, 64, 256 (linearidade e custo fixo), 4 repetições com entradas
   idênticas (rep 0 = primeira após o reset). O resultado de toda execução é
-  conferido.
+  conferido. Na cópia SRAM, todas as palavras do destino são coletadas e
+  verificadas em cada repetição, fora do bracket temporal; o retorno da
+  função por si só não comprova a cópia inteira.
   Corpo do laço de cada carga conferido no ELF (`arm-none-eabi-objdump -d`,
   GCC 15.3 `-O2`; o traço por stepi confirma o caminho dinâmico):
 
@@ -279,10 +296,20 @@ resultados da placa ou do Renode (`scripts/fidelity/c1.py` … `c4.py`):
 - **C2**: RM0008 §7.2 (TIMxCLK = PCLK se APB /1, senão 2×PCLK), §15.3–15.4
   (PSC sempre bufferizado; ARR bufferizado só com ARPE; UG reinicia CNT e,
   com URS = 0, seta UIF), PM0056 §4.3 (pending registrado até entrar no
-  handler ou ICPR). Latência = CNT lido como primeiro ponto da ISR (inclui
-  entrada, prólogo e acesso ao barramento; não é "custo puro de exceção").
-  O número de updates durante um atendimento atrasado é **inferido** da
-  configuração e marcado como tal.
+  handler ou ICPR). Preload: o firmware escreve o novo PSC/ARR com CNT ≥ 500
+  e mede o tempo até o próximo update; as duas hipóteses (antigo × novo,
+  imediato × no próximo update) diferem em milhares de ticks, e o resultado
+  é "ambíguo" se a medida não estiver claramente mais perto de uma delas.
+  CNT lido no início da ISR é a **fase** desde o update (inclui entrada,
+  prólogo e acesso ao barramento; não é custo puro de exceção). Nos casos
+  atrasado/coalescido o timer é parado antes de liberar a IRQ e o número de
+  updates no intervalo é **inferido** da configuração. Os registradores do
+  RCC lidos de volta (`RCC_CFGR` por perfil APB, `RCC_APBxENR` por timer)
+  formam um caso de contexto próprio, `c2/rcc`: o Renode não modela o RCC do
+  F1, e essa lacuna não é repetida em cada caso de timer — seus efeitos
+  aparecem onde existem (ex.: razão TIMCLK/HCLK no perfil /4). A leitura de
+  CNT imediatamente após o UG fica como dado sem oráculo (o manual não diz
+  quando o reinício fica visível).
 - **C3**: sequências completas esperadas escritas à mão a partir do PM0056 e
   do ARMv7-M ARM (grupo > sub > número; preempção só por grupo; PRIMASK;
   BASEPRI com prioridade igual mascarada; repetição roda antes de prioridade
@@ -292,22 +319,35 @@ resultados da placa ou do Renode (`scripts/fidelity/c1.py` … `c4.py`):
   com RXNE = 1 perde o byte novo e mantém o anterior; SR → DR limpa
   RXNE/IDLE/ORE). Bytes sempre em sequência indexada; espera por recepção
   completa ou timeout; produtor da leitura atrasada espaçado por 1,5 quadro no
-  DWT (não por TXE). **Limitação:** o loopback não testa detecção de erro de
+  DWT (não por TXE), seguido de guardas temporais e registro das escritas e
+  leituras para distinguir retenção em RX de entrega tardia. O payload local
+  `0x43340002` registra BRR/CR1/CR2/CR3, erros acumulados antes de DR, SR
+  final e confirmação de TC; layouts anteriores são recusados. **Limitação:** o loopback não testa detecção de erro de
   paridade/enquadramento (exigiria estímulo divergente).
 
 **Critérios (declarados antes da campanha):**
 
 | Observável | Critério |
 |---|---|
-| funcional (valor, flag, ordem, contagem) | igualdade exata; fidelidade = valor modal do Renode igual ao da placa em cada item; conformidade de cada ambiente com o oráculo reportada à parte |
-| temporal, nível de **ciclo** | mediana do Renode ∈ [mín − res, máx + res] da placa; resolução: 1 tick (bracket/logger), 16 × divisor APB ticks (polling), 1 contagem convertida (CNT) |
-| **instrução** (C1) | sequência de PCs por stepi idêntica nos dois ambientes |
+| funcional (valor, flag, ordem, contagem) | todos os valores observados e todas as falhas; concordância exige valores constantes iguais, e conformidade com o oráculo é um eixo separado |
+| temporal | diferenças de medianas, média, desvio padrão amostral, extremos e valores distintos por reset; igualdade de medianas é somente igualdade observada |
+| **instrução** (C1) | sequência de PCs por stepi idêntica no intervalo; evidencia o caminho dinâmico, sem validar o estado após toda instrução |
 
-Classes por caso: **1** concordância funcional e temporal; **2** concordância
-funcional com divergência temporal; **3** divergência funcional; **4**
-evidência insuficiente/instrumento inválido. Não há escore único nem
-tolerância de "aceitável": nenhum prazo de aplicação foi definido, então
-erros temporais são **caracterizados** (absoluto e relativo), não aprovados.
+Classes por caso: **1** concordância funcional e mesmas medianas temporais
+observadas; **2** concordância funcional com diferença temporal; **3** valores
+funcionais diferentes ou não conformidade com a especificação; **4** evidência
+insuficiente. A classe 3 distingue explicitamente diferença HW×Renode de
+coincidência entre dois comportamentos contrários ao manual. Casos sem
+observável temporal não ganham conclusão temporal. Falhas de instrumento
+ficam na contabilidade e impedem a completude; não viram divergência física.
+
+**Nível de ciclo:** só há concordância temporal quando as medianas por reset
+são **iguais** (tick a tick); qualquer diferença é reportada com valor
+absoluto e relativo, sem margem de aceitação (nenhum prazo de aplicação foi
+definido). Repetições internas (bytes, IRQs) são agregadas por reset e não
+contam como amostras independentes. A conversão para µs
+usa HSI **nominal**: não mede a frequência física nem calibra o tempo de
+parede do hardware.
 
 ## 7. Complemento de calibração (só C1)
 
@@ -320,6 +360,12 @@ inteiros); verificação com runs reais (`renode-calibrated`). O quantum dos
 runs calibrados é o menor múltiplo inteiro de instruções representável em
 ns (ex.: 7 MIPS → 1 µs). O valor é derivado dos dados de cada campanha; o
 relatório mostra o erro por carga e agregado, nominal × calibrado.
+
+Como o quantum pode mudar junto com MIPS (nesta revisão: 8 MIPS/125 ns →
+6 MIPS/500 ns), o complemento compara **configurações**. Não isola o efeito
+causal de MIPS. Para atribuí-lo isoladamente, seria necessário um controle
+adicional a 8 MIPS com o mesmo quantum do calibrado; esse controle fica fora
+da matriz principal. A melhoria de média não prova precisão de ciclo.
 
 ## 8. Dados e traces
 
@@ -350,10 +396,19 @@ reescalar durações). Formato Chrome Trace Event JSON (µs); abrir em
 eventos previstos/inferidos ficam na categoria `inferido`; handlers do C3 têm
 duração inclusiva no slice e exclusiva nos args; pedido → atendimento por
 *flow*. A importação é conferida com `trace_processor_shell` (contagem de
-slices, counters e flows; tempo e duração de um slice), em
+slices, counters e flows por trilha; nomes, tempos e durações de todos os
+slices importados), em
 `perfetto/validation.json`. Estatística vem dos dados brutos, não do Perfetto.
 
 ## 9. Validações realizadas
+
+### 9.1 Histórico anterior a este refinamento
+
+As validações e números desta subseção pertencem à implementação anterior
+à revisão adicional. Os layouts atuais de C1/C2/C4 e os critérios de análise
+mudaram; estes resultados não validam automaticamente os fontes atuais.
+Relatórios históricos são preservados e layouts incompatíveis não são
+reinterpretados pelos oráculos atuais.
 
 Executadas em 2026-10-09 nesta máquina (WSL2, x86_64), com Renode 1.17.0
 (build `1.17.0+gitab721d88`), GCC Arm 15.3.1, OpenOCD 0.12.0, Python 3.14,
@@ -383,18 +438,66 @@ durante a implementação e estão no histórico do repositório; por decisão d
 autor não fazem parte da árvore final.
 
 **Por que 50 repetições:** no piloto, todo observável da placa e do Renode
-foi idêntico nos 10 runs (sem dispersão), então a precisão das medianas não é
-limitada pelo tamanho da amostra. As 50 repetições servem para registrar a
-repetibilidade e detectar falhas ocasionais (que precisam ficar visíveis), não
-para estreitar um intervalo de confiança. Se a placa genuína mostrar
-dispersão, o piloto dela indicará se 50 basta (`--reps 100` disponível).
+foi idêntico nos 10 runs (sem dispersão observada). Isso não demonstra ausência
+de jitter ou falhas raras. As 50 repetições são um orçamento de coleta para
+registrar repetibilidade e aumentar a oportunidade de observar falhas, sem
+justificativa universal de suficiência nem intervalo de confiança implícito.
+Se a placa genuína mostrar dispersão, definir o número a partir da precisão
+ou taxa de falhas que se pretende estudar (`--reps 100` disponível).
+
+
+### 9.2 Refinamento adicional (revisão de 2026-10-09)
+
+Uma revisão independente corrigiu aliasing no C1 (`may_alias`/`memcpy`),
+acrescentou o caso de acesso desalinhado (LDR/STR/LDRH/STRH conferidos no
+ELF pelo gate), passou a conferir a cópia SRAM inteira, registrou a
+configuração realmente aplicada em C2–C4 (PSC/ARR/CR1, prioridades, BRR/CR),
+parou o timer antes de liberar a IRQ atrasada, isolou a EXTI no C3,
+acumulou erros da USART antes de ler DR e versionou o payload do C4. A
+análise passou a mostrar todas as observações (não só o valor mais comum) e
+a separar "placa × Renode" de "conformidade com o manual". Isso corrigiu
+também uma descrição errada da versão anterior (o `switch` do C1 vira
+aritmética condicional, não tabela de salto).
+
+Na sequência, três ajustes desta entrega: (1) os registradores do RCC
+saíram de cada caso do C2 para o caso de contexto `c2/rcc` — antes, uma
+única lacuna do modelo marcava todos os recursos de timer como divergentes;
+(2) PSC/ARR preload voltaram a ter oráculo do RM0008, com regra explícita de
+ambiguidade; (3) camadas redundantes de proteção no coletor e na análise
+foram removidas (publicação atômica por hardlink, revalidação completa a
+cada contagem, cadeia de hashes do traço, varredura de `/proc` para "dono"
+de socket), mantendo o que identifica os dados: plano congelado, hash do
+ELF e do snapshot por run, nonce e identidade do exemplar.
+
+Validação desta rodada (código e firmwares atuais), na placa atual (provável
+clone) e no Renode 1.17.0, pelo ponto de entrada real `scripts/campaign.sh`:
+
+| O quê | Resultado |
+|---|---|
+| Build + gate dos 5 presets (`fidelity.py check`) | 0 warnings; gate confere LDR/LDRH/STR/STRH dos acessos desalinhados no ELF |
+| Piloto `pilot-clone3` (`--pilot --reps 5 --calibration`, placa + Renode + stepi) | **completo (exit 0)**: 5 runs válidos por firmware e ambiente, sem tentativa falha; 55 traces Perfetto, 16/16 importações conferidas |
+| Traço por stepi do `c1-timing` atual | **25/25 combinações com a mesma sequência de PCs** na placa e no Renode; Renode: ticks = instruções + 1 em todas |
+| Repetibilidade | placa 2041/2041 e Renode 2038/2038 observáveis idênticos nos 5 resets |
+| Retomada real | a sessão caiu durante o traço da placa (o WSL perdeu o ST-Link); `--resume` não recoletou nada; sem a placa terminou com **exit 3** (incompleta); com a placa de volta refez só o traço e terminou com exit 0 |
+| Proteções do coletor (verificação avulsa) | plano existente sem `--resume` recusado; retomada com exemplar, repetições ou ELF diferentes recusada; mudança só de ferramentas/análise aceita; contagem só de runs válidos do ELF congelado; lock duplo recusado; timeout do Renode vira falha de infraestrutura sem deixar processo |
+
+O mapa por recurso do piloto (`data/fidelity/pilot-clone3/analysis/report.md`)
+separa agora a lacuna do RCC (`c2/rcc`) dos comportamentos de timer: o
+Renode diverge do manual em RCC, PSC preload, UG/URS (UIF com UIE = 0),
+árvore de clock no perfil APB /4, TC e paridade/9 bits da USART; concorda em
+ARR (com e sem preload), UIF × UIE × pending, IRQ periódica, atendimento
+atrasado, coalescência, todo o C3 e todo o C1. No overrun da USART, placa
+atual e Renode coincidem e ambos divergem do RM0008.
 
 
 ## 10. Resultados preliminares (placa atual — provável clone)
 
-Resumo de `data/fidelity/prelim-clone-50/analysis/report.md` (50 runs). Vale
-para **este exemplar** e serve para mostrar o que a entrega mede; a resposta
-do TCC sai da mesma campanha na placa genuína (§11).
+Resumo histórico (firmwares anteriores à revisão; os do código atual estão no
+piloto `pilot-clone3`, §9.2) de `data/fidelity/prelim-clone-50/analysis/report.md` (50
+runs, implementação e critérios anteriores ao refinamento). Não deve ser
+transcrito como resultado dos fontes atuais. Vale para este exemplar e para
+a versão então coletada; a resposta final exige nova coleta na placa genuína
+com a implementação atual (§11).
 
 | Nível | Onde o Renode 8 MIPS acompanha a placa | Onde diverge (e mecanismo no fonte do modelo) |
 |---|---|---|
@@ -402,8 +505,8 @@ do TCC sai da mesma campanha na placa genuína (§11).
 | **Instrução** | C1-timing: **mesma sequência de PCs nas 25 combinações** carga × tamanho (stepi) | — (não avaliado em C2–C4) |
 | **Ciclo** | período do timer com ARR preload; período de quadro da USART (±10 ticks: a serialização é modelada) | tempo = 1 tick por instrução: placa com 1,17 (ALU) a 3,56 (UDIV de quociente grande) ciclos por instrução; UDIV com operandos diferentes custa o mesmo no Renode; latência da IRQ do timer 18 × 3 ticks; intervalos do NVIC ~2× menores no Renode; produtor da USART 25× mais rápido (TXE sempre 1) |
 
-Observações sobre o exemplar: placa e Renode foram **determinísticos** (todos
-os observáveis idênticos nos 50 runs); a placa paga ~110 ciclos na 1ª execução
+Observações históricas sobre o exemplar: houve **repetibilidade observada**
+(todos os observáveis então considerados idênticos nos 50 runs); a placa paga ~110 ciclos na 1ª execução
 de cada trecho de código em flash; e a USART desta placa guarda ≥ 8 bytes sem
 ORE — divergindo do RM0008 **e coincidindo** com o Renode, que tem FIFO
 ilimitada. Essa concordância é coincidência do exemplar, não fidelidade ao
@@ -449,3 +552,47 @@ scripts/         campaign.sh (entrada), fidelity.py (CLI), fidelity/ (pacote),
 cmake/           toolchain + modelo do .clangd
 tmp/REQUISITOS-ENTREGA-FINAL-TCC.md   diretiva desta entrega (mantida)
 ```
+
+## 13. Fundamentos e limites de cobertura
+
+Referências que definem os contratos dos casos (a biblioteca acadêmica está
+no Zotero e em `D:\tcc`, fora do repositório):
+
+- [ST RM0008, Rev. 21](https://www.st.com/resource/en/reference_manual/rm0008-stm32f101xx-stm32f102xx-stm32f103xx-stm32f105xx-and-stm32f107xx-advanced-armbased-32bit-mcus-stmicroelectronics.pdf):
+  árvore de clock, PSC/ARR/update e USART. Zotero: `N7JVRKFW`.
+- [ST PM0056, Rev. 7](https://www.st.com/resource/en/programming_manual/pm0056-stm32f10xxx20xxx21xxxl1xxxx-cortexm3-programming-manual-stmicroelectronics.pdf):
+  exclusividade e exceções (§2.2.7–2.3.7), alinhamento (§3.3.5), NVIC e
+  máscaras. Zotero: `IZMAAGNW`.
+- [GCC: atributos de tipos](https://gcc.gnu.org/onlinedocs/gcc-15.2.0/gcc/Common-Type-Attributes.html),
+  [conversões de inteiros](https://gcc.gnu.org/onlinedocs/gcc-15.2.0/gcc/Integers-implementation.html)
+  e [otimização/strict aliasing](https://gcc.gnu.org/onlinedocs/gcc-15.2.0/gcc/Optimize-Options.html):
+  extensões GNU e escolhas da implementação usadas pelo C1. O executável
+  é ARM32 em ambos os ambientes; o tamanho de `int` no host x86 não define
+  o resultado do alvo.
+- [Renode: framework de tempo](https://renode.readthedocs.io/en/latest/advanced/time_framework.html):
+  MIPS e tempo virtual. Mecanismos particulares do STM32 são conferidos no
+  fonte da versão instalada, não presumidos a partir da documentação latest.
+- [SEGGER SystemView UM08027](https://www.segger.com/downloads/jlink/UM08027_SystemView.pdf)
+  e [Perfetto: formatos externos](https://perfetto.dev/docs/getting-started/other-formats):
+  inspiração conceitual do registro em RAM e contrato do JSON importado.
+  O trace deste projeto não implementa o protocolo RTT/SystemView.
+
+A cobertura atende ao recorte das quatro áreas, com limites explícitos:
+
+- C1 não cobre toda a ISA, bit-banding, acessos que devem provocar faults,
+  exclusividade como experimento dedicado, ou flash sob HSE/PLL/wait states.
+- C2 caracteriza três timers e alguns perfis APB; não cobre toda a árvore
+  RCC, todos os modos de captura/compare/PWM nem um estímulo imprevisível.
+  A IRQ é assíncrona à execução da thread, mas o timer é determinístico.
+- C3 cobre seleção, preempção, encadeamento e máscaras configuráveis. Não
+  isola os ciclos de stacking/tail-chaining, nem late arrival, FAULTMASK,
+  NMI ou prioridade de faults.
+- C4 testa sobrecarga e formatos em loopback. PE/FE por estímulo divergente,
+  baud físico, tolerância a clocks independentes e forma de onda exigem
+  instrumentação ou outra fonte serial. Um limite inferior de retenção
+  observado não demonstra capacidade infinita.
+
+Esses limites delimitam as conclusões, sem ampliar a matriz obrigatória
+para além do plano. HSE/PLL/72 MHz é uma extensão posterior útil para
+flash e clock, condicionada a um modelo RCC/flash e a medição independente;
+não corrige por si só o modelo temporal de instruções do Renode.
