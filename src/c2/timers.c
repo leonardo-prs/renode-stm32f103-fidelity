@@ -72,7 +72,7 @@ static const uint32_t APB2_DIV[3] = {LL_RCC_APB2_DIV_1, LL_RCC_APB2_DIV_2, LL_RC
 #define RATE_WINDOW      24000U    /* ticks de DWT entre as leituras de CNT */
 #define IRQ_DELAY        2000U
 #define IRQ_COALESCE     20000U    /* 2,5 períodos de 8000 ticks */
-#define WAIT_LIMIT       200000U   /* teto de qualquer espera (25 ms) */
+#define WAIT_LIMIT       400000U   /* teto de qualquer espera (50 ms > 16 períodos de 2 ms) */
 
 /* Contador de entradas: cada elemento só é escrito pela ISR do seu timer.
  * MAIN só o zera com a IRQ desligada (UIE = 0 e NVIC desabilitado). */
@@ -275,7 +275,10 @@ static void case_preload(uint32_t kind, uint32_t t)
 }
 
 /* UG com o contador andando (CNT >= 500), UIE = 0. RM0008 §15.4.1/§15.4.5:
- * UG zera CNT e o contador do prescaler; com URS = 0 o UG seta UIF. */
+ * UG zera CNT e o contador do prescaler; com URS = 0 o UG seta UIF.
+ * CNT é lido logo após o UG e de novo 24 ticks depois (3 contagens com
+ * PSC = 7): separa "efeito ainda não visível na leitura seguinte" de
+ * "contador não reiniciado". */
 static void case_ug(uint32_t kind, uint32_t t)
 {
     TIM_TypeDef *tim = TIMERS[t].tim;
@@ -287,9 +290,12 @@ static void case_ug(uint32_t kind, uint32_t t)
     uint32_t cnt_before = tim->CNT;
     tim->EGR = TIM_EGR_UG;
     uint32_t cnt_after = tim->CNT;
+    fid_delay(24U);
+    uint32_t cnt_later = tim->CNT;
     uint32_t sr_after = tim->SR;
     fid_put(cnt_before);
     fid_put(cnt_after);
+    fid_put(cnt_later);
     fid_put(sr_after);
     end(t, ok);
 }

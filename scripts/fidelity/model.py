@@ -15,14 +15,16 @@ from dataclasses import dataclass, field
 
 @dataclass(frozen=True)
 class Check:
-    case: str             # rótulo estável do caso, ex. "tim2/p0/psc_preload"
+    """expected = None: observação SEM oráculo (o manual não especifica);
+    entra na comparação placa × Renode, não na conformidade com o manual."""
+    case: str             # rótulo estável do caso, ex. "tim2/apb1/psc_preload"
     item: str             # o que foi comparado
     expected: object
     observed: object
 
     @property
     def ok(self) -> bool:
-        return self.expected == self.observed
+        return self.expected is None or self.expected == self.observed
 
 
 @dataclass(frozen=True)

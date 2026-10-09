@@ -222,14 +222,13 @@ def _tx_pressure(ev, name, cid, d, brr, cr1, cr2, frame):
     rx = unpack_bytes(d[7:], received)
     ev.check(name, "bytes recebidos", n, received)
     ev.check(name, "conteúdo e ordem", [pattern(i) for i in range(n)], rx)
+    # TC só é consultado depois de receber tudo: confirma o estado final,
+    # não mede quando TC subiu (isso é o caso c4/06).
     ev.check(name, "TC observado ao fim", True, t_tc != 0)
     # Produtor limitado por TXE: TDR + registrador de deslocamento →
     # a n-ésima escrita só é aceita ~ (n − 2) quadros depois da 1ª.
     ev.metric(name, "producer_time", unwrap_from(t_first, t_last_w), resolution=RES_POLL,
               predicted=max(n - 2, 0) * frame)
-    if t_tc:
-        ev.metric(name, "write_to_tc", unwrap_from(t_first, t_tc), resolution=RES_POLL,
-                  predicted=n * frame)
     if received:
         ev.metric(name, "delivery_time", unwrap_from(t_first, t_last_r), resolution=RES_POLL,
                   predicted=n * frame)

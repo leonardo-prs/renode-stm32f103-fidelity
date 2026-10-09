@@ -65,17 +65,9 @@
 #  ┌─────────────────────────────────────────────────────────────────────────┐
 #  │ COMO USAR                                                              │
 #  └─────────────────────────────────────────────────────────────────────────┘
-#    1ª vez (cria o flake.lock):
-#      $ nix develop                # entra no shell com tudo
-#    Uso normal:
-#      $ cmake -B build/sandbox -DSCENARIO=SANDBOX -G Ninja \
-#             -DCMAKE_TOOLCHAIN_FILE=cmake/gcc-arm-none-eabi.cmake
-#      $ ninja -C build/sandbox
-#    Editar o .ioc:
-#      → fora do Nix, com o instalador oficial da ST (cubemx removido
-#        da flake em 2026-09; `.ioc` congelado pós-regen).
-#    Sair:
-#      $ exit
+#    $ nix develop                              # (ou direnv) — shell com tudo
+#    $ cmake --workflow --preset c2             # build → build/c2/firmware.elf
+#    $ scripts/campaign.sh --name N --board B   # campanha completa (README §3)
 #
 #  ┌─────────────────────────────────────────────────────────────────────────┐
 #  │ PATH PRECEDENCE: NIX SHADOW APT AUTOMATICAMENTE                        │
@@ -198,12 +190,12 @@
         openocd
 
         # Simulador: Renode 1.17.0 oficial do nixpkgs-unstable (`pkgs.renode`).
-        # Emula o STM32 inteiro em software, expondo o servidor GDB na porta 3334
-# (:3333 fica reservada para o OpenOCD/HW — portas separadas por design).
+        # Emula o STM32 em software; servidor GDB em :3334 (debug) ou em portas
+        # >= 3336 (campanha). :3333 fica reservada para o OpenOCD/placa.
         renode
 
-        # Análise: python3 para scripts em `scripts/` (futuro dump_sram.sh,
-        # gdb pretty-printers). `clang-tools` é o meta-pacote que produz
+        # Análise: python3 + numpy/matplotlib para scripts/fidelity (campanha,
+        # estatística, figuras). `clang-tools` é o meta-pacote que produz
         # os binários `clangd`, `clang-tidy`, `clang-format` etc. (o LSP
         # que o VSCode usa consome o `compile_commands.json` que nosso
         # CMake gera).

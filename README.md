@@ -1,198 +1,362 @@
-# STM32F103 Renode Fidelity (TCC EA019)
+# Renode × STM32F103 — fidelidade funcional e temporal (TCC EA019, UNICAMP)
 
-Medir quantitativamente a fidelidade do simulador **Renode** ao hardware real
-**STM32F103C8T6 Blue Pill** (ARM Cortex-M3) em firmware bare metal, dentro
-de margens aceitáveis.
+Código, plataforma de simulação e campanha automática do TCC *"Análise
+quantitativa da fidelidade funcional e temporal do Renode em relação ao
+hardware no STM32F103"* (plano de trabalho de 31/08/2026, orientadora Wu Shin
+Ting). A monografia **não** está neste repositório.
 
-> **Status:** MVP. Apenas o cenário `SANDBOX` (blink LED) está implementado.
-> Cenários A (TIM2 + NVIC + DWT) e B (USART1 115200 8N1) são placeholders.
+O objetivo é **mapear, para este hardware, até onde o Renode é fiel** em três
+níveis, por recurso e por condição:
 
----
+| Nível | Pergunta | Evidência neste repositório |
+|---|---|---|
+| **Funcional** | O mesmo ELF produz os mesmos resultados, flags, ordens e contagens? | oráculos da especificação (RM0008, PM0056, C17) + comparação placa × Renode em todos os casos C1–C4 |
+| **Instrução** | O simulador executa a mesma sequência dinâmica de instruções? | traço por `stepi` (placa e Renode) das cargas do C1-timing: sequência de PCs e contagem |
+| **Ciclo** | Os tempos coincidem com os ciclos da placa? | DWT CYCCNT no mesmo código, comparado com critério de resolução declarado |
 
-## Pré-requisitos
-
-- **Linux x86_64** (NixOS, Ubuntu nativo, ou WSL2 com Ubuntu).
-- **Nix** (com flakes habilitados). Recomendado: [Determinate Nix][det-nix]
-  — instalador mais estável que o oficial em WSL2 e empacota o daemon Nix.
-
-  ```bash
-  # Instalador recomendado (não-oficial, mantido pela Determinate Systems):
-  curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
-  ```
-
-  > Por que não o instalador oficial `nixos.org/nix/install`?
-  > Em WSL2, o instalador oficial historicamente tem fricção com o `systemd`
-  > e a integração com Windows. O [Determinate Nix][det-nix] resolve isso
-  > e configura o daemon Nix corretamente para WSL2.
-
-- **direnv** (auto-ativação do ambiente Nix ao entrar na pasta) — via `apt`:
-
-  ```bash
-  # 1. Instalar
-  sudo apt update && sudo apt install -y direnv
-
-  # 2. Hook no shell (bash) — persiste entre sessões
-  #    DIRENV_LOG_FORMAT="" silencia o dump de 50+ vars ao entrar na pasta
-  grep -q 'DIRENV_LOG_FORMAT' ~/.bashrc || echo 'export DIRENV_LOG_FORMAT=""' >> ~/.bashrc
-  grep -q 'direnv hook bash' ~/.bashrc || echo 'eval "$(direnv hook bash)"' >> ~/.bashrc
-
-  # 3. Ativar no shell atual (ou feche e reabra o terminal)
-  export DIRENV_LOG_FORMAT=""
-  eval "$(direnv hook bash)"
-
-  # 4. Autorizar o .envrc deste projeto (uma vez por clone)
-  direnv allow
-  ```
-
-  > Depois disso, basta `cd` na raiz do projeto e o shell Nix carrega
-  > sozinho (banner `STM32F103 Renode Fidelity — dev shell`). Para
-  > confirmar: `which arm-none-eabi-gcc` deve apontar para
-  > `/nix/store/.../bin/arm-none-eabi-gcc`. Sem `direnv`, use
-  > `nix develop` manualmente.
-
-[det-nix]: https://determinate.systems/
+Tudo roda por terminal (Nix + CMake + Python). O VS Code em `.vscode/` é só
+conveniência.
 
 ---
 
-## Quickstart
+## 1. Escopo e recorte
+
+Os quatro cenários seguem a ordem do plano de trabalho:
+
+| Cenário | Preset (`build/<preset>/firmware.elf`) | Fonte | Fenômeno | Não investiga |
+|---|---|---|---|---|
+| **C1** núcleo e memória | `c1-functional`, `c1-timing` | `src/c1/` | resultados de operações/memória; duração de cargas C; calibração (complemento) | timers, USART |
+| **C2** timers e IRQ periférica | `c2` | `src/c2/timers.c` | TIM2/TIM3 (APB1) e TIM1 (APB2): contagem, árvore de clock APB /1 /2 /4, PSC/ARR/UG/URS, UIF × UIE × pending, IRQ periódica, atendimento atrasado e coalescência | matriz de prioridades |
+| **C3** NVIC | `c3` | `src/c3/nvic.c` | arbitragem (grupo/sub/número), preempção, PRIMASK, BASEPRI, encadeamento, repetição — IRQs pendidas por software | periodicidade de timers |
+| **C4** USART1 | `c4` | `src/c4/usart.c` | integridade, rajada full duplex, divisor de baud, formatos de quadro, TXE/TC/RXNE/IDLE, leitura atrasada (ORE), pressão de TX, RE | preempção de IRQs |
+
+**Recorte conservador (decisão do autor, alinhada ao plano):**
+
+- **C1** mede primeiro núcleo e memória (resultados e tempos com a referência
+  nominal); a calibração do Renode é um **complemento** empírico, executado
+  separadamente e **nunca** aplicado a C2–C4. O C1 **não** é uma suíte
+  exaustiva da ISA: são 29 casos funcionais nomeados (595 valores) e 8 cargas
+  temporais em 3 tamanhos.
+- **C4** trata "concorrência" como **transmissão e recepção em andamento
+  enquanto o software tem capacidade limitada de atender a recepção** (leitura
+  atrasada, produtor mais rápido que o consumidor), por **polling**. A matriz de
+  preempção de IRQs fica no C3; o C4 não a repete.
+- Extensão HSE/PLL/72 MHz: **não implementada** (opcional na diretiva;
+  priorizou-se a base HSI 8 MHz completa).
+
+Conclusões valem para o **exemplar, versões, configuração e operações
+examinados**. Repetições numa placa não são uma amostra de placas.
+
+## 2. Bancada e ambiente
+
+**Hardware:** STM32F103 (base conservadora C8: 64 KiB flash, 20 KiB SRAM),
+ST-Link/V2 em SWD (PA13/PA14), **fio PA9 (TX) → PA10 (RX) permanentemente
+ligado**. Só o C4 configura USART1 e esses pinos; o gate estático recusa
+qualquer outro ELF com literal do endereço da USART1. Clock: **HSI 8 MHz,
+HCLK 8 MHz, sem HSE/PLL**, flash com 0 wait states (estado de reset
+reescrito explicitamente em `lib/board.c`).
+
+**Software** (tudo pelo `flake.nix`, travado em `flake.lock`): GCC Arm 15.3,
+CMake 4.x + Ninja, OpenOCD 0.12, Renode 1.17.0, Python 3 com numpy e
+matplotlib, `trace_processor_shell` v58.2 (binário oficial do Perfetto, SHA
+fixado). Só x86_64-linux (Linux nativo ou WSL2).
+
+Preparação (uma vez por máquina):
+
+1. Instalar Nix com flakes (em WSL2 recomenda-se o instalador da Determinate
+   Systems) e, opcionalmente, `direnv` (`direnv allow` na raiz).
+2. **WSL2:** anexar o ST-Link ao WSL a cada sessão, no PowerShell do Windows:
+   `usbipd bind --busid <id>` (uma vez) e `usbipd attach --wsl --busid <id>`.
+3. **Linux nativo:** regras udev do OpenOCD:
+   `sudo cp $(nix eval --raw nixpkgs#openocd)/etc/udev/rules.d/*.rules /etc/udev/rules.d/ && sudo udevadm control --reload && sudo udevadm trigger`.
+4. Conferir: `nix develop -c openocd -f interface/stlink.cfg -f target/stm32f1x.cfg -c "init; shutdown"`
+   deve detectar `Cortex-M3`.
+
+Depois disso nada é editado por cenário (sem `.resc`, offsets, frequências ou
+caminhos manuais).
+
+## 3. Campanha: um comando
 
 ```bash
-# 1. Entrar no ambiente — com direnv já configurado acima, é automático ao dar cd.
-#    Sem direnv, entre manualmente (cria flake.lock na 1ª vez; pode demorar alguns min):
-nix develop
-
-# 2. Build via presets (Debug ou Release — alvos: sandbox|c1|c2|c2busy|c3|c4|echo)
-cmake --preset Debug
-cmake --build --preset Debug                    # todos os alvos
-cmake --build --preset Debug --target sandbox   # alvo único
-# Artefatos: build/<preset>/<alvo>/ + cópia sincronizada em build/<alvo>/firmware.elf
-
-# 3. Flash no hardware (ST-Link/V2 + OpenOCD)
-openocd -f interface/stlink.cfg -f target/stm32f1x.cfg \
-        -c "program build/sandbox/firmware.elf verify reset exit"
-
-# 4. Simular no Renode (mesmo ELF, sem hardware)
-renode --disable-xwt -e "s @renode/sandbox.resc"   # GDB server :3334
+scripts/campaign.sh --name final-genuino-01 --board "stm32f103c8-genuino-lab-01" \
+    --board-note "marcação do chip: ..." --calibration
 ```
 
-> **IDE:** VS Code — workspace config versionada em `.vscode/` (extensions,
-> launch, settings e tasks; suíte de extensões via Marketplace oficial da
-> Microsoft, migrada do Theia/Open VSX em 2026-10-05; detalhes em `AGENTS.md
-> § Ambiente de edição`). O projeto independe de IDE: todo o fluxo (build,
-> sim, coleta, análise) roda via terminal (Nix + presets + scripts). O
-> workflow CubeMX foi descontinuado: os fontes vendor/ estão congelados
-> (ver `vendor/README.md`).
+O script entra no ambiente Nix se necessário e chama
+`scripts/fidelity.py campaign`, que executa, nesta ordem:
 
----
+1. **pré-verificação** (ferramentas, porta :3333 livre, espaço em disco) e
+   **locks** (campanha e bancada: duas campanhas nunca usam o mesmo ST-Link);
+2. **build** dos 5 firmwares (zero warnings), **integridade do `vendor/`**
+   (SHA-256 de `vendor/README.md`) e **gate do ELF** (símbolos, RAM,
+   literais da USART1 fora do C4, `fid_measure` com SP alinhado, flags);
+3. **plano congelado** `plan.json` (hashes dos ELFs e fontes, revisão,
+   versões, configuração do Renode, casos planejados, regra de calibração);
+4. **placa**: OpenOCD próprio, identificação do exemplar (CPUID, IDCODE,
+   F_SIZE, UID — metadados, não autenticação), gravação + verificação de cada
+   ELF, N runs com reset definido;
+5. **Renode nominal** (8 MIPS): mesmo ELF, **processo novo por run**, N runs
+   (paralelos, `--jobs`);
+6. **traço por stepi** do C1-timing na placa e no Renode;
+7. **calibração** do C1 (com `--calibration`): regra pré-registrada, runs
+   do Renode com o MIPS escolhido;
+8. **análise**: oráculos, estatística, classificação, figuras, traces
+   Perfetto e validação da importação, relatório `analysis/report.md`.
 
-## Tooling (versões gerenciadas pelo flake)
+| Parâmetro | Efeito |
+|---|---|
+| `--name`, `--board` | identidade da campanha e do exemplar físico (obrigatórios) |
+| `--reps R` | runs por firmware e ambiente: **50** no modo final, 10 com `--pilot`; aceita 100+ |
+| `--firmwares`, `--env` | subconjuntos (`c1-functional c1-timing c2 c3 c4`; `hw renode`) |
+| `--calibration` | complemento do C1 (seção 7) |
+| `--no-instr` | pula o traço por stepi (o nível "instrução" fica sem evidência) |
+| `--resume` | retoma: exige **o mesmo plano** (ELFs, exemplar, repetições, configuração) |
+| `--jobs J` | processos Renode simultâneos (padrão 4; não afeta o tempo virtual) |
 
-| Ferramenta          | Pacote Nix                         | Função                            |
-|---------------------|------------------------------------|-----------------------------------|
-| `gcc-arm-embedded`  | 15.2 (C11/C17/C18/C23)             | Cross-compiler ARM                |
-| `cmake`             | 4.1                                | Build system generator            |
-| `ninja`             | 1.13                               | Build executor                    |
-| `pkg-config`        | 0.29                               | Lib metadata                      |
-| `openocd`           | 0.12                               | Flash + GDB server                |
-| `arm-none-eabi-gdb` | (incluso no gcc-arm-embedded 15.2) | Source-level debug ARM            |
-| `renode`            | 1.17.0                             | Simulador do MCU                  |
-| `python3`           | 3.14                               | Scripts auxiliares                |
-| `clang-tools`       | 22.1 (clangd, clang-tidy, …)       | LSP / análise estática            |
-| `stm32cubemx`       | 6.17                               | GUI para editar `.ioc`            |
+**Código de saída:** `0` campanha completa (divergências Renode × placa são
+resultado científico, não erro); `3` infraestrutura incompleta (runs válidos
+abaixo do planejado, traço ausente); `1` erro de pré-condição, build, gate ou
+plano incompatível.
 
-Todas vêm via `nixpkgs-unstable`, pinadas no `flake.lock`. Para atualizar:
-`nix flake update --commit`.
+**Robustez:** cada run tem timeout no host; uma tentativa que falha
+(timeout, snapshot inválido, nonce errado) é **guardada** com o motivo e
+uma nova tentativa é feita, até `N + max(3, N/5)` tentativas. Nenhum
+processo de terceiros é encerrado (porta ocupada = erro claro); só os
+filhos da campanha são finalizados, pelo PID. Snapshots e `run.json`
+ficam somente-leitura.
 
-**Portas GDB:** OpenOCD (hardware) usa `:3333` (default do OpenOCD — ver
-`scripts/run_hw.sh`); Renode usa `:3334` (todos os `.resc`). Assim HW e
-simulador podem rodar em paralelo sem conflito de porta. Monitor Renode:
-`:6512` (via `-P`), permitindo vários runs em paralelo com `-P` distintas.
+Outros comandos: `scripts/fidelity.py analyze --name N` (refaz a análise),
+`run --env hw|renode --firmware F` (um run de diagnóstico, fora de
+campanha), `check` (pré-verificação + build + gate).
 
-**PATH precedence:** ao entrar em `nix develop`, o Nix prepende
-`~/.nix-profile/bin` ao PATH, então qualquer binário apt em `/usr/bin` é
-shadowed. Para confirmar: `which arm-none-eabi-gcc` deve apontar para
-`~/.nix-profile/bin/`.
-
----
-
-## WSL2 — notas de configuração
-
-O dev primário usa WSL2 com Ubuntu. Para o Nix e para o build, WSL2 é
-transparente — é Linux x86_64 comum. Pontos de atenção:
-
-### GUI (STM32CubeMX)
-
-WSL2 no **Windows 11** com WSLg ativo já dá suporte a GUI nativamente
-(sem X server). No Windows 10, instale um X server (VcXsrv ou Xming) e
-configure `DISPLAY=:0`.
-
-Para confirmar: `stm32cubemx` deve abrir uma janela.
-
-### ST-Link via USB
-
-O OpenOCD precisa acessar o ST-Link via USB. No WSL2, o dispositivo USB
-do host Windows precisa ser explicitamente anexado à instância WSL:
-
-```powershell
-# No PowerShell do Windows (com privilegios de admin):
-# 1. Listar devices USB:
-usbipd list
-# 2. Anexar o ST-Link (procure por vendor 0483:3744 ou 0483:3748):
-usbipd bind --busid <busid>      # uma vez
-usbipd attach --wsl --busid <busid>   # cada sessão WSL
-```
-
-Para não precisar do `attach` toda vez que abrir o WSL, adicione ao
-`~/.bashrc`:
+### Build manual e debug
 
 ```bash
-# Auto-attach do ST-Link se presente
-STLINK_BUSID=$(usbipd list 2>/dev/null | grep -i 'STM32 STLink' | awk '{print $1}' | head -1)
-[ -n "$STLINK_BUSID" ] && usbipd attach --wsl --busid "$STLINK_BUSID" 2>/dev/null
+cmake --workflow --preset c2          # configure + build → build/c2/firmware.elf
+scripts/renode_start.sh c2            # Renode com GDB em :3334 (mesmo .resc da campanha)
 ```
 
-(Requer `usbipd` instalado no PATH do WSL — `sudo apt install usbipd`.)
+No VS Code: tasks `Build: <fw>` e configurações `Renode: <fw>` / `Placa: <fw>`
+(cortex-debug). O `.clangd` é gerado pelo CMake (aponta para o último preset
+configurado).
 
-### udev rules (Linux nativo, não WSL)
+## 4. Plataforma Renode
 
-Não aplicável em WSL2 (não há `udev` real). Em Linux nativo (Ubuntu,
-Fedora, etc.), copie a regra uma vez:
+- `renode/stm32f103_hsi8.repl`: plataforma `stm32f103.repl` do Renode 1.17.0
+  reduzida aos periféricos da família medium-density, memórias com o tamanho
+  real e `frequency: 8000000` nos periféricos. GPIOE–G permanecem só porque o
+  modelo `STM32F1AFIO` exige 7 portas.
+- `renode/fidelity.resc`: **um único script** para C1–C4 (só o ELF muda):
+  `PerformanceInMips 8`, quantum global **125 ns**, USART1 ligada a um hub em
+  loopback (equivalente ao fio PA9→PA10), `AutoUpdateDelay` desligado.
 
-```bash
-sudo cp $(nix eval --raw nixpkgs#openocd)/etc/udev/rules.d/*.rules \
-        /etc/udev/rules.d/
-sudo udevadm control --reload && sudo udevadm trigger
+Decisões registradas (o fonte da versão instalada está no pacote Nix em
+`lib/renode/src/`):
+
+| Decisão | Fundamento |
+|---|---|
+| **8 MIPS nominal**, único para C1–C4 | hipótese de 1 instrução por ciclo a 8 MHz; não é modelo ciclo-preciso. `PerformanceInMips` é `uint` (granularidade inteira) |
+| **Quantum 125 ns** (= 1 instrução) em vez de 1 µs | piloto: com 1 µs, o mesmo intervalo medido pelo CYCCNT variava ±4 ticks entre repetições idênticas e ganhava deslocamento (carga vazia: 10 ticks vs 4); com 125 ns é determinístico. 100 ns (fração de instrução) derruba o Renode |
+| `AutoUpdateDelay` **desligado** | `STM32_UART` já espaça cada caractere recebido pelo tempo de um quadro (thread do receptor); o atraso do `UARTHub` somaria outro quadro (dupla serialização) |
+| Renode com `--port -1` | com `--port N` o `-e` só executa quando um cliente telnet conecta; em erro de comando o Renode **não termina** — por isso todo passo tem timeout e o log fica no run |
+| Processo novo por run | estado inicial limpo garantido (sem depender de reset do simulador) |
+
+Mecanismos do modelo que explicam divergências (lidos no fonte 1.17.0; são
+explicação, não oráculo):
+
+- **Sem modelo de RCC para o F1** (`sysbus` só tem a *tag* `RCC_CR`):
+  escritas em RCC são ignoradas, `RCC_CFGR` lê 0, e a frequência dos timers e
+  da USART é a estática do `.repl` (não segue o prescaler APB).
+- `STM32_Timer`: PSC aplicado imediatamente (sem preload); UG só seta UIF se
+  `UIE = 1`.
+- `STM32_UART`: TXE sempre 1, TC setado na escrita de DR, ORE nunca, FIFO de
+  recepção ilimitada, palavra de 9 bits (M) não implementada, paridade não
+  calculada.
+- `DWT`: CYCCNT = tempo virtual × `frequency` (não ciclos de pipeline).
+
+## 5. Instrumentação (ABI v3 "FID3")
+
+Contrato em `inc/fidelity.h` (C) e `scripts/fidelity/abi.py` (decodificador).
+Inspiração **conceitual** no registro de eventos do SEGGER SystemView (UM08027:
+gravação em RAM e coleta pelo probe após a parada); formato próprio, sem
+compatibilidade binária com RTT/SystemView, sem J-Link, sem UART de log.
+
+```
+fid_snapshot (objeto global único, little-endian, campos de largura fixa)
+  header  40 palavras: magic "FID3", versão, tamanho, firmware, estado
+          (RUNNING/DONE/FAILED), erros, nonce do host, capacidades e
+          contagens, head de cada anel, próximo ticket, CYCCNT inicial/final,
+          custo do observador e do logger, HCLK nominal, CPUID, IDCODE,
+          F_SIZE, UID, RCC_CR/CFGR, FLASH_ACR, DBGMCU_CR, AIRCR, pilha livre,
+          PC/CFSR de falha
+  cases   {case_id, status, first_word, word_count}   (só MAIN escreve)
+  words   dados dos casos, em sequência               (só MAIN escreve)
+  ring    4 anéis circulares {ticks, ticket, event, case_id, arg}
+          um por CONTEXTO ESCRITOR fixo: MAIN, IRQ1, IRQ2, IRQ3
 ```
 
----
+- **Sem posição global compartilhada:** cada anel tem um único escritor
+  (MAIN ou um handler), então o registro não mascara interrupções. O handler
+  tem o seu anel mesmo que seu papel/prioridade mude entre casos.
+- **Ordem global:** cada evento recebe um *ticket* de um contador global
+  incrementado com LDREX/STREX; o CYCCNT é lido **dentro** do laço
+  exclusivo. Se uma exceção acontece no meio, o monitor exclusivo é limpo
+  (ARMv7-M) e o laço repete: ticket e timestamp são consistentes. O host
+  exige tickets únicos, crescentes por escritor e contíguos (sem lacunas).
+- **Anéis circulares com detecção de perda:** `head` conta tudo que foi
+  escrito; `head − capacidade` registros antigos foram sobrescritos. O
+  registro é escrito inteiro antes de o `head` avançar (DMB). Os tamanhos
+  foram dimensionados para que nenhum caso obrigatório perca eventos; se
+  perder, métricas dependentes do trace são invalidadas e o trace leva aviso.
+- **Rollover:** o CYCCNT é pré-carregado em `0xFFF00000` (estoura ~131 ms após
+  o início), então **todo run** exercita a reconstrução de 32 bits: o host
+  percorre os eventos na ordem dos tickets somando diferenças módulo 2^32 e
+  rejeita passos ≥ 2^31 ticks (268 s).
+- **Prova de run:** o host para em `main`, grava um nonce aleatório em
+  `fid_host_nonce`; o firmware o copia para o header. Snapshot de outro run
+  (a SRAM sobrevive ao reset) é rejeitado.
+- **Finalização:** o firmware para os estímulos, desliga as IRQs, captura
+  registradores de contexto, mede a pilha nunca usada (pintura em `fid_init`)
+  e publica DONE ou FAILED antes de parar em `fid_complete()` (hbreak do
+  host). Falhas (HardFault) publicam FAILED com PC e CFSR em vez de travar.
+- **Estados distintos:** DONE (instrumento íntegro), FAILED (instrumento),
+  status por caso OK/TIMEOUT (protocolo do caso), e no host: run válido,
+  inválido (motivo) ou falha de infraestrutura.
+- **Interferência:** o debugger fica conectado (hbreak), sem polling de
+  SRAM durante o run; o custo do observador (2 leituras do CYCCNT) e do
+  logger é medido e gravado em cada run.
+- **Bracket do C1** (`lib/fidelity_measure.S`): `LDR CYCCNT → BLX fn → LDR
+  CYCCNT` em assembly (o GCC não consegue mover a chamada), empilhando 6
+  registros para manter o SP alinhado a 8 bytes no `BLX` (AAPCS).
 
-## Layout
+Orçamento de SRAM (20 KiB), conferido pelo gate e pela pilha livre medida
+em cada run:
+
+| Firmware | `.data + .bss` | pilha/heap reservados | pilha nunca usada (placa) |
+|---|---|---|---|
+| c1-functional | 15 452 B | 1 536 B | ≈ 4,6 KiB |
+| c1-timing | 9 940 B | 1 536 B | ≈ 10 KiB |
+| c2 | 12 532 B | 1 536 B | ≈ 7,6 KiB |
+| c3 | 10 980 B | 1 536 B | ≈ 9 KiB |
+| c4 | 9 528 B | 1 536 B | ≈ 10,5 KiB |
+
+## 6. Casos, oráculos e critérios
+
+Os oráculos são escritos à mão a partir do manual, **não** a partir de
+resultados da placa ou do Renode (`scripts/fidelity/c1.py` … `c4.py`):
+
+- **C1-functional** (29 casos, 595 valores): `uint32`/`int32`/`uint64`
+  (wrap, divisão truncada, sem UB), comparações, lógica, deslocamentos
+  (≥ 0 e ≤ 31), rotações, campos de bits, CLZ/CTZ/popcount, promoções de 8/16
+  bits, extensão de sinal/zero e truncamento, SRAM por 8/16/32 bits (ordem de
+  bytes, vizinhos preservados, padrões 0/1/alternados, bit caminhante), flash
+  `.rodata` por 8/16/32 bits (leituras por ponteiro `volatile`, endereço
+  conferido), cópia desalinhada e preenchimento (bloco inteiro conferido),
+  ordenação, MDC, `switch` com tabela de salto, recursão. Cada caso grava
+  ENTRADAS e SAÍDAS; o host confere as entradas com o plano. Conversões
+  dependentes da implementação seguem a convenção do GCC (módulo 2^N,
+  `>>` aritmético) e estão marcadas.
+- **C1-timing**: cargas C `noipa` — vazia, ALU (xorshift), MUL, UDIV com
+  quociente pequeno e grande (mesmas instruções, operandos diferentes), cópia
+  SRAM, soma em flash, desvios dependentes de dados, CRC-32 bit a bit — em
+  n = 16, 64, 256 (linearidade e custo fixo), 4 repetições com entradas
+  idênticas (rep 0 = primeira após o reset). O resultado de toda execução é
+  conferido.
+- **C2**: RM0008 §7.2 (TIMxCLK = PCLK se APB /1, senão 2×PCLK), §15.3–15.4
+  (PSC sempre bufferizado; ARR bufferizado só com ARPE; UG reinicia CNT e,
+  com URS = 0, seta UIF), PM0056 §4.3 (pending registrado até entrar no
+  handler ou ICPR). Latência = CNT lido como primeiro ponto da ISR (inclui
+  entrada, prólogo e acesso ao barramento; não é "custo puro de exceção").
+  O número de updates durante um atendimento atrasado é **inferido** da
+  configuração e marcado como tal.
+- **C3**: sequências completas esperadas escritas à mão a partir do PM0056 e
+  do ARMv7-M ARM (grupo > sub > número; preempção só por grupo; PRIMASK;
+  BASEPRI com prioridade igual mascarada; repetição roda antes de prioridade
+  menor), com TODAS as ocorrências (inclusive a 2ª entrada de quem se repende)
+  e o IPSR em cada entrada. PRIGROUP = 5 (2 bits de grupo, 2 de sub).
+- **C4**: RM0008 cap. 27 (baud = PCLK2/BRR; paridade no MSB da palavra; ORE
+  com RXNE = 1 perde o byte novo e mantém o anterior; SR → DR limpa
+  RXNE/IDLE/ORE). Bytes sempre em sequência indexada; espera por recepção
+  completa ou timeout; produtor da leitura atrasada espaçado por 1,5 quadro no
+  DWT (não por TXE). **Limitação:** o loopback não testa detecção de erro de
+  paridade/enquadramento (exigiria estímulo divergente).
+
+**Critérios (declarados antes da campanha):**
+
+| Observável | Critério |
+|---|---|
+| funcional (valor, flag, ordem, contagem) | igualdade exata; fidelidade = valor modal do Renode igual ao da placa em cada item; conformidade de cada ambiente com o oráculo reportada à parte |
+| temporal, nível de **ciclo** | mediana do Renode ∈ [mín − res, máx + res] da placa; resolução: 1 tick (bracket/logger), 16 × divisor APB ticks (polling), 1 contagem convertida (CNT) |
+| **instrução** (C1) | sequência de PCs por stepi idêntica nos dois ambientes |
+
+Classes por caso: **1** concordância funcional e temporal; **2** concordância
+funcional com divergência temporal; **3** divergência funcional; **4**
+evidência insuficiente/instrumento inválido. Não há escore único nem
+tolerância de "aceitável": nenhum prazo de aplicação foi definido, então
+erros temporais são **caracterizados** (absoluto e relativo), não aprovados.
+
+## 7. Complemento de calibração (só C1)
+
+Regra pré-registrada em `scripts/fidelity/campaign.py` (`CALIBRATION_RULE`),
+gravada no plano antes da coleta: treino = ALU, cópia SRAM, soma em flash e
+desvios (n = 256); avaliação = MUL, UDIV pequeno/grande e CRC; objetivo =
+menor erro relativo absoluto **médio, pesos iguais**, no treino; previsão
+ticks(m) = ticks(8)·8/m; busca em inteiros 1–16 (o Renode só aceita
+inteiros); verificação com runs reais (`renode-calibrated`). O quantum dos
+runs calibrados é o menor múltiplo inteiro de instruções representável em
+ns (ex.: 7 MIPS → 1 µs). O valor é derivado dos dados de cada campanha; o
+relatório mostra o erro por carga e agregado, nominal × calibrado.
+
+## 8. Dados e traces
 
 ```
-├── flake.nix                       # Ambiente Nix (este arquivo)
-├── flake.lock                      # Pinned versions (commit!)
-├── CMakeLists.txt                  # Build orchestrator
-├── renode-stm32f103-fidelity.ioc   # CubeMX source-of-truth
-├── Core/                           # CubeMX-gerado
-├── Drivers/                        # ST vendor (intocado)
-├── cmake/                          # CubeMX-gerado (toolchain file)
-├── src/                            # Nosso código (sandbox.c, scenario_a.c, …)
-├── inc/                            # Headers do nosso código
-├── lib/                            # Módulos compartilhados (sob demanda)
-├── renode/                         # .repl, .resc, PLAN.md
-├── scripts/                        # flash_stlink.sh, dump_sram.sh
-└── docs/                           # metodologia, métricas (futuro)
+data/fidelity/<campanha>/
+  plan.json  campaign.log  calibration.json
+  build/<fw>.log
+  hw/sessions/run-NNN/{openocd.log, identify.json, flash-<fw>.log}
+  hw/<fw>/run-NNN/{snapshot.bin, run.json, gdb.log, gdb.gdb}
+  renode-nominal/<fw>/run-NNN/{snapshot.bin, run.json, renode.log, gdb.log}
+  renode-calibrated/c1-timing/run-NNN/...
+  instr/{hw,renode}/{instructions.json, stepi.log}
+  analysis/{report.md, *.csv, figures/, perfetto/}
 ```
 
----
+`run.json` guarda status, motivos, nonce, SHA-256 do snapshot, header
+decodificado, tempo de host (separado dos ticks do alvo) e, no Renode,
+instruções executadas, MIPS efetivo, tempo virtual e acessos a endereços não
+modelados. `data/` não é versionado; `data/exploratory/` guarda as coletas
+antigas (ABIs v1/v2), fora da análise.
 
-## Pendente (resumo)
+**Perfetto:** `analysis/perfetto/runs/<ambiente>/<fw>/run-NNN.json` (um por
+run) e `compare-<fw>.json` (run de duração total **mediana** de cada
+ambiente, ambos com ts = 0 no início do run — alinhamento declarado, sem
+reescalar durações). Formato Chrome Trace Event JSON (µs); abrir em
+<https://ui.perfetto.dev> (*Open trace file*). Trilhas por contexto escritor
+(MAIN, cada ISR) — trilhas paralelas não significam execução simultânea;
+eventos previstos/inferidos ficam na categoria `inferido`; handlers do C3 têm
+duração inclusiva no slice e exclusiva nos args; pedido → atendimento por
+*flow*. A importação é conferida com `trace_processor_shell` (contagem de
+slices, counters e flows; tempo e duração de um slice), em
+`perfetto/validation.json`. Estatística vem dos dados brutos, não do Perfetto.
 
-- Implementar cenários A (TIM2 + NVIC + DWT) e B (USART1 115200 8N1).
-- Smoke test no hardware (flash + LED pisca).
-- Smoke test no Renode (mesmo ELF, mesmo comportamento).
-- Coletar dados comparativos HW vs Renode.
-- Escrever `docs/decisoes-metricas-cenarios.md` e
-  `docs/metodologia-cenario-a.md`.
+## 9. Validações realizadas
 
-Ver `AGENTS.md` para detalhes completos.
+<!-- VALIDACOES -->
+
+## 10. Pendência: campanha final na placa genuína
+
+<!-- PENDENCIA -->
+
+## 11. Estrutura
+
+```
+src/c1..c4/      firmwares (um main por preset)
+lib/             board.c (clock HSI 8 MHz), fidelity.c + fidelity_measure.S (ABI)
+inc/fidelity.h   contrato da ABI FID3
+vendor/          ST/CMSIS/LL congelados (SHA-256 em vendor/README.md) — nunca editar
+renode/          plataforma .repl + script único fidelity.resc
+scripts/         campaign.sh (entrada), fidelity.py (CLI), fidelity/ (pacote),
+                 renode_start.sh / renode_stop.sh / direnv_exec.sh (VS Code)
+cmake/           toolchain + modelo do .clangd
+tmp/REQUISITOS-ENTREGA-FINAL-TCC.md   diretiva desta entrega (mantida)
+```

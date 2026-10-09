@@ -148,6 +148,7 @@ def write(path: Path, plan: dict, summary: dict, acc, cases, resources, stats, i
                       d["identical_in_all_runs"], d["fraction"]] for d in det]))
     L.append("\nIdentidade entre N runs = determinismo OBSERVADO nestas condições, não prova geral.\n")
 
+    L += _duration(root, plan)
     L.append("## Limites desta campanha\n")
     lim = []
     if not summary["complete"]:
@@ -177,3 +178,40 @@ def write(path: Path, plan: dict, summary: dict, acc, cases, resources, stats, i
 def _short(v, n=80) -> str:
     s = str(v)
     return s if len(s) <= n else s[:n] + "…"
+
+
+def _duration(root: Path, plan: dict) -> list[str]:
+    """Duração por etapa (do campaign.log) e extrapolação linear para 50/100 runs."""
+    import datetime as dt
+    import re
+    log = root / "campaign.log"
+    if not log.exists():
+        return []
+    stamps = []
+    for line in log.read_text().splitlines():
+        m = re.match(r"^(\S+)\s{2}(.*)$", line)
+        if m:
+            stamps.append((dt.datetime.fromisoformat(m[1]), m[2]))
+    rows, prev = [], None
+    for t, msg in stamps:
+        m = re.match(r"^(hw|renode-nominal|renode-calibrated)/(\S+): (\d+) válidos", msg)
+        if prev is not None and m:
+            rows.append((f"{m[1]}/{m[2]}", (t - prev).total_seconds(), int(m[3])))
+        elif prev is not None and msg.startswith("traço ") and ": ok" in msg:
+            rows.append((msg.split(":")[0], (t - prev).total_seconds(), None))
+        prev = t
+    if not rows:
+        return []
+    size = sum(f.stat().st_size for f in root.rglob("*") if f.is_file())
+    reps = plan["repetitions"]
+    out = ["## Duração e tamanho (medidos nesta campanha)\n",
+           f"Duração total registrada: {(stamps[-1][0] - stamps[0][0]).total_seconds() / 60:.1f} min; "
+           f"dados: {size / 1024**2:.1f} MiB. Extrapolação LINEAR nas repetições (estimativa, não "
+           "promessa; o traço por stepi não depende de N):\n"]
+    table = []
+    for stage, sec, n in rows:
+        scale = (lambda k: sec * k / reps) if n else (lambda k: sec)
+        table.append([stage, f"{sec / 60:.1f}", f"{scale(50) / 60:.1f}", f"{scale(100) / 60:.1f}"])
+    out.append(_table(["etapa", f"min (N={reps})", "min (N=50)", "min (N=100)"], table))
+    out.append("")
+    return out

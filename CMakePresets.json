@@ -74,5 +74,72 @@
       "name": "c4",
       "configurePreset": "c4"
     }
+  ],
+  "workflowPresets": [
+    {
+      "name": "c1-functional",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "c1-functional"
+        },
+        {
+          "type": "build",
+          "name": "c1-functional"
+        }
+      ]
+    },
+    {
+      "name": "c1-timing",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "c1-timing"
+        },
+        {
+          "type": "build",
+          "name": "c1-timing"
+        }
+      ]
+    },
+    {
+      "name": "c2",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "c2"
+        },
+        {
+          "type": "build",
+          "name": "c2"
+        }
+      ]
+    },
+    {
+      "name": "c3",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "c3"
+        },
+        {
+          "type": "build",
+          "name": "c3"
+        }
+      ]
+    },
+    {
+      "name": "c4",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "c4"
+        },
+        {
+          "type": "build",
+          "name": "c4"
+        }
+      ]
+    }
   ]
 }

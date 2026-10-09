@@ -89,19 +89,22 @@ def evaluate(snap) -> RunEval:
         ev.check(name, "RCC_CFGR.PPRE1/PPRE2 lido de volta", (code << 8) | (code << 11),
                  cfgr & 0x3F00)
         data = w[6:]
+        # Uma volta do laço de polling inclui uma leitura no APB: com o
+        # barramento dividido por N ela fica até ~N vezes mais lenta.
+        res = RES_POLL * div
         HANDLERS[KINDS[kind]](ev, name, data, psc, arr, ratio, tick_per_count,
-                [e for e in isr_events[TIMER_WRITER[t]] if e.case_id == case_id])
+                              [e for e in isr_events[TIMER_WRITER[t]] if e.case_id == case_id], res)
     return ev
 
 
-def _count_off(ev, name, d, psc, arr, ratio, tpc, isr):
+def _count_off(ev, name, d, psc, arr, ratio, tpc, isr, res):
     c0, c1, sr = d
     ev.check(name, "CNT parado (1ª leitura)", 0, c0)
     ev.check(name, "CNT parado (após 8000 ticks)", 0, c1)
     ev.check(name, "SR sem flags", 0, sr)
 
 
-def _count_rate(ev, name, d, psc, arr, ratio, tpc, isr):
+def _count_rate(ev, name, d, psc, arr, ratio, tpc, isr, res):
     t0, c0, t1, c1, sr = d
     window = unwrap_from(t0, t1)
     counts = c1 - c0
@@ -114,7 +117,7 @@ def _count_rate(ev, name, d, psc, arr, ratio, tpc, isr):
               resolution=2 / window, predicted=ratio / (psc + 1))
 
 
-def _update_poll(ev, name, d, psc, arr, ratio, tpc, isr):
+def _update_poll(ev, name, d, psc, arr, ratio, tpc, isr, res):
     t_cen, *ups = d
     if 0 in ups:
         ev.check(name, "8 updates observados", N_PERIODS, ups.index(0))
@@ -122,10 +125,10 @@ def _update_poll(ev, name, d, psc, arr, ratio, tpc, isr):
     ev.check(name, "8 updates observados", N_PERIODS, len(ups))
     period = (psc + 1) * (arr + 1) / ratio
     periods = [unwrap_from(a, b) for a, b in zip(ups, ups[1:])]
-    ev.metric(name, "first_update", unwrap_from(t_cen, ups[0]), resolution=RES_POLL,
+    ev.metric(name, "first_update", unwrap_from(t_cen, ups[0]), resolution=res,
               predicted=period)
-    ev.metric(name, "period_median", median(periods), resolution=RES_POLL, predicted=period)
-    ev.metric(name, "period_jitter_std", pstdev(periods), resolution=RES_POLL)
+    ev.metric(name, "period_median", median(periods), resolution=res, predicted=period)
+    ev.metric(name, "period_jitter_std", pstdev(periods), resolution=res)
 
 
 def _two_updates(ev, name, d):
@@ -136,7 +139,7 @@ def _two_updates(ev, name, d):
     return cnt_w, unwrap_from(t_w, u1), unwrap_from(u1, u2)
 
 
-def _psc_preload(ev, name, d, psc, arr, ratio, tpc, isr):
+def _psc_preload(ev, name, d, psc, arr, ratio, tpc, isr, res):
     r = _two_updates(ev, name, d)
     if r is None:
         return
@@ -146,12 +149,12 @@ def _psc_preload(ev, name, d, psc, arr, ratio, tpc, isr):
     new_period = (arr + 1) * 16 / ratio
     ev.check(name, "resto do período usa PSC antigo (bufferizado)", "antigo",
              "antigo" if abs(d1 - old_rest) < abs(d1 - new_rest) else "novo")
-    ev.check(name, "período seguinte usa PSC novo", True, abs(d2 - new_period) <= 4 * RES_POLL)
-    ev.metric(name, "write_to_update", d1, resolution=RES_POLL, predicted=old_rest)
-    ev.metric(name, "next_period", d2, resolution=RES_POLL, predicted=new_period)
+    ev.check(name, "período seguinte usa PSC novo", True, abs(d2 - new_period) <= 4 * res)
+    ev.metric(name, "write_to_update", d1, resolution=res, predicted=old_rest)
+    ev.metric(name, "next_period", d2, resolution=res, predicted=new_period)
 
 
-def _arr(ev, name, d, psc, arr, ratio, preload):
+def _arr(ev, name, d, psc, arr, ratio, preload, res):
     r = _two_updates(ev, name, d)
     if r is None:
         return
@@ -162,43 +165,48 @@ def _arr(ev, name, d, psc, arr, ratio, preload):
     expected = "no próximo update" if preload else "imediato"
     observed = "imediato" if abs(d1 - immediate) < abs(d1 - deferred) else "no próximo update"
     ev.check(name, "efeito da escrita em ARR", expected, observed)
-    ev.check(name, "período seguinte = ARR novo", True, abs(d2 - 700 * tick) <= 4 * RES_POLL)
-    ev.metric(name, "write_to_update", d1, resolution=RES_POLL,
+    ev.check(name, "período seguinte = ARR novo", True, abs(d2 - 700 * tick) <= 4 * res)
+    ev.metric(name, "write_to_update", d1, resolution=res,
               predicted=deferred if preload else immediate)
-    ev.metric(name, "next_period", d2, resolution=RES_POLL, predicted=700 * tick)
+    ev.metric(name, "next_period", d2, resolution=res, predicted=700 * tick)
 
 
-def _arr_preload_off(ev, name, d, psc, arr, ratio, tpc, isr):
-    _arr(ev, name, d, psc, arr, ratio, preload=False)
+def _arr_preload_off(ev, name, d, psc, arr, ratio, tpc, isr, res):
+    _arr(ev, name, d, psc, arr, ratio, False, res)
 
 
-def _arr_preload_on(ev, name, d, psc, arr, ratio, tpc, isr):
-    _arr(ev, name, d, psc, arr, ratio, preload=True)
+def _arr_preload_on(ev, name, d, psc, arr, ratio, tpc, isr, res):
+    _arr(ev, name, d, psc, arr, ratio, True, res)
 
 
 def _ug(ev, name, d, urs):
-    cnt_before, cnt_after, sr = d
+    cnt_before, cnt_after, cnt_later, sr = d
     ev.check(name, "CNT andando antes do UG (>= 500)", True, cnt_before >= 500)
-    ev.check(name, "UG reinicia CNT (<= 1 contagem lida depois)", True, cnt_after <= 1)
+    # 24 ticks depois do UG, com PSC = 7, o contador reiniciado vale <= 4.
+    ev.check(name, "UG reinicia CNT (CNT <= 4 após 24 ticks)", True, cnt_later <= 4)
+    # Quando o reinício fica visível para a leitura SEGUINTE não é especificado
+    # pelo RM0008: observação sem oráculo (expected = None).
+    ev.check(name, "leitura imediata após UG já vê o CNT reiniciado", None,
+             "sim" if cnt_after <= 1 else "não")
     ev.check(name, f"UIF após UG com URS={urs}", 0 if urs else 1, sr & 1)
 
 
-def _ug_urs0(ev, name, d, psc, arr, ratio, tpc, isr):
+def _ug_urs0(ev, name, d, psc, arr, ratio, tpc, isr, res):
     _ug(ev, name, d, 0)
 
 
-def _ug_urs1(ev, name, d, psc, arr, ratio, tpc, isr):
+def _ug_urs1(ev, name, d, psc, arr, ratio, tpc, isr, res):
     _ug(ev, name, d, 1)
 
 
-def _uif_pending(ev, name, d, psc, arr, ratio, tpc, isr):
+def _uif_pending(ev, name, d, psc, arr, ratio, tpc, isr, res):
     labels = ["UIF após update", "pending com UIE=0", "pending com UIE=1",
               "UIF após limpeza", "pending após UIF limpo (latch)", "pending após ICPR"]
     for item, exp, obs in zip(labels, [1, 0, 1, 0, 1, 0], d):
         ev.check(name, item, exp, obs)
 
 
-def _irq_periodic(ev, name, d, psc, arr, ratio, tpc, isr):
+def _irq_periodic(ev, name, d, psc, arr, ratio, tpc, isr, res):
     t_start, entries = d
     ev.check(name, "entradas da ISR", N_IRQS, entries)
     ev.check(name, "eventos de ISR no trace", N_IRQS, len(isr))
@@ -218,7 +226,7 @@ def _irq_periodic(ev, name, d, psc, arr, ratio, tpc, isr):
 
 
 
-def _irq_delay(ev, name, d, psc, arr, ratio, tpc, isr):
+def _irq_delay(ev, name, d, psc, arr, ratio, tpc, isr, res):
     delay, t_seen, cnt_seen, t_enable, entries = d
     ev.check(name, "UIF observado antes de habilitar", True, t_seen != 0)
     ev.check(name, "ISR atendida uma única vez", 1, entries)

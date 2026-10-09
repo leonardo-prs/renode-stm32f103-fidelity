@@ -423,10 +423,7 @@ def run_instruction_traces(paths: Paths, plan: dict, envs: list[str], log: Log) 
         log(f"traço de instruções (stepi) do c1-timing em {env} — pode levar dezenas de minutos")
         try:
             if env == "hw":
-                session = next_attempt_dir(paths.root / "hw" / "sessions")
-                with targets.Bench(session) as bench:
-                    bench.flash(fw.elf, session / "flash-c1-timing.log")
-                    instr.trace_hw(bench, fw.elf, out)
+                instr.trace_hw(fw.elf, out)
             else:
                 instr.trace_renode(fw.elf, out)
             log(f"traço {env}: ok")

@@ -91,12 +91,19 @@ def parse(text: str, sym: dict[str, int]) -> dict:
     return out
 
 
-def trace_hw(bench: "targets.Bench", elf: Path, out_dir: Path, timeout_s: float = 1800) -> dict:
+def trace_hw(elf: Path, out_dir: Path, timeout_s: float = 3600) -> dict:
+    """Traço na placa: OpenOCD próprio, grava o ELF e roda o MESMO script GDB.
+
+    Custo medido: ~25–30 passos/s (o passo único via ST-Link domina; um laço
+    Tcl dentro do OpenOCD não foi mais rápido). ~41 mil instruções ≈ 25 min.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     sym = symbols(elf)
-    text = targets.run_gdb(elf, gdb_script(targets.HW_GDB_PORT, "monitor reset halt", sym),
-                           out_dir / "stepi.log", timeout_s)
-    bench.recover(elf, out_dir)
+    with targets.Bench(out_dir) as bench:
+        bench.flash(elf, out_dir / "flash.log")
+        text = targets.run_gdb(elf, gdb_script(targets.HW_GDB_PORT, "monitor reset halt", sym),
+                               out_dir / "stepi.log", timeout_s)
+        bench.recover(elf, out_dir)
     return _save(parse(text, sym), out_dir)
 
 

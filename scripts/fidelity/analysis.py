@@ -72,6 +72,11 @@ def load_runs(root: Path, plan: dict) -> list[Run]:
                                           "problems": rec.get("problems", []) + run.eval.problems}
                     except abi.SnapshotError as exc:
                         run.record = {**rec, "status": "invalid", "problems": [str(exc)]}
+                        run.eval = None
+                    except (ValueError, IndexError, TypeError, KeyError) as exc:
+                        run.record = {**rec, "status": "invalid",
+                                      "problems": [f"avaliação falhou (layout inesperado): {exc!r}"]}
+                        run.eval = None
                 runs.append(run)
     return runs
 
@@ -124,8 +129,9 @@ def check_rows(runs: list[Run]) -> list[dict]:
                          "observed": status, "ok": status == "OK"})
         for c in r.eval.checks:
             rows.append({"environment": r.env, "firmware": r.firmware, "run": r.name, "case": c.case,
-                         "item": c.item, "expected": _fmt(c.expected), "observed": _fmt(c.observed),
-                         "ok": c.ok})
+                         "item": c.item,
+                         "expected": "(sem oráculo)" if c.expected is None else _fmt(c.expected),
+                         "observed": _fmt(c.observed), "ok": c.ok})
     return rows
 
 

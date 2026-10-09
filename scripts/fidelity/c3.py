@@ -149,8 +149,10 @@ def _timing(ev, name, case_id, mine, times):
         ev.metric(name, metric, first(b) - first(a), resolution=RES_LOG)
 
     if "M.REL" in t:
-        enter = min(v[0] for k, v in t.items() if k.endswith("ENTER0"))
-        ev.metric(name, "release_to_first_entry", enter - first("M.REL"), resolution=RES_LOG)
+        released = [x for k, v in t.items() if k.endswith("ENTER0") for x in v if x > first("M.REL")]
+        if released:
+            ev.metric(name, "release_to_first_entry", min(released) - first("M.REL"),
+                      resolution=RES_LOG)
     if case_id in (0x11, 0x14):
         low, high = ("A", "B") if case_id == 0x11 else ("B", "A")
         span(f"{low}.ENTER0", f"{high}.ENTER0", "preempting_entry_after_low_entry")
