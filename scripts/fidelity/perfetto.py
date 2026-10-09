@@ -40,45 +40,56 @@ TID_BRACKET, TID_UART, TID_INFERRED = 10, 11, 12
 
 
 class TraceBuilder:
+    """Acumula eventos de UM processo (run). O importador JSON do Perfetto trata
+    `tid` como identificador GLOBAL (e tid 0 como especial): cada trilha local
+    (0 = MAIN, 1..3 = handlers, 10.. = trilhas auxiliares) vira um tid único
+    pid·1000 + local + 1."""
+
     def __init__(self, pid: int, core_hz: int):
         self.pid = pid
         self.us_per_tick = 1e6 / core_hz
         self.events: list[dict] = []
         self.count = defaultdict(int)
+        self.per_thread = defaultdict(int)     # tid global → slices esperados na trilha
+
+    def tid(self, local: int) -> int:
+        return self.pid * 1000 + local + 1
 
     def us(self, ticks: float) -> float:
         return ticks * self.us_per_tick
 
     def meta(self, kind: str, tid: int, name: str, args=None) -> None:
-        self.events.append({"ph": "M", "pid": self.pid, "tid": tid, "name": kind,
+        self.events.append({"ph": "M", "pid": self.pid, "tid": self.tid(tid), "name": kind,
                             "args": {"name": name, **(args or {})}})
 
     def slice(self, tid: int, name: str, t0: float, dur: float, cat="registrado", args=None):
-        self.events.append({"ph": "X", "pid": self.pid, "tid": tid, "name": name, "cat": cat,
+        self.events.append({"ph": "X", "pid": self.pid, "tid": self.tid(tid), "name": name, "cat": cat,
                             "ts": self.us(t0), "dur": self.us(dur), "args": args or {}})
         self.count["slice"] += 1
+        self.per_thread[self.tid(tid)] += 1
 
     def instant(self, tid: int, name: str, t: float, cat="registrado", args=None):
-        self.events.append({"ph": "i", "s": "t", "pid": self.pid, "tid": tid, "name": name,
+        self.events.append({"ph": "i", "s": "t", "pid": self.pid, "tid": self.tid(tid), "name": name,
                             "cat": cat, "ts": self.us(t), "args": args or {}})
         self.count["slice"] += 1
+        self.per_thread[self.tid(tid)] += 1
 
     def counter(self, name: str, t: float, value: float):
-        self.events.append({"ph": "C", "pid": self.pid, "tid": 0, "name": name,
+        self.events.append({"ph": "C", "pid": self.pid, "tid": self.tid(0), "name": name,
                             "ts": self.us(t), "args": {"ticks": value}})
         self.count["counter"] += 1
 
     def async_span(self, tid: int, name: str, ident: str, t0: float, t1: float, args=None):
         for ph, t in (("b", t0), ("e", t1)):
-            self.events.append({"ph": ph, "pid": self.pid, "tid": tid, "cat": "transito",
+            self.events.append({"ph": ph, "pid": self.pid, "tid": self.tid(tid), "cat": "transito",
                                 "id": ident, "name": name, "ts": self.us(t), "args": args or {}})
         self.count["slice"] += 1
 
     def flow(self, ident: int, tid0: int, t0: float, tid1: int, t1: float, name="atendimento"):
-        self.events.append({"ph": "s", "pid": self.pid, "tid": tid0, "cat": "fluxo", "id": ident,
-                            "name": name, "ts": self.us(t0)})
-        self.events.append({"ph": "f", "bp": "e", "pid": self.pid, "tid": tid1, "cat": "fluxo",
-                            "id": ident, "name": name, "ts": self.us(t1)})
+        self.events.append({"ph": "s", "pid": self.pid, "tid": self.tid(tid0), "cat": "fluxo",
+                            "id": self.pid * 1_000_000 + ident, "name": name, "ts": self.us(t0)})
+        self.events.append({"ph": "f", "bp": "e", "pid": self.pid, "tid": self.tid(tid1), "cat": "fluxo",
+                            "id": self.pid * 1_000_000 + ident, "name": name, "ts": self.us(t1)})
         self.count["flow"] += 1
 
 
@@ -244,10 +255,12 @@ def write_trace(path: Path, builders: list[TraceBuilder], metadata: dict) -> dic
                                 "otherData": metadata}, ensure_ascii=False))
     path.with_suffix(".meta.json").write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
     expected = defaultdict(int)
+    per_thread = {}
     for b in builders:
         for k, v in b.count.items():
             expected[k] += v
-    return dict(expected)
+        per_thread.update({str(t): n for t, n in b.per_thread.items()})
+    return {**expected, "per_thread": per_thread}
 
 
 def median_run(runs):
@@ -303,7 +316,9 @@ def export_campaign(root: Path, runs, out: Path, log=print) -> dict:
 QUERIES = ("select count(*) as n from slice;\n"
            "select count(*) as n from counter;\n"
            "select count(*) as n from flow;\n"
-           "select name, ts, dur from slice where dur > 0 order by ts, name limit 1;\n")
+           "select name, ts, dur from slice where dur > 0 order by ts, name limit 1;\n"
+           "select t.tid as tid, count(*) as n from slice s join thread_track tt on s.track_id = tt.id "
+           "join thread t using(utid) group by t.tid order by t.tid;\n")
 
 
 def validate(path: Path, expected: dict, root: Path) -> dict:
@@ -333,8 +348,14 @@ def validate(path: Path, expected: dict, root: Path) -> dict:
     if first and xs:
         slice_ok = (int(first[1]) == round(xs[0]["ts"] * 1000)
                     and int(first[2]) == round(xs[0]["dur"] * 1000))
-    res.update(imported={"slice": n_slice, "counter": n_counter, "flow": n_flow},
-               first_slice_ns=first, first_slice_matches=slice_ok,
+    per_thread = {}
+    for line in (blocks[4][1:] if len(blocks) > 4 else []):
+        tid, n = line.split(",")
+        per_thread[tid.strip('"')] = int(n)
+    threads_ok = per_thread == expected.get("per_thread", {})
+    res.update(imported={"slice": n_slice, "counter": n_counter, "flow": n_flow,
+                         "per_thread": per_thread},
+               first_slice_ns=first, first_slice_matches=slice_ok, threads_match=threads_ok,
                ok=(n_slice == expected.get("slice", 0) and n_counter == expected.get("counter", 0)
-                   and n_flow == expected.get("flow", 0) and slice_ok))
+                   and n_flow == expected.get("flow", 0) and slice_ok and threads_ok))
     return res

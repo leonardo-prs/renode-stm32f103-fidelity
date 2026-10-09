@@ -233,7 +233,7 @@ def classify(checks: list[dict], stats: list[dict], ref_env: str, sim_env: str,
             temporal.append((metric, agree, err, rel))
             if not agree:
                 temporal_div.append(f"{metric}: {err:+.1f} ({rel:+.1%})")
-        if insufficient or not items:
+        if insufficient or (not items and not temporal):
             cls = 4
         elif func_div:
             cls = 3
@@ -241,10 +241,15 @@ def classify(checks: list[dict], stats: list[dict], ref_env: str, sim_env: str,
             cls = 2
         else:
             cls = 1
+        name = CLASSES[cls]
+        if cls == 1 and not temporal:
+            name = "concordância funcional (sem observável temporal)"
+        elif cls in (1, 2) and not items:
+            name = ("concordância temporal" if cls == 1 else "divergência temporal") + \
+                " (sem observável funcional)"
         rows.append({
             "firmware": fw, "case": case, "group": group_of(fw, case), "class": cls,
-            "class_name": CLASSES[cls] if not (cls == 1 and not temporal) else
-            "concordância funcional (sem observável temporal)",
+            "class_name": name,
             "functional_divergences": "; ".join(func_div),
             "hw_vs_spec": "ok" if not hw_spec_fail else "diverge: " + "; ".join(hw_spec_fail),
             "sim_vs_spec": "ok" if not rn_spec_fail else "diverge: " + "; ".join(rn_spec_fail),
@@ -254,6 +259,7 @@ def classify(checks: list[dict], stats: list[dict], ref_env: str, sim_env: str,
             "temporal_divergences": "; ".join(temporal_div),
             "median_abs_rel_error": median([abs(t[3]) for t in temporal if t[3] == t[3]])
             if temporal else None,
+            "max_abs_rel_error": max([abs(t[3]) for t in temporal if t[3] == t[3]], default=None),
             "reasons": "; ".join(reasons),
         })
     return rows
@@ -279,8 +285,14 @@ def resource_map(cases: list[dict], instr_rows: list[dict]) -> list[dict]:
         elif all(c["temporal_metrics"] == c["temporal_agree"] for c in cs):
             cycle = "concorda"
         else:
+            n_ok = sum(c["temporal_agree"] for c in cs)
             errs = [c["median_abs_rel_error"] for c in cs if c["median_abs_rel_error"] is not None]
-            cycle = f"diverge (erro rel. mediano {median(errs):.1%})" if errs else "diverge"
+            worst = max((c["max_abs_rel_error"] for c in cs if c["max_abs_rel_error"] is not None),
+                        default=None)
+            cycle = f"diverge ({n_temp - n_ok}/{n_temp} métricas"
+            if errs:
+                cycle += f"; erro rel. mediano {median(errs):.1%}, máx. {worst:.1%}"
+            cycle += ")"
         instruction = "—"
         if g.startswith("C1 · tempo de carga: "):
             load = g.split(": ")[1]

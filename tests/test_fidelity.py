@@ -220,5 +220,80 @@ class Campaign(unittest.TestCase):
         self.assertEqual(campaign.max_attempts(10), 13)
 
 
+class Infrastructure(unittest.TestCase):
+    """Falhas de infraestrutura viram TargetError claro e não deixam filhos vivos."""
+
+    def test_busy_port_is_clear_error(self):
+        import socket
+        from fidelity import targets
+        if targets.port_in_use(targets.HW_GDB_PORT):
+            self.skipTest(":3333 já em uso (probe ocupado por outra coleta)")
+        srv = socket.socket()
+        srv.bind(("127.0.0.1", targets.HW_GDB_PORT))
+        srv.listen()
+        try:
+            with tempfile.TemporaryDirectory() as d, self.assertRaises(targets.TargetError) as cm:
+                with targets.Bench(Path(d)):
+                    pass
+            self.assertIn("já está em uso", str(cm.exception))
+        finally:
+            srv.close()
+
+    def test_openocd_failure_is_clear_error(self):
+        from unittest import mock
+        from fidelity import targets
+        if targets.port_in_use(targets.HW_GDB_PORT):
+            self.skipTest(":3333 já em uso")
+        real = targets.subprocess.Popen
+
+        def bogus(argv, *a, **k):
+            argv = ["interface/nao-existe.cfg" if x == "interface/stlink.cfg" else x for x in argv]
+            return real(argv, *a, **k)
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(targets.subprocess, "Popen", bogus):
+            with self.assertRaises(targets.TargetError):
+                with targets.Bench(Path(d)):
+                    pass
+
+    def test_renode_timeout_kills_child(self):
+        import shutil
+        import subprocess
+        from fidelity import targets
+        elf = ROOT / "build" / "c3" / "firmware.elf"
+        if not shutil.which("renode") or not elf.exists():
+            self.skipTest("renode/ELF ausentes")
+        with tempfile.TemporaryDirectory() as d:
+            with self.assertRaises(targets.TargetError):
+                targets.run_renode(elf, Path(d), timeout_s=0.5, port_base=3500)
+            out = subprocess.run(["ps", "-eo", "args"], capture_output=True, text=True).stdout
+            self.assertNotIn("$gdb_port=35", out)
+
+
+class CampaignRetry(unittest.TestCase):
+    def test_timeouts_are_recorded_bounded_and_incomplete(self):
+        """Run que nunca chega a fid_complete: tentativa guardada como falha de
+        infraestrutura, tentativas limitadas, campanha termina com código 3."""
+        import argparse
+        import dataclasses
+        import shutil
+        from unittest import mock
+        from fidelity import firmwares
+        if not shutil.which("renode") or not (ROOT / "build" / "c3" / "firmware.elf").exists():
+            self.skipTest("renode/ELF ausentes")
+        slow = dataclasses.replace(firmwares.FIRMWARES["c3"], timeout_s=0.3)
+        with tempfile.TemporaryDirectory() as d, \
+                mock.patch.dict(firmwares.FIRMWARES, {"c3": slow}), \
+                mock.patch.dict(campaign.FIRMWARES, {"c3": slow}), \
+                mock.patch.object(campaign, "DATA", Path(d)):
+            args = argparse.Namespace(name="retry", board="nenhuma", board_note="", reps=2, pilot=True,
+                                      firmwares=["c3"], envs=["renode"], resume=False,
+                                      calibration=False, instr=False, jobs=2)
+            code = campaign.run_campaign(args)
+            self.assertEqual(code, campaign.EXIT_INCOMPLETE)
+            recs = [json.loads(p.read_text()) for p in (Path(d) / "retry" / "renode-nominal" / "c3").glob("run-*/run.json")]
+            self.assertEqual(len(recs), campaign.max_attempts(2))
+            self.assertTrue(all(r["status"] == "infra_error" for r in recs))
+            self.assertTrue(all("GDB excedeu" in r["problems"][0] for r in recs))
+
+
 if __name__ == "__main__":
     unittest.main()

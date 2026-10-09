@@ -103,6 +103,7 @@ class Lock:
         try:
             fcntl.flock(self.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
+            self.fd.close()
             raise CampaignError(f"{self.what} já em uso por outro processo ({self.path})")
         self.fd.write(f"{utc()}\n")
         self.fd.flush()
@@ -492,7 +493,10 @@ def run_campaign(args) -> int:
                 f"RAM {builds[fw.name]['ram_bytes']} B")
         plan = freeze_plan(paths, make_plan(args, versions, builds, vendor), args.resume)
         if "hw" in args.envs:
-            run_hw(paths, plan, fws, log)
+            try:
+                run_hw(paths, plan, fws, log)
+            except TargetError as exc:
+                log(f"BANCADA INDISPONÍVEL: {exc} — etapa da placa incompleta; seguindo com o resto")
         if "renode" in args.envs:
             run_renode(paths, plan, fws, "renode-nominal", targets.NOMINAL_MIPS, args.jobs, log)
         if args.instr and "c1-timing" in args.firmwares:

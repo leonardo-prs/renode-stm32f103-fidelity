@@ -162,7 +162,11 @@ class Bench:
              "-c", "bindto 127.0.0.1", "-c", f"gdb_port {HW_GDB_PORT}",
              "-c", "telnet_port disabled", "-c", "tcl_port disabled"],
             stdout=self._log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, cwd=ROOT)
-        wait_port(HW_GDB_PORT, self.child, 20, "OpenOCD")
+        try:
+            wait_port(HW_GDB_PORT, self.child, 20, "OpenOCD")
+        except TargetError:
+            self.__exit__()
+            raise
         return self
 
     def __exit__(self, *exc) -> None:

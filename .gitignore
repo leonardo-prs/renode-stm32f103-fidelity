@@ -24,12 +24,9 @@ CMakeUserPresets.json
 compile_commands.json
 
 # ── IDE / editor ──
-# .vscode/ É versionada: config VS Code (extensions.json da suíte Marketplace
-# verificada em 2026-10-05 + settings/tasks/launch portados de .theia/).
-# Workspace pessoal com preferências visuais fica local e não é versionado.
+# .vscode/ é versionada (extensions/settings/tasks/launch). Workspace pessoal
+# com preferências visuais fica local.
 /*.code-workspace
-# .theia/ (Theia abandonado em 2026-10-05) permanece no disco até a
-# refatoração fina de tasks/launch, depois é removida — AGENTS.md § Pendente.
 .idea/
 *.swp
 *.swo
@@ -43,16 +40,11 @@ Thumbs.db
 
 # ── Logs e temporários ──
 *.log
-#tmp/
-# PDFs de referência (>1 MB, limite do GitHub; ficam só no disco)
-tmp/research/src/*.pdf
+# tmp/ é versionado só pela diretiva da entrega (tmp/REQUISITOS-ENTREGA-FINAL-TCC.md).
 
-# ── Datasets de coleta (bins brutos GDB + CSVs; reproduzíveis via rerun,
-#     mas caros em wall-clock — nunca commitar, nunca em /tmp volátil) ──
+# ── Dados das campanhas (snapshots, logs, análise) — grandes e por máquina;
+#     nunca commitar, nunca em /tmp volátil. data/exploratory/ = coletas antigas.
 /data/
-
-# ── Ruído do CubeMX (regen) — nunca commitar ──
-**/Backup/
 *.bak
 
 # ── Symlink local p/ o TCC no Windows (específico da máquina) ──

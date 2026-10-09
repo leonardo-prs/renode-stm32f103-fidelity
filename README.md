@@ -262,6 +262,20 @@ resultados da placa ou do Renode (`scripts/fidelity/c1.py` … `c4.py`):
   n = 16, 64, 256 (linearidade e custo fixo), 4 repetições com entradas
   idênticas (rep 0 = primeira após o reset). O resultado de toda execução é
   conferido.
+  Corpo do laço de cada carga conferido no ELF (`arm-none-eabi-objdump -d`,
+  GCC 15.3 `-O2`; o traço por stepi confirma o caminho dinâmico):
+
+  | Carga | Laço interno (por iteração) |
+  |---|---|
+  | `empty` | `EORS; BX LR` (sem laço) |
+  | `alu` | `EOR.W lsl#13; ADDS; EOR.W lsr#17; CMP; EOR.W lsl#5; BNE` (6) |
+  | `mul` | `MLA; ADDS; CMP; BNE` (4) |
+  | `div_small` / `div_large` | `LDR [r2],#4; UDIV; CMP; ADD; BNE` (5) — mesmas instruções, operandos diferentes |
+  | `sram_copy` | `LDR [r2],#4; ADDS; CMP; STR [r1],#4; BNE` (5) |
+  | `flash_sum` | `AND #63; LDR [flash]; ADDS; CMP; ADD; BNE` (6); o GCC propagou T[0] como imediato, os demais vêm da flash |
+  | `branch` | `LDR; TST #1; BNE` → (`CMP; ADD; BEQ`) ou (`TST #2; ITE; EORNE/SUBEQ; CMP; BNE`) |
+  | `crc` | por byte `LDRB; EORS; MOVS #8` + por bit `SBFX; ANDS; SUBS; EOR lsr#1; BNE` (5) |
+
 - **C2**: RM0008 §7.2 (TIMxCLK = PCLK se APB /1, senão 2×PCLK), §15.3–15.4
   (PSC sempre bufferizado; ARR bufferizado só com ARPE; UG reinicia CNT e,
   com URS = 0, seta UIF), PM0056 §4.3 (pending registrado até entrar no
@@ -345,7 +359,28 @@ slices, counters e flows; tempo e duração de um slice), em
 
 ## 10. Pendência: campanha final na placa genuína
 
-<!-- PENDENCIA -->
+**A validação final em STM32F103 genuíno NÃO foi realizada nesta entrega.**
+A única placa disponível durante o desenvolvimento é, muito provavelmente, um
+compatível/clone: UID de 96 bits todo zero, F_SIZE = 128 KiB num "C8",
+CPUID r2p0, USART que guarda ≥ 8 bytes sem sinalizar ORE e ~110 ciclos extras
+na primeira execução de cada trecho de código em flash. Os dados dessa placa
+(`pilot-clone*`, `prelim-clone*`) servem para desenvolver e diagnosticar e
+têm identidade própria; **não substituem** a campanha final.
+
+Com a placa genuína do laboratório na bancada (fio PA9→PA10, ST-Link):
+
+```bash
+scripts/campaign.sh --pilot --name piloto-genuino-01 --board "<etiqueta da placa>" \
+    --board-note "<marcação do chip>"            # ~45 min: confere dispersão e duração
+scripts/campaign.sh --name final-genuino-01 --board "<etiqueta da placa>" \
+    --board-note "<marcação do chip>" --calibration   # 50 runs por firmware e ambiente
+```
+
+O resultado (`data/fidelity/final-genuino-01/analysis/report.md`) é a
+entrada para a monografia. Se a placa genuína tiver outra revisão de núcleo,
+outra densidade de flash ou outro comportamento de USART, isso aparece na
+identificação e nas colunas "placa × especificação"; nenhum oráculo depende
+dos resultados da placa atual.
 
 ## 11. Estrutura
 

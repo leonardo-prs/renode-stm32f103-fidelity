@@ -12,6 +12,8 @@ ENV = {"hw": "placa", "renode-nominal": "Renode 8 MIPS", "renode-calibrated": "R
 def _table(headers: list[str], rows: list[list]) -> str:
     def cell(v):
         if isinstance(v, float):
+            if v == int(v) or abs(v) >= 1000:
+                return f"{v:.0f}"
             return f"{v:.4g}"
         return str(v).replace("|", "\\|").replace("\n", " ") if v is not None else "—"
     out = ["| " + " | ".join(headers) + " |", "|" + "---|" * len(headers)]

@@ -86,8 +86,8 @@ def evaluate(snap) -> RunEval:
         ratio = timclk(core_hz, div) / core_hz              # contagens de TIMCLK por tick
         tick_per_count = (psc + 1) / ratio
         code = PPRE_CODE[div]
-        ev.check(name, "RCC_CFGR.PPRE1/PPRE2 lido de volta", (code << 8) | (code << 11),
-                 cfgr & 0x3F00)
+        ev.check(name, "RCC_CFGR.PPRE1/PPRE2 lido de volta", f"0x{(code << 8) | (code << 11):04x}",
+                 f"0x{cfgr & 0x3F00:04x}")
         data = w[6:]
         # Uma volta do laço de polling inclui uma leitura no APB: com o
         # barramento dividido por N ela fica até ~N vezes mais lenta.
