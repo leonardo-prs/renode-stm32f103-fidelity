@@ -1,0 +1,36 @@
+/**
+ * @file    src/c1/table.h
+ * @brief   Tabela constante em flash (.rodata) usada pelos firmwares C1.
+ *
+ * Conteúdo: T[i] = (i * 0x9E3779B9) XOR 0xA5A5A5A5 (módulo 2^32), i = 0..63.
+ * O oráculo do host recalcula pela fórmula; ele não lê esta lista. As
+ * leituras no firmware passam por ponteiro `const volatile`, para que cada
+ * acesso seja um LDR real da flash (sem propagação de constantes).
+ */
+#ifndef C1_TABLE_H
+#define C1_TABLE_H
+
+#include <stdint.h>
+
+#define C1_TABLE_WORDS 64U
+
+static const uint32_t C1_TABLE[C1_TABLE_WORDS] = {
+    0xA5A5A5A5U, 0x3B92DC1CU, 0x99CB56D7U, 0x7F03C88EU,
+    0xDD784341U, 0xB2B0C538U, 0x10E97FF3U, 0xF621F1AAU,
+    0x541E686DU, 0x2A56E224U, 0x8B8F649FU, 0x69C79F56U,
+    0xCF3C1109U, 0xAD748BC0U, 0x02AD0DBBU, 0xE0E58472U,
+    0x46D23E35U, 0x240AB0ECU, 0xBA432AA7U, 0x1BBBAD1EU,
+    0xF9F027D1U, 0x5F295988U, 0x3D61D043U, 0x935E4A3AU,
+    0x7096CCFDU, 0xD6CF46B4U, 0xB407F96FU, 0x0A7C7326U,
+    0xEBB4F599U, 0x49ED6C50U, 0x2F25E60BU, 0x8D1218C2U,
+    0x634A9285U, 0xC083157CU, 0xA6FB8F37U, 0x043001EEU,
+    0x9A68BBA1U, 0x7BA13218U, 0xD999B4D3U, 0xBFD62E8AU,
+    0x1D0EA14DU, 0xF347DB04U, 0x50BC5DFFU, 0x36F4D7B6U,
+    0x942D4E69U, 0x6A65C020U, 0xC8527A9BU, 0xA98AFD52U,
+    0x0FC37715U, 0xED3BE9CCU, 0x43706387U, 0x20A89A7EU,
+    0x86E11C31U, 0x64D996E8U, 0xFA1608A3U, 0x584E831AU,
+    0x398705DDU, 0x9FFFBF94U, 0x7D34364FU, 0xD36CA806U,
+    0xB0A522F9U, 0x169DA4B0U, 0xF4CADF6BU, 0x4A035122U,
+};
+
+#endif /* C1_TABLE_H */

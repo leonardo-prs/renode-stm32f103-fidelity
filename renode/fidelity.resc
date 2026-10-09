@@ -1,0 +1,32 @@
+# renode/fidelity.resc — script ÚNICO para todos os firmwares (C1–C4).
+#
+# Plataforma, versão, quantum e loopback são idênticos em todos os cenários;
+# só o ELF muda. O coletor (scripts/fidelity) define as variáveis antes de
+# incluir este arquivo; os padrões abaixo servem para uso manual/debug:
+#
+#   renode -e '$elf=@build/c2/firmware.elf; i @renode/fidelity.resc'
+#
+# Política temporal (campanha principal, ver README):
+#   - PerformanceInMips 8: hipótese nominal de 1 instrução por ciclo a
+#     HCLK = 8 MHz. Não é modelo ciclo-preciso. Calibração só no C1-timing.
+#   - quantum global 1 µs (8 instruções a 8 MIPS).
+#   - USART1 ligada a um hub em loopback (equivale ao fio PA9→PA10 da
+#     bancada). AutoUpdateDelay fica DESLIGADO (padrão): o receptor do
+#     STM32_UART já espaça a entrega de cada caractere pelo tempo de um
+#     quadro; ligar o atraso do hub somaria outro quadro (dupla serialização).
+
+$elf ?= @build/c1-functional/firmware.elf
+$gdb_port ?= 3334
+$mips ?= 8
+$quantum ?= "0.000001"
+
+mach create "stm32f103"
+machine LoadPlatformDescription @renode/stm32f103_hsi8.repl
+emulation SetGlobalQuantum $quantum
+sysbus.cpu PerformanceInMips $mips
+
+emulation CreateUARTHub "loopback" true
+connector Connect sysbus.usart1 loopback
+
+sysbus LoadELF $elf
+machine StartGdbServer $gdb_port

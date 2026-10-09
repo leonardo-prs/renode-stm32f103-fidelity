@@ -1,40 +1,32 @@
 /**
  * @file    lib/board.h
- * @brief   Init comum a TODOS os cenarios (STM32F103C8T6 Blue Pill, HSI 8 MHz).
+ * @brief   Inicialização comum a todos os firmwares (STM32F103, HSI 8 MHz).
  *
- * Substitui o par Core/Inc/main.h + SystemClock_Config() do CubeMX.
- * Contem apenas o que todo cenario precisa: CMSIS/LL basicos, pino do LED
- * (constante, nao inicializado aqui) e board_init() (NVIC grouping + clock).
- * Nenhum periferico e ligado por board_init(); ver lib/periph.h.
+ * board_init() deixa: SYSCLK = HCLK = HSI 8 MHz, AHB/APB1/APB2 = /1, flash
+ * com 0 wait states, sem HSE e sem PLL, NVIC com PRIGROUP padrão do
+ * cenário. Nenhum periférico é ligado aqui: cada firmware liga o que usa.
  */
 #ifndef BOARD_H
 #define BOARD_H
 
-#include "stm32f1xx.h"              /* CMSIS device: registradores, DWT, NVIC */
-#include "stm32f1xx_ll_bus.h"       /* LL_APBx_GRP1_EnableClock */
+#include "stm32f1xx.h"
+#include "stm32f1xx_ll_bus.h"
 #include "stm32f1xx_ll_cortex.h"
 #include "stm32f1xx_ll_gpio.h"
 #include "stm32f1xx_ll_rcc.h"
-#include "stm32f1xx_ll_system.h"    /* LL_FLASH_SetLatency */
-#include "stm32f1xx_ll_utils.h"     /* LL_SetSystemCoreClock */
+#include "stm32f1xx_ll_system.h"
+#include "stm32f1xx_ll_utils.h"
 
-/* LED onboard: PC13, ativo-baixo. */
-#define LED_BUILTIN_Pin         LL_GPIO_PIN_13
-#define LED_BUILTIN_GPIO_Port   GPIOC
+#define BOARD_HCLK_HZ 8000000U      /* HSI nominal (RM0008 §7.2.1) */
 
-/* 4 bits de preempcao, 0 de subprioridade (mesmo valor usado pelo CubeMX). */
-#ifndef NVIC_PRIORITYGROUP_4
-#define NVIC_PRIORITYGROUP_4    ((uint32_t)0x00000003)
-#endif
-
-#define BOARD_SYSCLK_HZ         8000000U    /* HSI 8 MHz, sem PLL */
+/** Clock HSI 8 MHz, prescalers /1, flash 0 WS. */
+void board_init(void);
 
 /**
- * @brief Init minimo comum: NVIC PRIORITYGROUP_4 + SYSCLK = HSI 8 MHz.
- *
- * Nao habilita clock de nenhum periferico, nao liga SysTick, nao habilita
- * nenhuma IRQ. Cada cenario liga explicitamente o que usa.
+ * Troca os prescalers APB1/APB2 (valores LL_RCC_APB1_DIV_x / APB2_DIV_x).
+ * Só o C2 usa, para os contrastes da árvore de clock dos timers.
+ * Devolve RCC->CFGR lido de volta (registra o que o "hardware" aceitou).
  */
-void board_init(void);
+uint32_t board_set_apb(uint32_t apb1_div, uint32_t apb2_div);
 
 #endif /* BOARD_H */
