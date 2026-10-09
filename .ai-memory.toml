@@ -1,0 +1,3 @@
+# ai-memory: o repositório do firmware compartilha a memória do TCC.
+workspace = "default"
+project = "tcc"

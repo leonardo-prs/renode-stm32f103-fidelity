@@ -24,6 +24,11 @@ terceiros); este arquivo só orienta agentes.
 - **Fica em `tcc/` (Windows, fora do Nix):** `docs/` (justificativa, plano),
   `context/` (bibliography, renode-docs, technical-literature), `contexto/`,
   `referencias/`, `latex/`, `normas/`, `_arquivo/`, monografia.
+- **Referências (Zotero, coleção do TCC):** `tcc/zotero/` —
+  `references.bib` (citekeys) e `artefacts/<citekey>.pdf` + `<citekey>.md`.
+  Todo PDF da coleção tem o `.md` com o texto **na íntegra** (OCR via
+  `ocr2md`; `sync_ocr2md.py`). Para ler/citar uma referência, preferir o
+  `.md`; usar o PDF só para conferir figuras/tabelas.
 - `docs/` e `context/` foram **removidos deste repo** em 2025-08-31 após port verificado (hashes `b60a48cd` / `629a59c1`, `12M` idêntico, 44 arquivos).
 
 ## Estrutura e fluxo (entrega final)
@@ -52,10 +57,10 @@ terceiros); este arquivo só orienta agentes.
   nunca `pkill`/kill global). Renode em portas ≥ 3336 (debug: 3334).
 - Renode com `-e` + `--port N` só executa quando um cliente telnet conecta →
   usar `--port -1`; em erro de comando o Renode fica parado (sempre timeout).
-- Placa atual: provável clone (UID zero, CPUID r2p0, F_SIZE 128 KiB, USART
-  bufferiza ≥ 8 bytes sem ORE, ~110 ciclos extras na 1ª execução de cada
-  trecho de flash). Dados dela são preliminares; a campanha final deve rodar
-  na placa genuína.
+- Placa do TCC (única): STM32F103C8T6 ST original (marcação `991KA 93 /
+  MYS 809`), CPUID 0x411FC231 (Cortex-M3 r1p1), IDCODE 0x20036410 (DEV 0x410,
+  rev Y/X), ROM table JEP106 0x20 (ST), UID `0a0b0200 30301624 32303030`,
+  F_SIZE informa 128 KiB (atípico p/ C8; irrelevante — binários < 64 KiB).
 - `tests/` só existiu durante o desenvolvimento (resultados no README); não
   faz parte da árvore final.
 - Sem `printf`/UART fora do C4; variáveis compartilhadas com ISR `volatile` e
