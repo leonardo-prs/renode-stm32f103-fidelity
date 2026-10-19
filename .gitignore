@@ -40,8 +40,7 @@ Thumbs.db
 
 # ── Logs e temporários ──
 *.log
-# tmp/ é do autor (diretiva da entrega, notas); PDFs de referência ficam só no disco.
-tmp/research/src/*.pdf
+tmp/
 
 # ── Dados das campanhas (snapshots, logs, análise) — grandes e por máquina;
 #     nunca commitar, nunca em /tmp volátil. data/exploratory/ = coletas antigas.
@@ -49,7 +48,7 @@ tmp/research/src/*.pdf
 *.bak
 
 # ── Symlink local p/ o TCC no Windows (específico da máquina) ──
-/tcc
+# /tcc
 
 # ── Deepwork state (git-local, legível pelo opencode) ──
 .slim/deepwork/

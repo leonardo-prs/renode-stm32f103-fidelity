@@ -1,5 +1,0 @@
-stm32-renode-fidelity — nix:default (toolchain + renode, sem cubemx)
-  cmake -B build/sandbox -DSCENARIO=SANDBOX -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/gcc-arm-none-eabi.cmake
-  ninja -C build/sandbox          # compilar
-  renode renode/sandbox.resc      # simular
-  openocd -f interface/stlink.cfg -f target/stm32f1x.cfg -c "program build/sandbox/firmware.elf verify reset exit"  # flash
