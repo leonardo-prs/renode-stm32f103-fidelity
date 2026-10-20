@@ -79,3 +79,46 @@ def hx(value: int) -> str:
 def imm_re(value: int) -> str:
     """Regex do imediato como o objdump imprime (#N; ; 0x... opcional)."""
     return rf"#{value}\b"
+
+
+def ins(text: str, width: int, k: int = 0) -> Insn:
+    """Insn a partir do texto exato que o objdump imprime ("ands.w r2, r2, r3, lsl #1")."""
+    import re
+    mnem, _, ops = text.partition(" ")
+    return Insn(re.escape(mnem), width, re.escape(ops.strip()) if ops else "", k)
+
+
+# ───────────────────────────── faltas ─────────────────────────────
+# Campos do registro de faltas (fault.S): cfsr hfsr mmfar bfar pc xpsr
+# exc_return landing ipsr count. Valores esperados podem ser um nome de
+# símbolo do ELF (str, opcionalmente "sym+N"), resolvido na avaliação.
+
+T_BIT = 1 << 24
+XPSR_MASK = 0xFF00_FFFF      # NZCVQ, IT[1:0], T, IT[7:2], bit 9 e exceção
+EXC_THREAD_MSP, EXC_THREAD_PSP, EXC_HANDLER = 0xFFFF_FFF9, 0xFFFF_FFFD, 0xFFFF_FFF1
+IPSR_HARD, IPSR_MEM, IPSR_BUS, IPSR_USAGE, IPSR_SVC = 3, 4, 5, 6, 11
+
+# CFSR (PM0056 §4.4.10): MMFSR [7:0], BFSR [15:8], UFSR [31:16].
+IACCVIOL, MMARVALID = 1 << 0, 1 << 7
+PRECISERR, BFARVALID = 1 << 9, 1 << 15
+UNDEFINSTR, INVSTATE, INVPC, NOCP = 1 << 16, 1 << 17, 1 << 18, 1 << 19
+UNALIGNED, DIVBYZERO = 1 << 24, 1 << 25
+HFSR_FORCED = 1 << 30
+
+
+def fault(cfsr: int, pc, *, apsr: int = 0, hfsr: int = 0, ipsr: int = IPSR_USAGE,
+          xpsr_extra: int = T_BIT, exc_return: int = EXC_THREAD_MSP,
+          mmfar=None, bfar=None, xpsr=None) -> dict:
+    """Falta com aterrissagem: o tratador consumiu a aterrissagem (0)."""
+    return {"cfsr": cfsr, "hfsr": hfsr,
+            "mmfar": mmfar if cfsr & MMARVALID else None,
+            "bfar": bfar if cfsr & BFARVALID else None,
+            "pc": pc,
+            "xpsr": xpsr if xpsr is not None else ((apsr & APSR_MASK) | xpsr_extra, XPSR_MASK),
+            "exc_return": exc_return, "landing": 0, "ipsr": ipsr, "count": 1}
+
+
+def no_fault(landing) -> dict:
+    """Nenhuma falta: registro zerado, aterrissagem ainda publicada (não usada)."""
+    return {"cfsr": 0, "hfsr": 0, "mmfar": 0, "bfar": 0, "pc": 0, "xpsr": 0,
+            "exc_return": 0, "landing": landing, "ipsr": 0, "count": 0}

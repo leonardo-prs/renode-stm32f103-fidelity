@@ -104,3 +104,61 @@ X \name
     pop     {r4, pc}
 ENDF \name
 .endm
+
+@ VACC: in = {Rn, Rm, Ra, APSR}   out = {Rd, APSR}.   Rn → r2, Rm → r3, Ra → r4.
+.macro VACC name, insn:vararg
+FUNC \name
+    push    {r4, lr}
+    ldr     r2, [r0, #12]
+    msr     APSR_nzcvq, r2
+    ldr     r2, [r0, #0]
+    ldr     r3, [r0, #4]
+    ldr     r4, [r0, #8]
+X \name
+    \insn
+    mrs     r4, APSR
+    str     r2, [r1, #0]
+    str     r4, [r1, #4]
+    pop     {r4, pc}
+ENDF \name
+.endm
+
+@ VLONG: in = {Rn, Rm, RdLo, RdHi, APSR}   out = {RdLo, RdHi, APSR}.
+@ Rn → r2, Rm → r3, RdLo → r4, RdHi → r5 (acumulador inicial de UMLAL/SMLAL).
+.macro VLONG name, insn:vararg
+FUNC \name
+    push    {r4, r5, r6, lr}
+    ldr     r2, [r0, #16]
+    msr     APSR_nzcvq, r2
+    ldr     r2, [r0, #0]
+    ldr     r3, [r0, #4]
+    ldr     r4, [r0, #8]
+    ldr     r5, [r0, #12]
+X \name
+    \insn
+    mrs     r6, APSR
+    str     r4, [r1, #0]
+    str     r5, [r1, #4]
+    str     r6, [r1, #8]
+    pop     {r4, r5, r6, pc}
+ENDF \name
+.endm
+
+@ LAND t1, t2, alvo: publica a aterrissagem (endereço de instrução do rótulo)
+@ para "falta e retoma". O tratador força o bit 0 = 0 ao copiá-la para o PC.
+.macro LAND t1, t2, target
+    ldr     \t1, =c1_fault
+    adr.w   \t2, \target
+    str     \t2, [\t1, #28]
+.endm
+
+@ CCR_SET / CCR_CLR bits: altera o CCR (precondição declarada do caso; o
+@ main restaura o CCR de referência depois de cada vetor).
+.macro CCR_SET t1, t2, bits
+    ldr     \t1, =0xE000ED14
+    ldr     \t2, [\t1]
+    orr     \t2, \t2, #\bits
+    str     \t2, [\t1]
+    dsb
+    isb
+.endm

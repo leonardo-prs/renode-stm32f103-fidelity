@@ -46,6 +46,10 @@ def cmd_run(args) -> int:
     else:
         col = targets.run_renode(preset.elf, out, host, args.timeout, profile=args.env)
     snap = abi.decode(col.snapshot)
+    if args.preset == 'c1-func':
+        from . import disasm
+        for p in disasm.gate(preset.name, preset.elf):
+            print(f'  GATE: {p}')
     problems = abi.run_checks(snap, preset.preset_id, g.catalog_hash, host.nonce, host.batch)
     print(f"estado {snap.state} {snap.errors}; {len(snap.records)} registros, "
           f"{snap.header['word_count']} palavras; observer {snap.header['observer_ticks']}; "
@@ -53,7 +57,9 @@ def cmd_run(args) -> int:
     for p in problems:
         print(f"  PROBLEMA: {p}")
     if preset.name == "c1-func" and args.batch < len(g.batches):
-        results, probs = evaluate.functional(snap, g.forms, g.batches[args.batch], args.trace)
+        from . import disasm
+        syms = disasm.symbols(preset.elf)
+        results, probs = evaluate.functional(snap, g.forms, g.batches[args.batch], syms, args.trace)
         for p in probs:
             print(f"  PROBLEMA: {p}")
         bad = [r for r in results if not r.ok]

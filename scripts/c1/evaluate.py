@@ -33,16 +33,28 @@ class VectorResult:
         return all(self.field_ok(k) is not False for k in range(len(self.observed)))
 
 
-def expected_fields(form: Form, inputs) -> tuple:
+def resolve(value, syms: dict[str, int]):
+    """Valor esperado simbólico ("rótulo" ou "rótulo+N") → endereço do ELF."""
+    if isinstance(value, str):
+        name, _, off = value.partition("+")
+        if name not in syms:
+            raise ValueError(f"símbolo {name} ausente no ELF")
+        return (syms[name] & ~1) + int(off or 0)
+    if isinstance(value, tuple) and isinstance(value[0], str):
+        return (resolve(value[0], syms), value[1])
+    return value
+
+
+def expected_fields(form: Form, inputs, syms: dict[str, int]) -> tuple:
     exp = form.oracle(inputs)
     unknown = set(exp) - set(form.fields)
     if unknown:
         raise ValueError(f"{form.name}: oráculo devolveu campos inexistentes {unknown}")
-    return tuple(exp.get(name) for name in form.fields)
+    return tuple(resolve(exp.get(name), syms) for name in form.fields)
 
 
-def functional(snap: abi.Snapshot, forms: list[Form], batch: Batch, trace: bool = False
-               ) -> tuple[list[VectorResult], list[str]]:
+def functional(snap: abi.Snapshot, forms: list[Form], batch: Batch, syms: dict[str, int],
+               trace: bool = False) -> tuple[list[VectorResult], list[str]]:
     """(vetores, problemas de instrumento) de um run do c1-func."""
     problems = []
     results: list[VectorResult] = []
@@ -63,5 +75,5 @@ def functional(snap: abi.Snapshot, forms: list[Form], batch: Batch, trace: bool 
             inputs = form.vector(index)
             obs = rec.words[k * per:(k + 1) * per]
             results.append(VectorResult(form.name, index, inputs, obs,
-                                        expected_fields(form, inputs)))
+                                        expected_fields(form, inputs, syms)))
     return results, problems

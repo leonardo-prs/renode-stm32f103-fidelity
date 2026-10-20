@@ -66,12 +66,12 @@ FORMS = [
     vbin("FA-04.t2", "FA-04", "v_fa04_t2", _sbcs, Insn("sbcs.w", 32, r"r2, r2, r3"),
          flags=FLAGS_C, source=f"{SRC}[§A7.7.125]"),
     vun("FA-05.i1", "FA-05", "v_fa05_i1", lambda x, ap: _rsbs(x, 0, ap),
-        Insn("rsbs", 16, r"r2, r2, #0"), source=f"{SRC}[§A7.7.119]",
+        Insn("negs", 16, r"r2, r2"), source=f"{SRC}[§A7.7.119]",
         note="NEGS (T1 só admite #0)"),
     vun("FA-05.i2.0", "FA-05", "v_fa05_i2_0", lambda x, ap: _rsbs(x, 0, ap),
-        Insn("rsb.w|rsbs.w", 32, r"r2, r2, #0"), source=f"{SRC}[§A7.7.119]"),
+        Insn("rsbs", 32, r"r2, r2, #0"), source=f"{SRC}[§A7.7.119]"),
     *[vun(f"FA-05.i2.{hx(c)}", "FA-05", f"v_fa05_i2_{hx(c)}",
-          lambda x, ap, c=c: _rsbs(x, c, ap), Insn("rsbs.w", 32, r"r2, r2, " + imm_re(c)),
+          lambda x, ap, c=c: _rsbs(x, c, ap), Insn("rsbs", 32, r"r2, r2, " + imm_re(c)),
           source=f"{SRC}[§A7.7.119]") for c in MOD_CONSTS],
     vbin("FA-05.r", "FA-05", "v_fa05_r", _rsbs, Insn("rsbs", 32, r"r2, r2, r3"),
          source=f"{SRC}[§A7.7.120]", note="RSB registrador só tem forma de 32 bits"),
@@ -143,4 +143,5 @@ FORMS += [_fa09_add, _fa09_sub]
 # FA-10: Q não é tocada por soma/subtração. Verificado nos próprios vetores de
 # FA-01..FA-05 (as flags iniciais incluem Q = 0 e Q = 1 e o oráculo exige Q
 # final = Q inicial); o relatório deriva o veredito do bit Q desses vetores.
-DERIVED = {"FA-10": (("FA-01", "FA-02", "FA-03", "FA-04", "FA-05"), "apsr", 1 << arm.Q_BIT)}
+DERIVED = {"FA-10": {"cases": ("FA-01", "FA-02", "FA-03", "FA-04", "FA-05"), "field": "apsr",
+                     "mask": 1 << arm.Q_BIT, "source": f"{SRC}[§A2.3.2]"}}
