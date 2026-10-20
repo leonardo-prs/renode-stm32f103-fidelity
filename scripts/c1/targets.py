@@ -141,16 +141,31 @@ def run_command(argv: list[str], *, timeout_s: float = 30, check: bool = True,
                     stream.close()
 
 
-def run_gdb(elf: Path, script: str, log: Path, timeout_s: float) -> str:
+def run_gdb(elf: Path, script: str, log: Path, timeout_s: float, watch=None) -> str:
+    """Roda um script GDB em lote. `watch()` (opcional) é consultado a cada
+    0,5 s; se devolver uma exceção, o GDB é encerrado e ela é levantada —
+    assim um Renode que abortou a máquina não custa o timeout inteiro."""
     script_path = log.with_suffix(".gdb")
     script_path.write_text(script)
     argv = ["arm-none-eabi-gdb", "--nx", "--batch", str(elf), "-x", str(script_path)]
     with log.open("w") as out:
-        result = run_command(argv, stdout=out, stderr=subprocess.STDOUT,
-                             timeout_s=timeout_s, check=False)
+        child = subprocess.Popen(argv, cwd=ROOT, stdout=out, stderr=subprocess.STDOUT, text=True,
+                                 stdin=subprocess.DEVNULL, start_new_session=True)
+        deadline = time.monotonic() + timeout_s
+        try:
+            while child.poll() is None:
+                if time.monotonic() > deadline:
+                    raise TargetError(f"arm-none-eabi-gdb excedeu {timeout_s:g} s")
+                if watch is not None:
+                    exc = watch()
+                    if exc is not None:
+                        raise exc
+                time.sleep(0.5)
+        finally:
+            stop_child(child)
     text = log.read_text(errors="replace")
-    if result.returncode != 0:
-        raise TargetError(f"GDB saiu com código {result.returncode}: {text[-300:]}")
+    if child.returncode != 0:
+        raise TargetError(f"GDB saiu com código {child.returncode}: {text[-300:]}")
     return text
 
 
@@ -372,6 +387,24 @@ class RenodeSession:
     def log_text(self) -> str:
         return (self.run_dir / "renode.log").read_text(errors="replace")
 
+    def abort_watch(self, grace_s: float = 3.0):
+        """Para run_gdb: SimulatorAbort assim que o log mostrar que a máquina
+        abortou, ou que o núcleo passou a executar em 0x0 (depois de uma
+        carência, para não confundir com o estado inicial)."""
+        t0 = time.monotonic()
+
+        def check():
+            log = self.log_text()
+            abort = re.search(r"CPU abort \[PC=(0x[0-9A-Fa-f]+)\]: (.*)", log)
+            if abort:
+                return SimulatorAbort(f"Renode abortou a máquina em PC={abort[1]}: {abort[2].strip()}",
+                                      int(abort[1], 16))
+            if time.monotonic() - t0 > grace_s and log.count("[cpu: 0x0]") >= 8:
+                return SimulatorAbort("o núcleo simulado passou a executar em 0x00000000 (tabela de "
+                                      "vetores lida de endereço não mapeado) e não voltou a main", 0)
+            return None
+        return check
+
 
 def renode_notes(text: str) -> dict:
     """Avisos do Renode relevantes para a interpretação (não para o veredito)."""
@@ -391,7 +424,9 @@ def run_renode(elf: Path, run_dir: Path, host: HostBlock, timeout_s: float,
                 session.port, dump, host, "",
                 extra=("monitor sysbus.cpu ExecutedInstructions\n"
                        "monitor sysbus.cpu PerformanceInMips\n")),
-                run_dir / "gdb.log", timeout_s)
+                run_dir / "gdb.log", timeout_s, watch=session.abort_watch())
+        except SimulatorAbort:
+            raise
         except TargetError:
             log = session.log_text()
             abort = re.search(r"CPU abort \[PC=(0x[0-9A-Fa-f]+)\]: (.*)", log)

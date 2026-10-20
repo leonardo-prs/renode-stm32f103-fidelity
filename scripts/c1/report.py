@@ -36,7 +36,7 @@ def write(out: Path, results: dict, kal: dict, plan: dict) -> None:
                                 results["functional"])
     lines += functional_section("Reset, identidade e layout (c1-layout)", results["layout"])
     lines += cycle_section(results["cycle"], figs)
-    lines += trace_section(results.get("trace", {}))
+    lines += trace_section(results.get("trace", {}), results["functional"]["cases"])
     lines += kalibera_section(kal, plan)
     lines += deviations()
     (out / "report.md").write_text("\n".join(lines) + "\n")
@@ -182,7 +182,7 @@ def cycle_section(cyc, figs) -> list[str]:
     return rows + [""]
 
 
-def trace_section(trc) -> list[str]:
+def trace_section(trc, func_cases=None) -> list[str]:
     if not trc:
         return ["## Nível de instrução", "", "Traço por stepi não executado nesta campanha.", ""]
     rows = ["## Nível de instrução (traço por stepi)", ""]
@@ -197,8 +197,12 @@ def trace_section(trc) -> list[str]:
                 ok = sum(1 for r in stat if r.get(f"static_ok_{env}"))
                 rows.append(f"  - contagem estática (rotinas em linha reta): {env} confere em {ok} de {len(stat)}")
         diff = [r for r in items if r.get("same_path") is False]
-        for r in diff[:20]:
-            rows.append(f"  - {r['name']}: placa {r.get('hw')} instruções, Renode {r.get('renode')}")
+        for r in diff[:30]:
+            case = r["name"].split(".")[0]
+            why = ""
+            if func_cases and func_cases.get(case, {}).get("verdict") not in (None, "IGUAL"):
+                why = f" — consequência de {case} ({func_cases[case]['verdict']}: a falta não acontece no Renode)"
+            rows.append(f"  - {r['name']}: placa {r.get('hw')} instruções, Renode {r.get('renode')}{why}")
         if preset == "c1-cycle":
             ok = [r for r in items if r.get("h_t1_exact") is True]
             bad = [r for r in items if r.get("h_t1_exact") is False]

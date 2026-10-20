@@ -596,20 +596,39 @@ def h_t1(rows: list[dict], cyc: dict) -> None:
     variants = cyc["variants"]
     d0 = {env: variants.get("T-DWT-03", {}).get("env", {}).get(env, {}).get("deltas_cold")
           for env in ("hw", "renode")}
+    from .cycle import V_CYCOFF, VARIANTS
+    off = {x.name for x in VARIANTS if x.flags & V_CYCOFF}
     for row in rows:
         v = variants.get(row["name"], {})
+        if row["name"] in off:                 # contador desligado de propósito
+            continue
         for env, key in (("renode", "h_t1_exact"), ("hw", "hw_cpi")):
             e = v.get("env", {}).get(env, {})
-            if row.get("window") and e.get("deltas_cold") and d0.get(env):
+            if row.get("window") is not None and e.get("deltas_cold") and d0.get(env) \
+                    and (row["window"] or env == "renode"):
                 dk = e["deltas_cold"][0] - d0[env][0]
                 row[key] = (dk == row["window"]) if env == "renode" else str(Fraction(dk, row["window"]))
 
 
 # ───────────────────────────── entrada ─────────────────────────────
 
+def check_catalogs(plan: dict) -> None:
+    """A análise reconstrói vetores e variantes a partir do catálogo ATUAL; ele
+    tem de ser o mesmo com que os ELFs da campanha foram gerados."""
+    bad = []
+    for preset, info in plan["presets"].items():
+        h = f"0x{gen.generate(preset).catalog_hash:08x}"
+        if h != info["catalog_hash"]:
+            bad.append(f"{preset}: campanha {info['catalog_hash']}, fontes atuais {h}")
+    if bad:
+        raise ValueError("o catálogo das fontes não é o da campanha (analise na revisão "
+                         f"{plan.get('revision')}): " + "; ".join(bad))
+
+
 def analyze(root: Path, log=print) -> dict:
     from . import report
     plan = read_json(root / "plan.json")
+    check_catalogs(plan)
     out_dir = root / "analysis"
     out_dir.mkdir(exist_ok=True)
     func = functional(root, plan, "c1-func", log)

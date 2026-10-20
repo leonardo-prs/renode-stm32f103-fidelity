@@ -421,13 +421,21 @@ def run_renode(root: Path, plan: dict, env: str, jobs: int, log: Log) -> None:
         log(f"{env}/{preset}: concluído")
 
 
+def aborts_only(root: Path, env: str, preset: str, batch: int) -> bool:
+    """Lote em que todo run do ambiente terminou com o simulador abortado: o
+    traço não acrescenta nada (e o GDB ficaria esperando a máquina parada)."""
+    recs = [read_json(p) for p in (root / env / preset / f"b{batch:02d}").glob("run-*/run.json")]
+    return bool(recs) and all(r["status"] == "simulator_abort" for r in recs)
+
+
 def run_traces(root: Path, plan: dict, envs, log: Log) -> None:
     """Traço por stepi, uma vez por ambiente, lote e preset (c1-func, c1-cycle)."""
     for env in envs:
         for preset in ("c1-func", "c1-cycle"):
             info = plan["presets"][preset]
             todo = [b for b in info["batches"]
-                    if not (root / "trace" / env / preset / f"b{b:02d}" / "trace.json").exists()]
+                    if not (root / "trace" / env / preset / f"b{b:02d}" / "trace.json").exists()
+                    and not aborts_only(root, env, preset, b)]
             if not todo:
                 continue
             log(f"traço {env}/{preset}: {len(todo)} lotes (stepi)")
@@ -443,9 +451,11 @@ def run_traces(root: Path, plan: dict, envs, log: Log) -> None:
                         if env == "hw":
                             calls = trace.trace_hw(bench, PRESETS[preset].elf, out, host, 3600)
                         else:
-                            calls = trace.trace_renode(PRESETS[preset].elf, out, host, env, 1800)
+                            calls = trace.trace_renode(PRESETS[preset].elf, out, host, env, 900)
                     except TargetError as exc:
-                        save_json(out / "trace-error.json", {"error": str(exc), "utc": utc()})
+                        out.mkdir(parents=True, exist_ok=True)
+                        save_json(out / f"trace-error-{utc().replace(':', '')}.json",
+                                  {"error": str(exc), "utc": utc()})
                         log(f"traço {env}/{preset}/b{b:02d}: sem evidência ({exc})")
                         continue
                     save_json(out / "trace.json", {"elf_sha256": info["elf_sha256"], "calls": calls})

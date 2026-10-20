@@ -20,7 +20,11 @@ NOTES = {
     "FC-11": "tlib/arch/arm/translate.c:13319 (Thumb-2, \"Saturating add/subtract\"): QADD/QSUB "
              "decodificados sem verificar a extensão DSP; o modelo cortex-m3 não tem DSP, mas a "
              "decodificação não consulta a característica.",
-    "FEN-05": "QADD: ver FC-11 (decodificado sem verificar DSP).",
+    "FEN-05": "QADD e SEL (DSP) e SETEND executam sem UNDEFINSTR: a decodificação Thumb da tlib não "
+              "consulta a ausência de DSP no cortex-m3 (ver FC-11), e SETEND, que o TRM r1p1 lista entre "
+              "as instruções que sempre falham (Tab. 2-4), também não falta. MRC → NOCP confere.",
+    "FEN-06": "FEN-06.div depende de CCR.DIV_0_TRP, descartado pelo FilterCcrDiv0Write (ver FD-03); o "
+              "escalonamento em si (FEN-06.udf) confere.",
     "FAL-03": "tlib/arch/arm/cpu.h:1320 declara o campo V7M_CCR.UNALIGN_TRP, mas nenhum código de "
               "tlib/arch/arm/ o lê: acesso desalinhado nunca falta.",
     "FAL-04": "Nenhuma verificação de alinhamento para LDM/STM/LDRD/STRD/LDREX no perfil M da tlib "

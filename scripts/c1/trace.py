@@ -87,6 +87,6 @@ def trace_renode(elf: Path, out: Path, host: targets.HostBlock, profile: str, ti
     sym = symbols(elf)
     with targets.RenodeSession(elf, out, profile, port_base) as session:
         text = targets.run_gdb(elf, gdb_script(session.port, "", host, sym), out / "stepi.log",
-                               timeout_s)
+                               timeout_s, watch=session.abort_watch())
         targets.check_stopped_at_complete(text)
     return summarize(parse(text))
