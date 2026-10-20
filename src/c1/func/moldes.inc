@@ -169,3 +169,32 @@ ENDF \name
     .global \name\()_land
 \name\()_land:
 .endm
+
+.macro CCR_CLR t1, t2, bits
+    ldr     \t1, =0xE000ED14
+    ldr     \t2, [\t1]
+    bic     \t2, \t2, #\bits
+    str     \t2, [\t1]
+    dsb
+    isb
+.endm
+
+@ SHCSR_CLR: desabilita um tratador de falta (SHCSR, precondição declarada).
+.macro SHCSR_CLR t1, t2, bits
+    ldr     \t1, =0xE000ED24
+    ldr     \t2, [\t1]
+    bic     \t2, \t2, #\bits
+    str     \t2, [\t1]
+    dsb
+    isb
+.endm
+
+@ HOOK t1, t2, rotina: instala o gancho do SVC e publica o ponteiro out (r1)
+@ em c1_svc_out (no tratador, R0–R3 e R12 são UNKNOWN, §B1.5.6).
+.macro HOOK t1, t2, fn
+    ldr     \t1, =c1_svc_out
+    str     r1, [\t1]
+    ldr     \t1, =c1_svc_hook
+    ldr     \t2, =\fn
+    str     \t2, [\t1]
+.endm

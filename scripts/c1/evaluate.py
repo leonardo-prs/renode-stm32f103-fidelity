@@ -9,8 +9,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import re
+
 from . import abi
-from .catalog import Batch, Form
+from .catalog import Alt, Batch, Form
+
+
+def matches(observed: int, exp) -> bool:
+    value, mask = exp if isinstance(exp, tuple) else (exp, 0xFFFF_FFFF)
+    return (observed & mask) == (value & mask)
 
 
 @dataclass(frozen=True)
@@ -25,8 +32,17 @@ class VectorResult:
         exp = self.expected[k]
         if exp is None:
             return None
-        value, mask = exp if isinstance(exp, tuple) else (exp, 0xFFFF_FFFF)
-        return (self.observed[k] & mask) == (value & mask)
+        if isinstance(exp, Alt):
+            return any(matches(self.observed[k], o) for o in exp.options)
+        return matches(self.observed[k], exp)
+
+    def alt_label(self, k: int) -> str | None:
+        """Qual leitura de um conflito documental o valor observado confirma."""
+        exp = self.expected[k]
+        if not isinstance(exp, Alt):
+            return None
+        hits = [lab for o, lab in zip(exp.options, exp.labels) if matches(self.observed[k], o)]
+        return "/".join(hits) if hits else None
 
     @property
     def ok(self) -> bool:
@@ -34,12 +50,14 @@ class VectorResult:
 
 
 def resolve(value, syms: dict[str, int]):
-    """Valor esperado simbólico ("rótulo" ou "rótulo+N") → endereço do ELF."""
+    """Valor esperado simbólico ("rótulo", "rótulo+N", "rótulo-N") → endereço do ELF."""
     if isinstance(value, str):
-        name, _, off = value.partition("+")
-        if name not in syms:
-            raise ValueError(f"símbolo {name} ausente no ELF")
-        return (syms[name] & ~1) + int(off or 0)
+        m = re.fullmatch(r"([A-Za-z_][\w.]*)([+-]\d+)?", value)
+        if not m or m[1] not in syms:
+            raise ValueError(f"símbolo {value} ausente no ELF")
+        return ((syms[m[1]] & ~1) + int(m[2] or 0)) & 0xFFFF_FFFF
+    if isinstance(value, Alt):
+        return Alt(tuple(resolve(o, syms) for o in value.options), value.labels)
     if isinstance(value, tuple) and isinstance(value[0], str):
         return (resolve(value[0], syms), value[1])
     return value

@@ -24,8 +24,41 @@ SVC_Handler:
     .size SVC_Handler, . - SVC_Handler
     .ltorg
 
+/*
+ * c1_svc_record: gancho genérico (FEN-01, FEN-02). Grava em c1_svc_out:
+ *   [0..7] o quadro empilhado (R0–R3, R12, LR, PC, xPSR), lido do MSP ou do
+ *   PSP conforme EXC_RETURN[2]; [8] EXC_RETURN; [9] IPSR; [10] endereço do
+ *   quadro (a rotina o converte em SP antes − quadro).
+ */
+    .section .text.c1_svc_record, "ax", %progbits
+    .global c1_svc_record
+    .type c1_svc_record, %function
+    .thumb_func
+c1_svc_record:
+    ldr     r2, =c1_svc_out
+    ldr     r2, [r2]
+    tst     lr, #4
+    ite     eq
+    mrseq   r0, msp
+    mrsne   r0, psp
+    .set k, 0
+    .rept 8
+    ldr     r3, [r0, #(k * 4)]
+    str     r3, [r2, #(k * 4)]
+    .set k, k + 1
+    .endr
+    str     lr, [r2, #32]
+    mrs     r3, ipsr
+    str     r3, [r2, #36]
+    str     r0, [r2, #40]
+    bx      lr
+    .size c1_svc_record, . - c1_svc_record
+    .ltorg
+
     .section .bss.c1_svc_hook, "aw", %nobits
-    .global c1_svc_hook
+    .global c1_svc_hook, c1_svc_out
     .p2align 2
 c1_svc_hook:
+    .space  4
+c1_svc_out:                         @ ponteiro out do vetor corrente (para os ganchos)
     .space  4

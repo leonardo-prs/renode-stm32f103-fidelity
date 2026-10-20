@@ -35,9 +35,23 @@ MEM_FIELDS = tuple(f"mem{k}" for k in range(MEM_WORDS))
 MEM_FILL = 0xA5A5_A5A5
 
 Row = tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class Alt:
+    """CONFLITO DOCUMENTAL: duas fontes de mesmo nível dão leituras diferentes.
+
+    Cada opção é um valor esperado comum; `labels` diz de que fonte vem cada
+    uma. A placa decide qual vale neste exemplar, e o Renode é comparado com
+    a placa (material-base, "Ordem de autoridade")."""
+    options: tuple
+    labels: tuple[str, ...]
+
+
 # Valor esperado de uma palavra: int (igualdade exata), None (gravado, não
-# comparado: o documento não define) ou (valor, máscara).
-Expected = int | None | tuple[int, int]
+# comparado: o documento não define), (valor, máscara), um símbolo do ELF
+# ("rótulo", "rótulo+N", "rótulo-N") ou Alt (conflito documental).
+Expected = int | None | tuple[int, int] | str | Alt
 
 
 @dataclass(frozen=True)

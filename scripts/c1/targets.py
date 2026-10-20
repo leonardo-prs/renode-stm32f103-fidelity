@@ -59,6 +59,17 @@ class TargetError(RuntimeError):
     """Falha de infraestrutura (servidor, GDB, timeout). Nunca vira resultado."""
 
 
+class SimulatorAbort(TargetError):
+    """O Renode ABORTOU a máquina (ex.: "Trying to execute code outside RAM or
+    ROM"). Não é falha do instrumento: o protocolo funcionou e o log diz a
+    causa e o PC. A análise registra o comportamento como observação do
+    simulador (o hardware, no mesmo caso, gera uma falta e continua)."""
+
+    def __init__(self, message: str, pc: int | None):
+        super().__init__(message)
+        self.pc = pc
+
+
 # ───────────────────────────── processos ─────────────────────────────
 
 def port_in_use(port: int) -> bool:
@@ -357,11 +368,18 @@ def run_renode(elf: Path, run_dir: Path, host: HostBlock, timeout_s: float,
     dump = run_dir / "snapshot.bin"
     t0 = time.monotonic()
     with RenodeSession(elf, run_dir, profile, port_base) as session:
-        text = run_gdb(elf, collect_script(
-            session.port, dump, host, "",
-            extra=("monitor sysbus.cpu ExecutedInstructions\n"
-                   "monitor sysbus.cpu PerformanceInMips\n")),
-            run_dir / "gdb.log", timeout_s)
+        try:
+            text = run_gdb(elf, collect_script(
+                session.port, dump, host, "",
+                extra=("monitor sysbus.cpu ExecutedInstructions\n"
+                       "monitor sysbus.cpu PerformanceInMips\n")),
+                run_dir / "gdb.log", timeout_s)
+        except TargetError:
+            abort = re.search(r"CPU abort \[PC=(0x[0-9A-Fa-f]+)\]: (.*)", session.log_text())
+            if abort:
+                raise SimulatorAbort(f"Renode abortou a máquina em PC={abort[1]}: {abort[2].strip()}",
+                                     int(abort[1], 16)) from None
+            raise
         check_stopped_at_complete(text)
     extra = renode_notes(session.log_text())
     m = re.search(r"^(0x[0-9A-Fa-f]+)\s*\n(0x[0-9A-Fa-f]+)\s*$", text, re.M)

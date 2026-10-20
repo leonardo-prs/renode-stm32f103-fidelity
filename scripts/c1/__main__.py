@@ -44,7 +44,12 @@ def cmd_run(args) -> int:
             bench.flash(preset.elf, out / "flash.log")
             col = bench.run(preset.elf, out, host, args.timeout)
     else:
-        col = targets.run_renode(preset.elf, out, host, args.timeout, profile=args.env)
+        try:
+            col = targets.run_renode(preset.elf, out, host, args.timeout, profile=args.env)
+        except targets.SimulatorAbort as exc:
+            print(f"SIMULADOR ABORTOU: {exc}")
+            print(f"dados: {out}")
+            return 0
     snap = abi.decode(col.snapshot)
     if args.preset == 'c1-func':
         from . import disasm
