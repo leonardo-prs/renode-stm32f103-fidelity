@@ -223,7 +223,104 @@ Tentativas nunca são apagadas; snapshots e `run.json` ficam somente-leitura.
 
 ## 9. Resultados
 
-RESULTADOS_PLACEHOLDER
+Campanha definitiva **`final-02`** (2026-10-20, modo final, revisão
+`rsyuoppq`, três ambientes, traço por stepi). Repetições pela regra 1 de
+Kalibera & Jones aplicada ao piloto `piloto-01`: as 118 séries do piloto
+(30 execuções × 30 iterações, nos três ambientes) foram idênticas
+(T1² = T2² = 0); daí 1 iteração quente + a fria e 5 execuções por lote.
+Instrumento: 0 runs inválidos; abortos do Renode (FEN-07, e LAY-04/LAY-10 sem
+o alias) contam como observação. Relatório completo:
+`data/c1/final-02/analysis/report.md` (e `resumo.md`, CSVs, figuras).
+
+### 9.1 Placa × especificação
+
+A placa confere com o oráculo (ARM ARM + TRM r1p1 + PM0056 + RM0008) em todos
+os vetores funcionais e de layout. Onde as fontes se contradizem, a placa
+decide (CONFLITO DOCUMENTAL):
+
+| Caso | Conflito | A placa confirma |
+|---|---|---|
+| FEN-05 (INVPC) | TRM × ARM ARM sobre o quadro empilhado | ARM ARM §B1.5.8: sem quadro novo (quadro do Thread) |
+| LAY-07 (VTOR) | PM0056 × TRM sobre os bits implementados | TRM r1p1 Tab. 8-15: TBLOFF[29:7] |
+| FBB-04 | RM0008 §9.1.1 (PB4 em pull-up) × §9.2.4 (ODR = 0) | ODR[4] = 1 após o reset; comparam-se só IOPBEN e ODR[5] |
+
+No tempo, 202 variantes caem dentro do intervalo do TRM r1p1, 10 resolvem um
+intervalo ambíguo e 14 ficam **fora**: UMLAL/SMLAL pequenos (3 contra 4–7),
+T-LS-04.cmp (3 contra 2), T-LS-08.b (3 contra 4), STR/STRH desalinhados (5 e
+4 contra 2), T-BB-02 (3 contra 2), **T-BR-03 B<c> não tomado = 3/2** e
+**T-BR-06 BX = 9/2**. As variantes com a 1ª unidade em meia palavra (`.h`)
+dão os mesmos 3/2 e 9/2: o alinhamento não explica os dois casos. T-LS-10.01
+(LDR da flash em fluxo) não é linear com K = 8, 16 ou 32; com **K = 24** é
+linear, com c = 4/3: uma carga a cada três custa um ciclo a mais. UDIV (operandos
+2^a − 1 ÷ 2^b − 1) custa 3 ciclos se a < b (quociente 0) e 5 + ⌊(a − b)/4⌋
+se a ≥ b, até 12 (32 bits ÷ 1); por 0, 2 ciclos (`fig_udiv.png`). Um SVC com tratador vazio custa
+22 ciclos dentro da janela. T-DWT-05 falha na placa (Δ(0) = 1, O = 2): com a
+janela vazia, a carga de t1 se sobrepõe à de t0 (§18.3). c é diferencial e
+linear, então a régua vale para c, e O fica como caracterização (§10).
+
+### 9.2 Renode × placa — nível funcional
+
+| Preset | Casos | IGUAL | IGUAL COM CONFIGURAÇÃO | DIVERGE |
+|---|---|---|---|---|
+| `c1-func` (31 521 vetores) | 91 | 71 | 5 | 15 |
+| `c1-layout` | 17 | 6 | 3 | 8 |
+
+Cada divergência tem a causa localizada no código do Renode 1.17.0
+(`scripts/c1/renode_notes.py`; explicação, não oráculo):
+
+- **Faltas que o Renode não gera:**
+  - FAL-03/FAL-04: acesso desalinhado; `CCR.UNALIGN_TRP` nunca é lido.
+  - FC-11/FEN-05: QADD, SEL e SETEND executam sem UNDEFINSTR (a decodificação não consulta a ausência de DSP).
+  - FSY-08/FEN-08: PPB lido sem privilégio, sem BusFault.
+  - LAY-09: leitura de endereço não mapeado devolve 0, sem BusFault.
+  - FEN-07: XN aborta a máquina em vez de gerar MemManage.
+- **Falta no lugar errado:** FC-08/FC-10 — BX/BLX/POP para endereço par falta na própria instrução de desvio com T = 1, em vez de na instrução seguinte com T = 0.
+- **Estado arquitetural:**
+  - FEX-04: o monitor exclusivo não é limpo na entrada/saída de exceção.
+  - FSY-02: EPSR e xPSR expõem T e ITSTATE.
+  - FSY-03: FAULTMASK liga dentro do HardFault.
+  - FSY-04: BASEPRI guarda 8 bits.
+  - FEN-04: STKALIGN = 0 é ignorado.
+- **Identidade e reset:**
+  - FID-01: CPUID r0p1.
+  - FID-02: registradores de características leem 0.
+  - FID-03: VTOR "adivinhado" (0x08000000).
+  - FID-04: LR = 0.
+  - FID-05: ICTR, MPU_TYPER e NUMCOMP.
+  - FID-06: F_SIZE e UID não declarados.
+  - LAY-07: TBLOFF[31:30] gravável.
+  - FBB-04: sem RCC do F1.
+- **Só configuração (o perfil `renode-doc` iguala):**
+  - FD-03/FEN-06: `FilterCcrDiv0Write`.
+  - FBB-01..03: periférico BitBanding não declarado.
+  - LAY-01/LAY-04/LAY-10: sem o alias de boot em 0x0. Sem ele, um SYSRESETREQ deixa o núcleo preso em 0x0.
+
+### 9.3 Nível de instrução
+
+- `c1-func`: 544 de 559 chamadas com a **mesma sequência de PCs** na placa e
+  no Renode. As 15 diferentes são exatamente as faltas que o Renode não
+  gera (FD-03, FC-08, FAL-04, FSY-08, FEN-05, FEN-06). As 368 rotinas em
+  linha reta conferem com a contagem estática do disassembly nos dois
+  ambientes.
+- `c1-cycle`: 232 de 232 chamadas com a mesma sequência.
+- **H-T1 exata** (Renode: Δ(K) − Δ(0) = instruções executadas na janela,
+  medidas pelo traço do próprio Renode): confirmada em 231 variantes,
+  refutada em 0. O tick do Renode é a instrução, e a entrada/saída de
+  exceção não custa ticks (T-DWT-06 = 2: SVC + BX LR).
+
+### 9.4 Renode × placa — nível de ciclo
+
+232 variantes: **IGUAL 43, DIVERGE 186, EVIDÊNCIA INVÁLIDA 3**. As 3
+inválidas são as variantes de T-LS-10.01 com K não múltiplo de 3, que existem
+justamente para mostrar a não linearidade. O Renode conta um tick por
+instrução (H-T1), então só iguala onde a placa também gasta um ciclo por
+instrução: ALU (inclusive CLZ, RBIT, REV, extensões e campos de bits), MUL,
+LDR/LDRB/LDRH em fluxo, STR, MRS/MSR/CPSID, DMB/DSB, blocos IT, CBNZ não
+tomado, as verificações T-DWT e CRC-32 bit a bit. Diverge em todo o resto:
+multiplicações longas, divisão, cargas dependentes, LDM/STM, desvios
+tomados, ISB e exceções. Exemplos (placa/Renode): UDIV
+12/1, LDM de 8 registradores 9/1, PUSH+POP de 8 18/2, POP {PC} 6/1, SVC
+22/2.
 
 ## 10. Desvios em relação ao material-base
 
