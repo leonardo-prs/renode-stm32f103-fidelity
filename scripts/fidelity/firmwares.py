@@ -36,12 +36,7 @@ class Firmware:
 
 
 FIRMWARES = {
-    "c1-functional": Firmware(
-        "c1-functional", 0x0101, "C1", c1.PLANNED_FUNCTIONAL, c1.evaluate_functional, 60,
-        "resultados de operações do núcleo e da memória (casos normais e de fronteira)"),
-    "c1-timing": Firmware(
-        "c1-timing", 0x0102, "C1", c1.PLANNED_TIMING, c1.evaluate_timing, 60,
-        "duração de cargas C × referência nominal de 8 MIPS"),
+    # C1: substituído pelo pacote scripts/c1 (presets c1-func, c1-layout, c1-cycle).
     "c2": Firmware(
         "c2", 0x0201, "C2", c2.PLANNED, c2.evaluate, 120,
         "contagem, update, flags e IRQ de TIM2/TIM3/TIM1 sob perfis APB"),

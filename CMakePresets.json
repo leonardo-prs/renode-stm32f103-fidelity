@@ -13,19 +13,27 @@
       }
     },
     {
-      "name": "c1-functional",
+      "name": "c1-func",
       "inherits": "base",
-      "displayName": "c1-functional — C1 núcleo e memória — resultados (casos funcionais)",
+      "displayName": "c1-func — C1 funcional: instruções, memória e exceções síncronas (vetores em lotes)",
       "cacheVariables": {
-        "FIRMWARE": "c1-functional"
+        "FIRMWARE": "c1-func"
       }
     },
     {
-      "name": "c1-timing",
+      "name": "c1-layout",
       "inherits": "base",
-      "displayName": "c1-timing — C1 núcleo e memória — duração de cargas C (bracket DWT)",
+      "displayName": "c1-layout — C1 funcional: estado de reset, identidade e layout de memória",
       "cacheVariables": {
-        "FIRMWARE": "c1-timing"
+        "FIRMWARE": "c1-layout"
+      }
+    },
+    {
+      "name": "c1-cycle",
+      "inherits": "base",
+      "displayName": "c1-cycle — C1 temporal: validação do DWT_CYCCNT e microbenchmarks diferenciais",
+      "cacheVariables": {
+        "FIRMWARE": "c1-cycle"
       }
     },
     {
@@ -55,12 +63,16 @@
   ],
   "buildPresets": [
     {
-      "name": "c1-functional",
-      "configurePreset": "c1-functional"
+      "name": "c1-func",
+      "configurePreset": "c1-func"
     },
     {
-      "name": "c1-timing",
-      "configurePreset": "c1-timing"
+      "name": "c1-layout",
+      "configurePreset": "c1-layout"
+    },
+    {
+      "name": "c1-cycle",
+      "configurePreset": "c1-cycle"
     },
     {
       "name": "c2",
@@ -77,28 +89,41 @@
   ],
   "workflowPresets": [
     {
-      "name": "c1-functional",
+      "name": "c1-func",
       "steps": [
         {
           "type": "configure",
-          "name": "c1-functional"
+          "name": "c1-func"
         },
         {
           "type": "build",
-          "name": "c1-functional"
+          "name": "c1-func"
         }
       ]
     },
     {
-      "name": "c1-timing",
+      "name": "c1-layout",
       "steps": [
         {
           "type": "configure",
-          "name": "c1-timing"
+          "name": "c1-layout"
         },
         {
           "type": "build",
-          "name": "c1-timing"
+          "name": "c1-layout"
+        }
+      ]
+    },
+    {
+      "name": "c1-cycle",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "c1-cycle"
+        },
+        {
+          "type": "build",
+          "name": "c1-cycle"
         }
       ]
     },

@@ -1,0 +1,17 @@
+// c1_doc.repl — perfil "renode-doc" do C1: a plataforma do projeto
+// (stm32f103_hsi8.repl) + SÓ as correções que a documentação determina.
+using "./stm32f103_hsi8.repl"
+
+flash: @ { sysbus 0x0; sysbus 0x08000000 }
+
+cpu:
+    InitVectorTableOffset: 0x0
+
+nvic:
+    FilterCcrDiv0Write: false
+
+bitbandSram: Miscellaneous.BitBanding @ sysbus <0x22000000, +0x2000000>
+    peripheralBase: 0x20000000
+
+bitbandPeripherals: Miscellaneous.BitBanding @ sysbus <0x42000000, +0x2000000>
+    peripheralBase: 0x40000000
