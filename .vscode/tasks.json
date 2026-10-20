@@ -1,13 +1,11 @@
-// .vscode/tasks.json — build e debug dos firmwares finais (C1–C4).
-// Tudo roda via scripts/direnv_exec.sh (garante o ambiente Nix mesmo quando o
-// editor não herdou o direnv). Build = `cmake --workflow --preset <fw>`
-// (configure idempotente + build). Os labels "Build: <fw>" e "Debug: prep
-// <fw>" são referenciados por launch.json.
+// .vscode/tasks.json — build e debug dos firmwares do C1 (conveniência:
+// a campanha não depende do editor; ver README). Tudo roda via
+// scripts/direnv_exec.sh (ambiente Nix mesmo sem direnv no editor).
 {
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Build: c1-functional",
+      "label": "Build: c1-func",
       "type": "shell",
       "command": "scripts/direnv_exec.sh",
       "args": [
@@ -15,15 +13,15 @@
         "cmake",
         "--workflow",
         "--preset",
-        "c1-functional"
+        "c1-func"
       ],
-      "group": "build",
       "problemMatcher": [
         "$gcc"
-      ]
+      ],
+      "group": "build"
     },
     {
-      "label": "Build: c1-timing",
+      "label": "Build: c1-layout",
       "type": "shell",
       "command": "scripts/direnv_exec.sh",
       "args": [
@@ -31,15 +29,15 @@
         "cmake",
         "--workflow",
         "--preset",
-        "c1-timing"
+        "c1-layout"
       ],
-      "group": "build",
       "problemMatcher": [
         "$gcc"
-      ]
+      ],
+      "group": "build"
     },
     {
-      "label": "Build: c2",
+      "label": "Build: c1-cycle",
       "type": "shell",
       "command": "scripts/direnv_exec.sh",
       "args": [
@@ -47,124 +45,114 @@
         "cmake",
         "--workflow",
         "--preset",
-        "c2"
+        "c1-cycle"
       ],
-      "group": "build",
       "problemMatcher": [
         "$gcc"
-      ]
-    },
-    {
-      "label": "Build: c3",
-      "type": "shell",
-      "command": "scripts/direnv_exec.sh",
-      "args": [
-        ".",
-        "cmake",
-        "--workflow",
-        "--preset",
-        "c3"
       ],
-      "group": "build",
-      "problemMatcher": [
-        "$gcc"
-      ]
+      "group": "build"
     },
     {
-      "label": "Build: c4",
-      "type": "shell",
-      "command": "scripts/direnv_exec.sh",
-      "args": [
-        ".",
-        "cmake",
-        "--workflow",
-        "--preset",
-        "c4"
-      ],
-      "group": "build",
-      "problemMatcher": [
-        "$gcc"
-      ]
-    },
-    {
-      "label": "Debug: prep c1-functional",
+      "label": "Debug: prep c1-func renode",
       "type": "shell",
       "command": "scripts/direnv_exec.sh",
       "args": [
         ".",
         "scripts/renode_start.sh",
-        "c1-functional"
+        "c1-func",
+        "renode"
+      ],
+      "problemMatcher": [
+        "$gcc"
       ],
       "presentation": {
         "reveal": "always"
-      },
-      "problemMatcher": [
-        "$gcc"
-      ]
+      }
     },
     {
-      "label": "Debug: prep c1-timing",
+      "label": "Debug: prep c1-func renode-doc",
       "type": "shell",
       "command": "scripts/direnv_exec.sh",
       "args": [
         ".",
         "scripts/renode_start.sh",
-        "c1-timing"
+        "c1-func",
+        "renode-doc"
+      ],
+      "problemMatcher": [
+        "$gcc"
       ],
       "presentation": {
         "reveal": "always"
-      },
-      "problemMatcher": [
-        "$gcc"
-      ]
+      }
     },
     {
-      "label": "Debug: prep c2",
+      "label": "Debug: prep c1-layout renode",
       "type": "shell",
       "command": "scripts/direnv_exec.sh",
       "args": [
         ".",
         "scripts/renode_start.sh",
-        "c2"
+        "c1-layout",
+        "renode"
+      ],
+      "problemMatcher": [
+        "$gcc"
       ],
       "presentation": {
         "reveal": "always"
-      },
-      "problemMatcher": [
-        "$gcc"
-      ]
+      }
     },
     {
-      "label": "Debug: prep c3",
+      "label": "Debug: prep c1-layout renode-doc",
       "type": "shell",
       "command": "scripts/direnv_exec.sh",
       "args": [
         ".",
         "scripts/renode_start.sh",
-        "c3"
+        "c1-layout",
+        "renode-doc"
+      ],
+      "problemMatcher": [
+        "$gcc"
       ],
       "presentation": {
         "reveal": "always"
-      },
-      "problemMatcher": [
-        "$gcc"
-      ]
+      }
     },
     {
-      "label": "Debug: prep c4",
+      "label": "Debug: prep c1-cycle renode",
       "type": "shell",
       "command": "scripts/direnv_exec.sh",
       "args": [
         ".",
         "scripts/renode_start.sh",
-        "c4"
+        "c1-cycle",
+        "renode"
+      ],
+      "problemMatcher": [
+        "$gcc"
       ],
       "presentation": {
         "reveal": "always"
-      },
+      }
+    },
+    {
+      "label": "Debug: prep c1-cycle renode-doc",
+      "type": "shell",
+      "command": "scripts/direnv_exec.sh",
+      "args": [
+        ".",
+        "scripts/renode_start.sh",
+        "c1-cycle",
+        "renode-doc"
+      ],
       "problemMatcher": [
         "$gcc"
-      ]
+      ],
+      "presentation": {
+        "reveal": "always"
+      }
     },
     {
       "label": "Renode: stop",
@@ -173,13 +161,30 @@
       "problemMatcher": []
     },
     {
-      "label": "Fidelity: check (build + gate)",
+      "label": "C1: testes do oráculo",
       "type": "shell",
       "command": "scripts/direnv_exec.sh",
       "args": [
         ".",
         "python3",
-        "scripts/fidelity.py",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/c1/tests",
+        "-t",
+        "scripts"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "C1: check (build + gate)",
+      "type": "shell",
+      "command": "scripts/direnv_exec.sh",
+      "args": [
+        ".",
+        "scripts/c1.sh",
         "check"
       ],
       "problemMatcher": [

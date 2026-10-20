@@ -1,73 +1,86 @@
-// .vscode/launch.json — debug no VS Code (cortex-debug). Conveniência: a
-// campanha não depende do editor (scripts/campaign.sh).
-//   Renode: servertype external em :3334 (renode/fidelity.resc via
-//           scripts/renode_start.sh); placa: OpenOCD + ST-Link (:3333).
-// gdbPath vem de settings.json; SVD da ST em vendor/svd/STM32F103.svd.
+// .vscode/launch.json — depuração no VS Code (cortex-debug). Conveniência:
+// a campanha não depende do editor (scripts/c1.sh).
+//   Renode: servertype external em :3334 (renode/c1.resc via scripts/renode_start.sh,
+//           perfil renode ou renode-doc); placa: OpenOCD + ST-Link (:3333).
+// Num run de depuração o bloco do host (c1_host) não é escrito: o firmware
+// roda o lote 0 e marca C1_ERR_HOST (nunca é evidência).
 {
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Renode: c1-functional — C1 resultados (:3334)",
+      "name": "Renode (renode): c1-func — C1 funcional (instruções, memória, exceções) (:3334)",
       "type": "cortex-debug",
       "request": "launch",
       "servertype": "external",
       "gdbTarget": "localhost:3334",
-      "executable": "${workspaceFolder}/build/c1-functional/firmware.elf",
+      "executable": "${workspaceFolder}/build/c1-func/firmware.elf",
       "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
       "runToEntryPoint": "main",
-      "preLaunchTask": "Debug: prep c1-functional",
+      "preLaunchTask": "Debug: prep c1-func renode",
       "postDebugTask": "Renode: stop"
     },
     {
-      "name": "Renode: c1-timing — C1 tempos (:3334)",
+      "name": "Renode (renode-doc): c1-func — C1 funcional (instruções, memória, exceções) (:3334)",
       "type": "cortex-debug",
       "request": "launch",
       "servertype": "external",
       "gdbTarget": "localhost:3334",
-      "executable": "${workspaceFolder}/build/c1-timing/firmware.elf",
+      "executable": "${workspaceFolder}/build/c1-func/firmware.elf",
       "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
       "runToEntryPoint": "main",
-      "preLaunchTask": "Debug: prep c1-timing",
+      "preLaunchTask": "Debug: prep c1-func renode-doc",
       "postDebugTask": "Renode: stop"
     },
     {
-      "name": "Renode: c2 — C2 timers (:3334)",
+      "name": "Renode (renode): c1-layout — C1 reset, identidade e layout (:3334)",
       "type": "cortex-debug",
       "request": "launch",
       "servertype": "external",
       "gdbTarget": "localhost:3334",
-      "executable": "${workspaceFolder}/build/c2/firmware.elf",
+      "executable": "${workspaceFolder}/build/c1-layout/firmware.elf",
       "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
       "runToEntryPoint": "main",
-      "preLaunchTask": "Debug: prep c2",
+      "preLaunchTask": "Debug: prep c1-layout renode",
       "postDebugTask": "Renode: stop"
     },
     {
-      "name": "Renode: c3 — C3 NVIC (:3334)",
+      "name": "Renode (renode-doc): c1-layout — C1 reset, identidade e layout (:3334)",
       "type": "cortex-debug",
       "request": "launch",
       "servertype": "external",
       "gdbTarget": "localhost:3334",
-      "executable": "${workspaceFolder}/build/c3/firmware.elf",
+      "executable": "${workspaceFolder}/build/c1-layout/firmware.elf",
       "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
       "runToEntryPoint": "main",
-      "preLaunchTask": "Debug: prep c3",
+      "preLaunchTask": "Debug: prep c1-layout renode-doc",
       "postDebugTask": "Renode: stop"
     },
     {
-      "name": "Renode: c4 — C4 USART (:3334)",
+      "name": "Renode (renode): c1-cycle — C1 temporal (DWT_CYCCNT) (:3334)",
       "type": "cortex-debug",
       "request": "launch",
       "servertype": "external",
       "gdbTarget": "localhost:3334",
-      "executable": "${workspaceFolder}/build/c4/firmware.elf",
+      "executable": "${workspaceFolder}/build/c1-cycle/firmware.elf",
       "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
       "runToEntryPoint": "main",
-      "preLaunchTask": "Debug: prep c4",
+      "preLaunchTask": "Debug: prep c1-cycle renode",
       "postDebugTask": "Renode: stop"
     },
     {
-      "name": "Placa: c1-functional — C1 resultados (OpenOCD :3333)",
+      "name": "Renode (renode-doc): c1-cycle — C1 temporal (DWT_CYCCNT) (:3334)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "external",
+      "gdbTarget": "localhost:3334",
+      "executable": "${workspaceFolder}/build/c1-cycle/firmware.elf",
+      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Debug: prep c1-cycle renode-doc",
+      "postDebugTask": "Renode: stop"
+    },
+    {
+      "name": "Placa: c1-func — C1 funcional (instruções, memória, exceções) (OpenOCD :3333)",
       "type": "cortex-debug",
       "request": "launch",
       "servertype": "openocd",
@@ -75,13 +88,13 @@
         "interface/stlink.cfg",
         "target/stm32f1x.cfg"
       ],
-      "executable": "${workspaceFolder}/build/c1-functional/firmware.elf",
+      "executable": "${workspaceFolder}/build/c1-func/firmware.elf",
       "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
       "runToEntryPoint": "main",
-      "preLaunchTask": "Build: c1-functional"
+      "preLaunchTask": "Build: c1-func"
     },
     {
-      "name": "Placa: c1-timing — C1 tempos (OpenOCD :3333)",
+      "name": "Placa: c1-layout — C1 reset, identidade e layout (OpenOCD :3333)",
       "type": "cortex-debug",
       "request": "launch",
       "servertype": "openocd",
@@ -89,13 +102,13 @@
         "interface/stlink.cfg",
         "target/stm32f1x.cfg"
       ],
-      "executable": "${workspaceFolder}/build/c1-timing/firmware.elf",
+      "executable": "${workspaceFolder}/build/c1-layout/firmware.elf",
       "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
       "runToEntryPoint": "main",
-      "preLaunchTask": "Build: c1-timing"
+      "preLaunchTask": "Build: c1-layout"
     },
     {
-      "name": "Placa: c2 — C2 timers (OpenOCD :3333)",
+      "name": "Placa: c1-cycle — C1 temporal (DWT_CYCCNT) (OpenOCD :3333)",
       "type": "cortex-debug",
       "request": "launch",
       "servertype": "openocd",
@@ -103,38 +116,10 @@
         "interface/stlink.cfg",
         "target/stm32f1x.cfg"
       ],
-      "executable": "${workspaceFolder}/build/c2/firmware.elf",
+      "executable": "${workspaceFolder}/build/c1-cycle/firmware.elf",
       "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
       "runToEntryPoint": "main",
-      "preLaunchTask": "Build: c2"
-    },
-    {
-      "name": "Placa: c3 — C3 NVIC (OpenOCD :3333)",
-      "type": "cortex-debug",
-      "request": "launch",
-      "servertype": "openocd",
-      "configFiles": [
-        "interface/stlink.cfg",
-        "target/stm32f1x.cfg"
-      ],
-      "executable": "${workspaceFolder}/build/c3/firmware.elf",
-      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
-      "runToEntryPoint": "main",
-      "preLaunchTask": "Build: c3"
-    },
-    {
-      "name": "Placa: c4 — C4 USART (OpenOCD :3333)",
-      "type": "cortex-debug",
-      "request": "launch",
-      "servertype": "openocd",
-      "configFiles": [
-        "interface/stlink.cfg",
-        "target/stm32f1x.cfg"
-      ],
-      "executable": "${workspaceFolder}/build/c4/firmware.elf",
-      "svdFile": "${workspaceFolder}/vendor/svd/STM32F103.svd",
-      "runToEntryPoint": "main",
-      "preLaunchTask": "Build: c4"
+      "preLaunchTask": "Build: c1-cycle"
     }
   ]
 }

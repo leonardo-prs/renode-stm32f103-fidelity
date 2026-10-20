@@ -4,6 +4,7 @@
     python -m c1 analyze  --name N                   (refaz a análise)
     python -m c1 run      --env hw|renode|renode-doc --preset P [--batch B]
     python -m c1 trace    --env E --preset P [--batch B]     (diagnóstico)
+    python -m c1 check                               (build do zero + gate)
     python -m c1 gen      --preset P --out DIR       (chamado pelo CMake)
 """
 from __future__ import annotations
@@ -167,7 +168,23 @@ def main(argv=None) -> int:
     c.add_argument("--resume", action="store_true")
     a = sub.add_parser("analyze", help="(re)gera analysis/ de uma campanha")
     a.add_argument("--name", required=True)
+    sub.add_parser("check", help="pré-verificação, build do zero e gate dos três presets")
     args = p.parse_args(argv)
+
+    if args.cmd == "check":
+        from . import campaign
+        log = campaign.Log(campaign.DATA / "diagnostic" / "check.log")
+        try:
+            with campaign.Lock(campaign.DATA / ".build.lock", "a árvore build/"):
+                campaign.preflight(list(ENVS), log)
+                log(f"vendor: {campaign.vendor_integrity()}")
+                for preset in campaign.PRESET_ORDER:
+                    campaign.build(preset, campaign.DATA / "diagnostic" / "build")
+                    log(f"{preset}: {campaign.gate(preset)}")
+        except campaign.CampaignError as exc:
+            print(f"ERRO: {exc}", file=sys.stderr)
+            return 1
+        return 0
 
     if args.cmd in ("campaign", "analyze"):
         import re as _re

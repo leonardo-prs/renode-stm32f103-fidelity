@@ -168,12 +168,26 @@ def judge_case(case, items, status, envs, by_form, derived=None, forms_of_case=N
     nondet = [env for env in envs if any(env in s and len(set(s[env])) > 1 for _, _, s in items)]
     out["nondeterministic"] = nondet
     # Placa × especificação.
+    dmask = (derived or {}).get("mask")
+
+    def board_ok(vr, k) -> bool | None:
+        if dmask and vr.expected[k] is not None and not isinstance(vr.expected[k], Alt):
+            e = vr.expected[k]
+            value = e[0] if isinstance(e, tuple) else e
+            return (vr.observed[k] & dmask) == (value & dmask)
+        return vr.field_ok(k)
+
+    def same(a: int, b: int, exp) -> bool:
+        if dmask:
+            return (a & dmask) == (b & dmask)
+        return masked(a, exp) == masked(b, exp)
+
     board_bad, conflict_labels, examples = 0, set(), []
     for name, idx, s in items:
         vr = s["vr"]
         ks = sel_fields(vr, by_form[name], derived)
         for k in ks:
-            if vr.field_ok(k) is False:
+            if board_ok(vr, k) is False:
                 board_bad += 1
                 if len(examples) < 3:
                     examples.append({"vector": f"{name}[{idx}]", "field": by_form[name].fields[k],
@@ -205,9 +219,9 @@ def judge_case(case, items, status, envs, by_form, derived=None, forms_of_case=N
         for name, idx, s in items:
             vr, obs = s["vr"], s[env][0]
             ks = sel_fields(vr, by_form[name], derived)
-            diff = [k for k in ks if masked(obs[k], vr.expected[k]) != masked(vr.observed[k], vr.expected[k])]
+            diff = [k for k in ks if not same(obs[k], vr.observed[k], vr.expected[k])]
             alt = evaluate.VectorResult(name, idx, vr.inputs, obs, vr.expected)
-            spec_bad += any(alt.field_ok(k) is False for k in ks)
+            spec_bad += any(board_ok(alt, k) is False for k in ks)
             if diff:
                 bad += 1
                 fields |= {by_form[name].fields[k] for k in diff}

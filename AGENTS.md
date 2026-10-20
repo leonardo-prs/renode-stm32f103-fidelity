@@ -31,23 +31,30 @@ terceiros); este arquivo só orienta agentes.
   `.md`; usar o PDF só para conferir figuras/tabelas.
 - `docs/` e `context/` foram **removidos deste repo** em 2025-08-31 após port verificado (hashes `b60a48cd` / `629a59c1`, `12M` idêntico, 44 arquivos).
 
-## Estrutura e fluxo (entrega final)
+## Estrutura e fluxo — novo C1 (workspace jj `cenario1`)
 
-- Firmwares (um `main` por preset, `-O2 -g3`, LL/CMSIS, sem HAL):
-  `c1-functional`, `c1-timing` (`src/c1/`), `c2` (`src/c2/timers.c`),
-  `c3` (`src/c3/nvic.c` — NVIC), `c4` (`src/c4/usart.c` — USART). Ordem do
-  plano: C3 = NVIC, C4 = USART (a numeração antiga s3/s4 era invertida).
-- ABI v3 "FID3": `inc/fidelity.h`, `lib/fidelity.c`, `lib/fidelity_measure.S`;
-  decodificador `scripts/fidelity/abi.py`.
-- Campanha: `scripts/campaign.sh` → `scripts/fidelity.py campaign` (pacote
-  `scripts/fidelity/`: targets, campaign, instr, c1..c4, analysis, perfetto,
-  figures, report). Dados em `data/fidelity/<campanha>/` (gitignored);
-  `data/exploratory/` = coletas antigas (ABI v1/v2), fora da análise.
-- Renode: `renode/stm32f103_hsi8.repl` + script único `renode/fidelity.resc`
-  (8 MIPS, quantum 125 ns, loopback USART1, AutoUpdateDelay off). Fonte da
-  versão instalada: `/nix/store/*renode-1.17.0/lib/renode/src/`.
-- Build: `cmake --workflow --preset <fw>`. Ambiente: `nix develop`/direnv
-  (inclui numpy, matplotlib e `trace_processor_shell` v58.2).
+Especificação: `tcc/material-base/main.typ` (+ `c1/*.typ`). Este workspace
+reimplementa o C1 do zero; C2–C4 (`src/c2..c4`, `lib/`, `inc/`,
+`scripts/fidelity*`, `renode/fidelity.resc`) ficam só como contexto e serão
+removidos pelo autor no fim.
+
+- Firmwares (um preset cada, `-O2 -g3`, sem HAL/LL, só headers CMSIS):
+  `c1-func` (vetores funcionais em lotes), `c1-layout` (FID/LAY, 2 lotes: normal
+  e reset por software), `c1-cycle` (T-DWT e microbenchmarks diferenciais).
+  `src/c1/common/`: startup próprio (captura do reset), `c1.ld`, registro
+  C1S1 (`c1.h`), falta-e-retoma (`fault.S`), `call.S` (rótulos do stepi).
+- Catálogo = fonte única (`scripts/c1/`): `func/<grupo>.py` ↔
+  `src/c1/func/<grupo>.S`, `cycle/*.py` ↔ `src/c1/cycle/*.S`, `layout.py`.
+  O CMake gera `build/<preset>/gen/c1_{config,catalog}.h` (`python -m c1 gen`);
+  o hash do catálogo vai para o snapshot. Oráculo: `arm.py` (testes em
+  `scripts/c1/tests`). Gate: `disasm.py` confere cada rótulo `_x<k>`.
+- CLI: `scripts/c1.sh {campaign,analyze,run,trace,check}`. Dados em
+  `data/c1/<campanha>/` (gitignored); análise em `analysis/report.md`.
+- Renode: `renode/c1.resc` + perfis `renode` (`stm32f103_hsi8.repl`, a
+  plataforma do projeto) e `renode-doc` (`c1_doc.repl`: só correções
+  documentadas). 8 MIPS, quantum 125 ns.
+- Fonte do Renode instalado: `/nix/store/*renode-1.17.0/lib/renode/src/`.
+- Build: `cmake --workflow --preset <preset>` (zero warnings é política).
 
 ## Regras
 
@@ -61,8 +68,8 @@ terceiros); este arquivo só orienta agentes.
   MYS 809`), CPUID 0x411FC231 (Cortex-M3 r1p1), IDCODE 0x20036410 (DEV 0x410,
   rev Y/X), ROM table JEP106 0x20 (ST), UID `0a0b0200 30301624 32303030`,
   F_SIZE informa 128 KiB (atípico p/ C8; irrelevante — binários < 64 KiB).
-- `tests/` só existiu durante o desenvolvimento (resultados no README); não
-  faz parte da árvore final.
+- Nunca rebuildar presets durante uma campanha: o Renode carrega o ELF de
+  `build/` e cada run registra o SHA-256 do ELF.
 - Sem `printf`/UART fora do C4; variáveis compartilhadas com ISR `volatile` e
   com um único escritor; todo handler com protótipo.
 

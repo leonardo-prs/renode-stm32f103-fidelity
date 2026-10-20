@@ -1,23 +1,29 @@
 #!/usr/bin/env bash
-# renode_start.sh <firmware> — build + Renode headless com GDB em :3334 (debug no VS Code).
-#
-# Usa o MESMO script da campanha (renode/fidelity.resc). Encerra apenas uma
-# instância anterior iniciada por este script (PID em build/renode.pid).
+# renode_start.sh <preset> [renode|renode-doc] — build + Renode headless com GDB
+# em :3334 (depuração no VS Code), com o MESMO script e as mesmas plataformas da
+# campanha (renode/c1.resc). Encerra só uma instância anterior iniciada por
+# este script (PID em build/renode.pid).
 set -euo pipefail
-fw="${1:?uso: renode_start.sh <c1-functional|c1-timing|c2|c3|c4>}"
+fw="${1:?uso: renode_start.sh <c1-func|c1-layout|c1-cycle> [renode|renode-doc]}"
+profile="${2:-renode}"
+case "$profile" in
+    renode) repl=renode/stm32f103_hsi8.repl ;;
+    renode-doc) repl=renode/c1_doc.repl ;;
+    *) echo "perfil desconhecido: $profile" >&2; exit 1 ;;
+esac
 cd "$(dirname "$0")/.."
-mkdir -p build data/fidelity
-exec 9>data/fidelity/.build.lock
-flock -n 9 || { echo "ERRO: build em uso por outra execução." >&2; exit 1; }
+mkdir -p build data/c1
+exec 9>data/c1/.build.lock
+flock -n 9 || { echo "ERRO: build em uso por outra execução (campanha?)." >&2; exit 1; }
 cmake --workflow --preset "$fw"
 "$(dirname "$0")/renode_stop.sh" >/dev/null
-if python3 -c 'from scripts.fidelity.targets import port_in_use; raise SystemExit(not port_in_use(3334))'; then
+if (exec 3<>/dev/tcp/127.0.0.1/3334) 2>/dev/null; then
     echo "ERRO: :3334 ocupada por outro servidor." >&2
     exit 1
 fi
 trap '"$(dirname "$0")/renode_stop.sh" >/dev/null' EXIT
 nohup renode --disable-xwt --plain --port -1 --pid-file build/renode.pid \
-    -e "\$elf=@build/$fw/firmware.elf; \$gdb_port=3334; i @renode/fidelity.resc" \
+    -e "\$elf=@build/$fw/firmware.elf; \$gdb_port=3334; \$platform=@$repl; i @renode/c1.resc" \
     > build/renode.log 2>&1 9>&- &
 child_pid=$!
 for _ in $(seq 1 120); do
@@ -39,7 +45,7 @@ for _ in $(seq 1 120); do
             echo "ERRO: servidor sem identificação de processo próprio." >&2
             exit 1
         fi
-        echo ">>> Renode pronto: GDB em :3334 (log build/renode.log)"
+        echo ">>> Renode ($profile) pronto: GDB em :3334 (log build/renode.log)"
         trap - EXIT
         exit 0
     fi
