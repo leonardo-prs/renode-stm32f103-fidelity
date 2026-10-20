@@ -86,3 +86,15 @@ VARIANTS = [
             note="\"take one cycle unless data is pending in the write buffer\""),
     Variant("T-SYS-04", "T-SYS-04", "t_sys04", "sev", P(1), F(1), first=ins("sev", 16)),
 ]
+
+# Diagnóstico de T-BR-03 e T-BR-06 (fora do intervalo do TRM na placa): as
+# mesmas unidades com a 1ª unidade em ≡ 2 (mod 4), para separar o efeito de
+# alinhamento da busca.
+VARIANTS += [
+    Variant("T-BR-03.h", "T-BR-03", "t_br03_h", "bne.n <seguinte> (Z = 1; 1ª unidade em meia palavra)",
+            P(1), F(1), regs=Z1, level="N3", source=NOTA_A, first=BR(r"bne\.n", 16), ua=2,
+            note="diagnóstico do alinhamento"),
+    Variant("T-BR-06.h", "T-BR-06", "t_br06_h", "adr.w r1, 1f+1 ; bx r1 ; 1: (1ª unidade em meia palavra)",
+            P(4), F(2), level="N3", source=NOTA_A, first=Insn(r"addw", 32, None), ua=2,
+            note="diagnóstico do alinhamento"),
+]

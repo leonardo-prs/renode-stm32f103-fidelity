@@ -78,6 +78,14 @@ X \name
     BLOCK   \name\()_24, 24, \unit, \pre, \post, \ua, \sect
 .endm
 
+@ Variante diagnóstica com outro K (o teste de linearidade falhou com K = 8,
+@ ou para isolar o efeito de alinhamento): tamanhos k, 2k, 3k.
+.macro BLOCKSETK name, unit, k, pre, post, ua=4, sect=.text
+    BLOCK   \name\()_\k, \k, \unit, \pre, \post, \ua, \sect
+    BLOCK   \name\()_\k\()x2, (2 * \k), \unit, \pre, \post, \ua, \sect
+    BLOCK   \name\()_\k\()x3, (3 * \k), \unit, \pre, \post, \ua, \sect
+.endm
+
 @ Unidade de uma instrução: UNIT1 nome, instrução → macro U_nome.
 .macro UNIT1 name, insn:vararg
 .macro U_\name

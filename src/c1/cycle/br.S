@@ -150,3 +150,8 @@ c1_leaf:
     BLOCKSET t_sys03_str, U_strdsb
     UNIT1   sev, sev
     BLOCKSET t_sys04, U_sev
+
+@ Diagnóstico de T-BR-03 e T-BR-06 (fora do intervalo do TRM): as mesmas
+@ unidades com a 1ª unidade em ≡ 2 (mod 4).
+    BLOCKSET t_br03_h, U_bne, , , 2
+    BLOCKSET t_br06_h, U_bx, , , 2

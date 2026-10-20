@@ -126,3 +126,13 @@ VARIANTS += [
       ins("str r1, [r0, #0]", 16), setup="bb3_plain", level="N3", obj=ISO, case="T-BB-03",
       source="@armlimited2007[§14.5.2]"),
 ]
+
+# Diagnóstico de T-LS-10.01 (material-base: se a linearidade falha, investigar
+# com K = 16 e 32): a mesma unidade com a base na flash, em tamanhos maiores.
+for k in (16, 32):
+    VARIANTS.append(Variant(
+        f"T-LS-10.01.k{k}", "T-LS-10", "t_ls01k", "ldr r1, [r0] (base na flash)",
+        P(1, text="hipótese: igual à SRAM"), F(1), setup="rom", level="N3",
+        source="@stmicroelectronics2021[§3.3.3]", first=ins("ldr r1, [r0, #0]", 16),
+        sizes=(k, 2 * k, 3 * k), blocks=(f"t_ls01k_{k}", f"t_ls01k_{k}x2", f"t_ls01k_{k}x3"),
+        note=f"diagnóstico da não linearidade com K = 8: mesmo bloco com K = {k}"))

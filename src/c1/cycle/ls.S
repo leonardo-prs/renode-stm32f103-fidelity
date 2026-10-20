@@ -120,3 +120,8 @@
 @ T-BB-03: escrita (alias ou comum) seguida de carga da SRAM.
     UNIT2   strldr, "str r1, [r0]", "ldr r2, [r3]"
     BLOCKSET t_bb03, U_strldr
+
+@ Diagnóstico de T-LS-10.01 (cargas seguidas da flash não lineares com K = 8):
+@ o mesmo bloco com K = 16 e K = 32.
+    BLOCKSETK t_ls01k, U_ldr, 16
+    BLOCKSETK t_ls01k, U_ldr, 32
