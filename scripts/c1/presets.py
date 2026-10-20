@@ -34,6 +34,6 @@ PRESETS = {
                       "instruções, memória e exceções síncronas: resultados bit a bit"),
     "c1-layout": Preset("c1-layout", 2, 64, 1024,
                         "estado de reset, identidade e layout de memória"),
-    "c1-cycle": Preset("c1-cycle", 3, 200, 3000,
+    "c1-cycle": Preset("c1-cycle", 3, 64, 2600,
                        "DWT_CYCCNT como régua e custo em ciclos por classe de instrução"),
 }

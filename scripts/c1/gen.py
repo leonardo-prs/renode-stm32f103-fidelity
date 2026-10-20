@@ -111,9 +111,52 @@ def gen_layout(preset: Preset) -> Generated:
 
 
 def gen_cycle(preset: Preset) -> Generated:
-    catalog = HEADER + "#ifndef C1_CATALOG_H\n#define C1_CATALOG_H\n#define C1_N_BATCHES 1U\n#endif\n"
+    from . import cycle
+    variants = cycle.VARIANTS
+    batches = cycle.make_batches(variants, preset.max_words, preset.max_records)
+    sets: dict[tuple, int] = {}
+    regs_pool: dict[tuple, int] = {}
+    var_rows = []
+    for idx, v in enumerate(variants):
+        key = tuple(v.blocks)
+        sets.setdefault(key, len(sets))
+        rix = []
+        for regs in v.regs:
+            regs_pool.setdefault(tuple(regs), len(regs_pool))
+            rix.append(regs_pool[tuple(regs)])
+        var_rows.append(f"    {{ {sets[key]}U, {{ {rix[0]}U, {rix[1]}U, {rix[2]}U }}, "
+                        f"{{ {v.sizes[0]}U, {v.sizes[1]}U, {v.sizes[2]}U }}, "
+                        f"C1_SETUP_{v.setup.upper()}, {v.arg}U, {v.flags}U }},   /* {idx}: {v.name} */")
+    blocks = sorted({b for key in sets for b in key})
+    set_rows = [f"    {{ {{ {', '.join(key)} }} }}," for key in sets]
+    pool_rows = ["    { " + ", ".join(f"0x{w:08x}u" for w in regs) + " }," for regs in regs_pool]
+    items, batch_rows = [], []
+    for b in batches:
+        batch_rows.append(f"    {{ {len(items)}U, {len(b.variants)}U, 0U, {int(b.level[1])}U }},")
+        items += b.variants
+    x0 = sorted({f"{b}_x0" for key in sets for b, n in zip(key, (1, 1, 1)) if b.startswith(("t_br09", "t_br10"))})
+    catalog = (
+        HEADER + "#ifndef C1_CATALOG_H\n#define C1_CATALOG_H\n#include <stdint.h>\n\n"
+        f"#define C1_R_MAX {cycle.R_MAX}U\n"
+        + "".join(f"#define C1_SETUP_{name.upper()} {k}U\n" for k, name in enumerate(cycle.SETUPS))
+        + f"#define C1_V_PRIMASK0 {cycle.V_PRIMASK0}U\n#define C1_V_CYCOFF {cycle.V_CYCOFF}U\n"
+        f"#define C1_V_PREFOFF {cycle.V_PREFOFF}U\n#define C1_V_RAW {cycle.V_RAW}U\n\n"
+        "typedef uint32_t (*C1Block)(uint32_t *regs);\n"
+        "typedef struct { C1Block fn[3]; } C1BlockSet;\n"
+        "typedef struct { uint16_t set; uint16_t regs[3]; uint8_t units[3]; uint8_t setup;\n"
+        "                 uint8_t arg; uint8_t flags; } C1Variant;\n"
+        "typedef struct { uint16_t first; uint16_t count; uint16_t terminal; uint16_t level; } C1Batch;\n\n"
+        + "".join(f"uint32_t {b}(uint32_t *regs);\n" for b in blocks)
+        + "".join(f"extern const char {s}[];\n" for s in x0)
+        + f"\nstatic const C1BlockSet c1_sets[{len(sets)}] = {{\n" + "\n".join(set_rows) + "\n};\n"
+        f"static const uint32_t c1_regs_pool[{len(regs_pool)}][11] = {{\n" + "\n".join(pool_rows) + "\n};\n"
+        f"static const C1Variant c1_variants[{len(variants)}] = {{\n" + "\n".join(var_rows) + "\n};\n"
+        f"static const uint16_t c1_items[{len(items)}] = {{ " + ", ".join(f"{i}U" for i in items) + " };\n"
+        f"static const C1Batch c1_batches[{len(batches)}] = {{\n" + "\n".join(batch_rows) + "\n};\n"
+        f"#define C1_N_VARIANTS {len(variants)}U\n#define C1_N_BATCHES {len(batches)}U\n"
+        "#endif\n")
     h = short_hash(catalog + repr((preset.max_records, preset.max_words)))
-    return Generated(preset, h, _config(preset, h), catalog, [], [])
+    return Generated(preset, h, _config(preset, h), catalog, list(variants), batches)
 
 
 GENERATORS = {"c1-func": gen_func, "c1-layout": gen_layout, "c1-cycle": gen_cycle}

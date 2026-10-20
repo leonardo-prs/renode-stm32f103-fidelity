@@ -51,7 +51,7 @@ def cmd_run(args) -> int:
             print(f"dados: {out}")
             return 0
     snap = abi.decode(col.snapshot)
-    if args.preset == 'c1-func':
+    if args.preset in ('c1-func', 'c1-cycle'):
         from . import disasm
         for p in disasm.gate(preset.name, preset.elf):
             print(f'  GATE: {p}')
@@ -75,6 +75,21 @@ def cmd_run(args) -> int:
             diffs = [f"{name}: obs 0x{r.observed[k]:08x} esp {r.expected[k]}"
                      for k, name in enumerate(f.fields) if r.field_ok(k) is False]
             print(f"  ≠ {r.form}[{r.index}] in={[hex(x) for x in r.inputs]} " + "; ".join(diffs))
+    if preset.name == "c1-cycle" and args.batch < len(g.batches):
+        from . import timing
+        runs, probs = timing.parse(snap, g.forms, g.batches[args.batch], args.iters, args.trace)
+        for p in probs:
+            print(f"  PROBLEMA: {p}")
+        byname = {v.name: v for v in g.forms}
+        print(f"{'variante':28} {'TRM':>14} {'H-T1':>5} {'c fria':>8} {'c quente':>8} {'O':>6} lin  Δ(K,2K,3K) quente")
+        for r in runs:
+            v = byname[r.name]
+            fits = r.fits(v.sizes)
+            cold, warm = fits[0], fits[-1]
+            fmt = lambda c: "—" if c is None else str(c)   # noqa: E731
+            print(f"{r.name:28} {str(v.trm):>14} {str(v.renode):>5} {fmt(cold.c):>8} {fmt(warm.c):>8} "
+                  f"{str(warm.o):>6} {'ok ' if all(f.linear for f in fits) else 'NÃO'} {warm.deltas}"
+                  + (f"  perfil {r.profile}" if args.profile and r.profile else ""))
     print(f"dados: {out}")
     return 0 if not problems else 3
 
@@ -94,6 +109,7 @@ def main(argv=None) -> int:
     r.add_argument("--trace", action="store_true", help="só o 1º vetor de cada forma")
     r.add_argument("--timeout", type=float, default=120)
     r.add_argument("--show", type=int, default=20)
+    r.add_argument("--profile", action="store_true", help="mostra os contadores de perfil do DWT")
     r.add_argument("--out", type=Path, default=None)
     args = p.parse_args(argv)
 
