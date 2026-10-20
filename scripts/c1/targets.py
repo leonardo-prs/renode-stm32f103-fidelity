@@ -2,7 +2,7 @@
 
 O protocolo de coleta é o MESMO nos dois ambientes; só o servidor GDB muda:
 
-    reset → hbreak main → continue → grava o bloco do host (c1_host)
+    reset → hbreak *main → continue → grava o bloco do host (c1_host)
           → hbreak c1_complete → continue → (firmware para)
           → dump binário de c1_snapshot → detach
 
@@ -211,7 +211,7 @@ def collect_script(port: int, dump: Path, host: HostBlock, reset: str, extra: st
         "set pagination off\nset confirm off\nset remotetimeout 15\n"
         f"target extended-remote 127.0.0.1:{port}\n"
         f"{reset}"
-        "hbreak main\ncontinue\n"
+        "hbreak *main\ncontinue\n"
         f"{middle}"
         'printf "C1_PC=0x%x\\n", $pc\n'
         'printf "C1_COMPLETE=0x%x\\n", &c1_complete\n'
@@ -346,6 +346,11 @@ def renode_command(elf: Path, gdb_port: int, profile: str) -> list[str]:
     return ["renode", "--disable-xwt", "--plain", "--port", "-1", "-e", setup]
 
 
+# Linhas "[cpu: 0x0]" no log que caracterizam o núcleo preso em 0x0 (uma só
+# pode ser um acesso isolado registrado no estado inicial).
+CPU0_LINES = 8
+
+
 class RenodeSession:
     """Processo Renode NOVO com servidor GDB numa porta livre >= 3336."""
 
@@ -399,7 +404,7 @@ class RenodeSession:
             if abort:
                 return SimulatorAbort(f"Renode abortou a máquina em PC={abort[1]}: {abort[2].strip()}",
                                       int(abort[1], 16))
-            if time.monotonic() - t0 > grace_s and log.count("[cpu: 0x0]") >= 8:
+            if time.monotonic() - t0 > grace_s and log.count("[cpu: 0x0]") >= CPU0_LINES:
                 return SimulatorAbort("o núcleo simulado passou a executar em 0x00000000 (tabela de "
                                       "vetores lida de endereço não mapeado) e não voltou a main", 0)
             return None
@@ -433,7 +438,7 @@ def run_renode(elf: Path, run_dir: Path, host: HostBlock, timeout_s: float,
             if abort:
                 raise SimulatorAbort(f"Renode abortou a máquina em PC={abort[1]}: {abort[2].strip()}",
                                      int(abort[1], 16)) from None
-            if re.search(r"\[cpu: 0x0\]", log):
+            if log.count("[cpu: 0x0]") >= CPU0_LINES:     # mesmo critério de abort_watch
                 raise SimulatorAbort("o núcleo simulado passou a executar em 0x00000000 (tabela de "
                                      "vetores lida de endereço não mapeado) e não voltou a main",
                                      0) from None

@@ -39,6 +39,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from . import abi, disasm, gen, targets, trace
+from .cycle import R_MAX
 from .presets import PRESETS, ROOT
 from .targets import TargetError
 
@@ -175,6 +176,34 @@ def build(preset: str, log_dir: Path) -> None:
 
 
 USART1 = (0x4001_3800, 0x4001_3C00)
+LOADED = (".isr_vector", ".text", ".rodata", ".data", ".ramfunc")
+
+
+def usart_literals(elf: Path, sections: list[str]) -> list[str]:
+    """Palavras no intervalo da USART1 nas seções carregadas e pares MOVW/MOVT
+    que montam um endereço nele."""
+    cmd = ["arm-none-eabi-objdump", "-s"]
+    for s in sections:
+        cmd += ["-j", s]
+    words = []
+    for line in targets.run_command(cmd + [str(elf)]).stdout.splitlines():
+        m = re.match(r"^ ([0-9a-f]{8}) ((?:[0-9a-f]{8} ?){1,4})", line)
+        if m:
+            words += [int.from_bytes(bytes.fromhex(w), "little") for w in m[2].split()]
+    found = {hex(w) for w in words if USART1[0] <= w < USART1[1]}
+    low: dict[str, int] = {}
+    for addr, d in sorted(disasm.disassemble(elf).items()):
+        m = re.match(r"(r\d+|ip|lr|sl|fp), #(0x[0-9a-f]+|\d+)$", d.operands)
+        if not m:
+            continue
+        imm = int(m[2], 0)
+        if d.mnemonic.startswith("movw"):
+            low[m[1]] = imm
+        elif d.mnemonic.startswith("movt") and m[1] in low:
+            full = (imm << 16) | low.pop(m[1])
+            if USART1[0] <= full < USART1[1]:
+                found.add(f"{full:#x} (movw/movt em {addr:#x})")
+    return sorted(found)
 
 
 def gate(preset: str) -> dict:
@@ -183,19 +212,13 @@ def gate(preset: str) -> dict:
     problems = disasm.gate(preset, elf)
     if problems:
         raise CampaignError(f"{preset}: gate de disassembly recusou o ELF: {problems[:4]}")
-    # Fio PA9→PA10 permanente: só o C4 pode referenciar a USART1.
-    dump = targets.run_command(["arm-none-eabi-objdump", "-s", "-j", ".text", "-j", ".rodata",
-                                str(elf)]).stdout
-    words = []
-    for line in dump.splitlines():
-        m = re.match(r"^ ([0-9a-f]{8}) ((?:[0-9a-f]{8} ?){1,4})", line)
-        if m:
-            words += [int.from_bytes(bytes.fromhex(w), "little") for w in m[2].split()]
-    usart = sorted({hex(w) for w in words if USART1[0] <= w < USART1[1]})
-    if usart:
-        raise CampaignError(f"{preset}: literal da USART1 {usart} (só o C4 toca PA9/PA10)")
     size = targets.run_command(["arm-none-eabi-size", "-A", str(elf)]).stdout
     sec = {m[1]: int(m[2]) for m in re.finditer(r"^(\S+)\s+(\d+)\s+(\d+)$", size, re.M)}
+    # Fio PA9→PA10 permanente: só o C4 pode referenciar a USART1 — nem por
+    # literal (em qualquer seção carregada da flash) nem por MOVW/MOVT.
+    usart = usart_literals(elf, [s for s in LOADED if sec.get(s)])
+    if usart:
+        raise CampaignError(f"{preset}: endereço da USART1 {usart} (só o C4 toca PA9/PA10)")
     g = gen.generate(preset)
     return {"elf_sha256": sha256_file(elf), "catalog_hash": f"0x{g.catalog_hash:08x}",
             "flash_bytes": sum(sec.get(s, 0) for s in (".isr_vector", ".text", ".rodata", ".data",
@@ -238,7 +261,8 @@ def make_plan(args, versions, builds, vendor, identity) -> dict:
         "schema": PLAN_SCHEMA, "abi_version": abi.ABI_VERSION, "campaign": args.name,
         "created_utc": utc(), "mode": mode, "board": args.board, "board_note": args.board_note,
         "identity": identity, "environments": list(args.envs),
-        "repetitions": reps, "cycle_iters": args.iters or decision["iters"], "kalibera": decision,
+        "repetitions": reps, "cycle_iters": decision["iters"] if args.iters is None else args.iters,
+        "kalibera": decision,
         "presets": {p: {**builds[p], "batches": batch_ids(p, mode)} for p in PRESET_ORDER},
         "renode": {"version": versions.get("renode"), "mips": targets.NOMINAL_MIPS,
                    "quantum_s": targets.QUANTUM_S, "script_sha256": sha256_file(targets.RESC),
@@ -246,7 +270,7 @@ def make_plan(args, versions, builds, vendor, identity) -> dict:
                                 for k, v in targets.PROFILES.items()},
                    "fresh_process_per_run": True},
         "trace": {"enabled": bool(args.trace)},
-        "collector": {"protocol": "reset → hbreak main → bloco do host → hbreak c1_complete → dump",
+        "collector": {"protocol": "reset → hbreak *main → bloco do host → hbreak c1_complete → dump",
                       "sram_access_during_run": False},
         "tools": versions, "vendor": vendor, "sources": source_digest(), "revision": vcs_revision(),
     }
@@ -442,8 +466,12 @@ def run_traces(root: Path, plan: dict, envs, log: Log) -> None:
             bench = None
             try:
                 if env == "hw":
-                    bench = targets.Bench(next_attempt(root / "hw" / "sessions")).__enter__()
-                    bench.flash(PRESETS[preset].elf, bench.log_dir / f"flash-{preset}.log")
+                    try:
+                        bench = targets.Bench(next_attempt(root / "hw" / "sessions")).__enter__()
+                        bench.flash(PRESETS[preset].elf, bench.log_dir / f"flash-{preset}.log")
+                    except TargetError as exc:
+                        log(f"BANCADA INDISPONÍVEL no traço {preset}: {exc} — traço da placa incompleto")
+                        continue
                 for b in todo:
                     out = root / "trace" / env / preset / f"b{b:02d}"
                     host = targets.HostBlock(batch=b, flags=abi.HOST_TRACE)
@@ -469,6 +497,8 @@ def run_traces(root: Path, plan: dict, envs, log: Log) -> None:
 def run_campaign(args) -> int:
     root = DATA / args.name
     root.mkdir(parents=True, exist_ok=True)
+    if args.iters is not None and not 0 <= args.iters <= R_MAX:
+        raise CampaignError(f"--iters {args.iters}: o firmware aceita 0..{R_MAX} (C1_R_MAX)")
     with Lock(root / ".lock", f"campanha '{args.name}'"), \
             Lock(DATA / ".build.lock", "a árvore build/"), \
             Lock(DATA / ".hardware.lock", "a bancada (ST-Link)"):
@@ -489,6 +519,12 @@ def run_campaign(args) -> int:
         elif (root / "plan.json").exists():
             identity = read_json(root / "plan.json")["identity"]
         plan = freeze_plan(root, make_plan(args, versions, builds, vendor, identity), args.resume)
+        # O ELF executado fica com a campanha (o plano já conferiu o SHA-256 na
+        # retomada): a análise resolve símbolos e disassembly nele.
+        for preset in PRESET_ORDER:
+            frozen = root / "build" / f"{preset}.elf"
+            if not frozen.exists() or sha256_file(frozen) != plan["presets"][preset]["elf_sha256"]:
+                shutil.copyfile(PRESETS[preset].elf, frozen)
         if "hw" in args.envs:
             try:
                 run_hw(root, plan, log)

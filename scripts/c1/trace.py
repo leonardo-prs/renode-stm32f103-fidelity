@@ -27,7 +27,7 @@ def gdb_script(port: int, reset: str, host: targets.HostBlock, sym: dict[str, in
     return "\n".join([
         "set pagination off", "set confirm off", "set remotetimeout 15",
         f"target extended-remote 127.0.0.1:{port}", reset.strip(),
-        "hbreak main", "continue", host.gdb_set(host.flags).strip(), "delete",
+        "hbreak *main", "continue", host.gdb_set(host.flags).strip(), "delete",
         f"hbreak *0x{go:x}", f"hbreak *0x{done:x}", "set $n = 0", "continue",
         f"while (((unsigned int)$pc & ~1) != 0x{done:x})",
         '  printf "CALL %d\\n", $n',

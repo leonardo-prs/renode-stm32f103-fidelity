@@ -14,6 +14,8 @@ confirmou). Uma divergência nunca é contada quando o instrumento falhou.
 """
 from __future__ import annotations
 
+import bisect
+import hashlib
 import json
 import math
 from collections import defaultdict
@@ -61,6 +63,18 @@ def load_runs(root: Path, plan: dict, preset: str, batch: int, env: str) -> dict
     return out
 
 
+def frozen_elf(root: Path, plan: dict, preset: str) -> Path:
+    """O ELF que a campanha executou: a cópia congelada em <campanha>/build/
+    ou, em campanhas antigas sem a cópia, build/<preset> se ainda for o
+    mesmo (SHA-256 do plano). Símbolos e disassembly vêm sempre dele."""
+    want = plan["presets"][preset]["elf_sha256"]
+    for elf in (root / "build" / f"{preset}.elf", PRESETS[preset].elf):
+        if elf.exists() and hashlib.sha256(elf.read_bytes()).hexdigest() == want:
+            return elf
+    raise ValueError(f"{preset}: nenhum ELF com o SHA-256 da campanha ({want[:12]}…); "
+                     "a análise não pode resolver símbolos de outro build")
+
+
 def envs_of(plan) -> list[str]:
     return [e for e in ("hw", "renode", "renode-doc") if e in plan["environments"]]
 
@@ -84,7 +98,7 @@ def compare_set(vr: evaluate.VectorResult) -> list[int]:
 
 def functional(root: Path, plan: dict, preset: str, log) -> dict:
     g = gen.generate(preset)
-    syms = disasm.symbols(PRESETS[preset].elf)
+    syms = disasm.symbols(frozen_elf(root, plan, preset))
     forms = g.forms
     envs = envs_of(plan)
     vectors: dict = {}          # (form, index) → {"vr": VectorResult (placa), env: [observed...]}
@@ -251,6 +265,10 @@ def combine(out: dict, nondet) -> str:
     r = out["renode"]
     base = r.get("renode", {}).get("result")
     doc = r.get("renode-doc", {}).get("result")
+    if "renode" not in r:               # campanha sem o perfil base
+        if doc in (None, INVALID):
+            return INVALID
+        return CONFIG if doc == IGUAL else doc
     if base == IGUAL:
         return IGUAL
     if base == DIVERGE and doc == IGUAL:
@@ -505,8 +523,10 @@ def traces(root: Path, plan: dict, cyc: dict | None) -> dict:
         return out
     for preset in ("c1-func", "c1-cycle"):
         g = gen.generate(preset)
-        dis = disasm.disassemble(PRESETS[preset].elf)
-        syms = disasm.symbols(PRESETS[preset].elf)
+        elf = frozen_elf(root, plan, preset)
+        dis = disasm.disassemble(elf)
+        addrs = sorted(dis)
+        syms = disasm.symbols(elf)
         rows = []
         for b in plan["presets"][preset]["batches"]:
             batch = g.batches[b]
@@ -523,10 +543,14 @@ def traces(root: Path, plan: dict, cyc: dict | None) -> dict:
                 hw, rn = data.get("hw"), data.get("renode")
                 if hw and rn and k < len(hw) and k < len(rn):
                     row["same_path"] = hw[k]["sha256"] == rn[k]["sha256"]
-                if preset == "c1-cycle" and hw and k < len(hw):
-                    row["window"] = window_count(g.forms[batch.variants[k]], hw[k]["pcs"], syms, dis)
+                if preset == "c1-cycle":
+                    # Cada ambiente com o seu traço: o caminho dinâmico pode diferir.
+                    for env, calls in data.items():
+                        if calls and k < len(calls):
+                            row[f"window_{env}"] = window_count(g.forms[batch.variants[k]],
+                                                                calls[k]["pcs"], syms, dis, addrs)
                 if preset == "c1-func":
-                    st = static_count(g.forms[batch.entries[k].form], syms, dis)
+                    st = static_count(g.forms[batch.entries[k].form], syms, dis, addrs)
                     if st is not None:
                         row["static"] = st
                         for env in data:
@@ -543,7 +567,11 @@ BRANCHY = ("b", "bl", "blx", "bx", "cbz", "cbnz", "tbb", "tbh", "svc", "udf", "i
            "ittt", "itte", "itet", "itee", "itttt", "iteee")
 
 
-def static_count(form, syms, dis) -> int | None:
+def after(addrs: list[int], start: int) -> list[int]:
+    return addrs[bisect.bisect_left(addrs, start):]
+
+
+def static_count(form, syms, dis, addrs) -> int | None:
     """Contagem estática de uma rotina em linha reta: o BLX de c1_call mais as
     instruções da rotina até o retorno. None se houver desvio, IT, SVC,
     instrução crua ou se a forma provocar falta (o caminho não é estático)."""
@@ -553,7 +581,7 @@ def static_count(form, syms, dis) -> int | None:
     if start is None:
         return None
     n = 0
-    for addr in sorted(a for a in dis if a >= (start & ~1)):
+    for addr in after(addrs, start & ~1):
         d = dis[addr]
         mnem = d.mnemonic.split(".")[0]
         n += 1
@@ -570,14 +598,14 @@ def static_count(form, syms, dis) -> int | None:
     return None
 
 
-def window_count(v, pcs: list[str], syms, dis) -> int | None:
+def window_count(v, pcs: list[str], syms, dis, addrs) -> int | None:
     """Instruções executadas entre a 1ª unidade (t0 já lido) e a leitura de t1."""
     block = v.blocks[0]
     x0 = syms.get(f"{block}_x0")
     if x0 is None:
         return None
     t1 = None
-    for addr in sorted(a for a in dis if a >= x0):
+    for addr in after(addrs, x0 & ~1):
         d = dis[addr]
         if d.mnemonic == "ldr" and d.operands.startswith("r5, [r6"):
             t1 = addr
@@ -604,10 +632,10 @@ def h_t1(rows: list[dict], cyc: dict) -> None:
             continue
         for env, key in (("renode", "h_t1_exact"), ("hw", "hw_cpi")):
             e = v.get("env", {}).get(env, {})
-            if row.get("window") is not None and e.get("deltas_cold") and d0.get(env) \
-                    and (row["window"] or env == "renode"):
+            w = row.get(f"window_{env}")
+            if w is not None and e.get("deltas_cold") and d0.get(env) and (w or env == "renode"):
                 dk = e["deltas_cold"][0] - d0[env][0]
-                row[key] = (dk == row["window"]) if env == "renode" else str(Fraction(dk, row["window"]))
+                row[key] = (dk == w) if env == "renode" else str(Fraction(dk, w))
 
 
 # ───────────────────────────── entrada ─────────────────────────────
