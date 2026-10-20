@@ -30,6 +30,8 @@ REG_NAMES = ("r0", "r1", "r2", "r3", "r4", "r8", "r9", "r10", "r11", "r12", "aps
 # Preparações de memória (switch em src/c1/cycle/main.c).
 SETUPS = ("none", "cell", "self", "walk", "ls08a", "ls08b", "ls08c", "ls08d", "ldrpc", "pairs",
           "rom", "alias", "bb3_alias", "bb3_plain", "copy")
+# Setups cujas tabelas/buffers no firmware têm o tamanho de K = 8/16/24.
+TABLE_SETUPS = ("walk", "ldrpc", "pairs", "copy")
 # Flags de variante.
 V_PRIMASK0, V_CYCOFF, V_PREFOFF, V_RAW = 1, 2, 4, 8
 
@@ -97,7 +99,14 @@ class Variant:
 
     def __post_init__(self):
         if self.blocks is None:
-            self.blocks = tuple(f"{self.blockset}_{n}" for n in SIZES)
+            self.blocks = tuple(f"{self.blockset}_{n}" for n in self.sizes)
+        # Os buffers do firmware (c1_cyc_tab, c1_src/c1_dst, c1_cell) e
+        # first_unit() (src/c1/cycle/main.c) só conhecem os blocos K = 8/16/24.
+        if self.setup in TABLE_SETUPS and max(self.sizes) > max(SIZES):
+            raise ValueError(f"{self.name}: setup {self.setup} limitado a {max(SIZES)} unidades")
+        if self.setup in ("ldrpc", "pairs") and self.blocks != tuple(
+                f"{self.blockset}_{n}" for n in SIZES):
+            raise ValueError(f"{self.name}: setup {self.setup} exige os blocos padrão {SIZES}")
         if len(self.regs) == len(REG_NAMES):
             self.regs = (self.regs,) * 3
         if self.setup not in SETUPS:
