@@ -40,6 +40,7 @@ def write(out: Path, results: dict, kal: dict, plan: dict) -> None:
     lines += kalibera_section(kal, plan)
     lines += deviations()
     (out / "report.md").write_text("\n".join(lines) + "\n")
+    (out / "resumo.md").write_text("\n".join(summary(results, figs)) + "\n")
     tables(out, results)
 
 
@@ -208,11 +209,18 @@ def trace_section(trc) -> list[str]:
 
 
 def kalibera_section(kal, plan) -> list[str]:
-    rows = ["## Repetições (Kalibera & Jones)", "",
-            f"Decisão para a campanha: regra {kal['campaign_decision']['rule']} — "
-            f"{kal['campaign_decision']['why']} → {kal['campaign_decision']['iters']} iteração(ões) quente(s), "
-            f"{kal['campaign_decision']['executions']} execuções.", ""]
+    rows = ["## Repetições (Kalibera & Jones)", ""]
     var = [(n, e, st) for n, envs in kal["per_variant"].items() for e, st in envs.items()]
+    k = plan.get("kalibera", {})
+    if not var:
+        rows.append(f"Esta campanha não tem séries com r1 ≥ 2 (iterações quentes: {plan['cycle_iters']}). "
+                    f"As repetições vieram da regra {k.get('rule')} aplicada ao piloto "
+                    f"`{k.get('from_pilot')}`: {k.get('why')} → {k.get('iters')} iteração(ões) quente(s), "
+                    f"{k.get('executions')} execuções.")
+        return rows + [""]
+    d = kal["campaign_decision"]
+    rows.append(f"Decisão para a campanha final: regra {d['rule']} — {d['why']} → {d['iters']} "
+                f"iteração(ões) quente(s), {d['executions']} execuções.")
     nonzero = [(n, e, st) for n, e, st in var if st["rule"] != 1]
     rows.append(f"{len(var)} séries (variante × ambiente) com r1 ≥ 2 e r2 ≥ 2; "
                 f"{len(var) - len(nonzero)} sem variação alguma.")
@@ -232,6 +240,73 @@ def deviations() -> list[str]:
             "- FEX-02 executa CLREX antes do STREX para garantir o monitor em Open Access.",
             "- Perfis do Renode: `renode` (plataforma do projeto) e `renode-doc` (alias de boot, VTOR = 0, "
             "bit-band, DIV_0_TRP gravável); IGUAL COM CONFIGURAÇÃO = só o segundo iguala.", ""]
+
+
+# ───────────────────────────── resumo (README / monografia) ─────────────────────────────
+
+# Uma variante representativa por classe de instrução (custo por unidade).
+REPRESENTATIVE = (
+    ("ALU 16/32 bits", "T-ALU-01"), ("MUL", "T-MUL-01"), ("MLA", "T-MUL-02.mla"),
+    ("UMULL pequenos", "T-MUL-03.umull.pequenos"), ("UMULL grandes", "T-MUL-03.umull.grandes"),
+    ("UDIV 32/1 bits", "T-DIV-01.a32.b1"), ("UDIV 8/8 bits", "T-DIV-01.a8.b8"),
+    ("LDR em fluxo", "T-LS-01"), ("LDR dependente", "T-LS-02"), ("LDR + ALU", "T-LS-03"),
+    ("STR imediato", "T-LS-06"), ("LDM 8 regs", "T-LSM-01.n8"), ("PUSH+POP 8 regs", "T-LSM-03.n8"),
+    ("LDRD", "T-LSM-04.ldrd"), ("LDREX + STREX", "T-LSM-05.c"), ("LDR desalinhado (byte)", "T-AL-01.ldr.m1"),
+    ("B tomado", "T-BR-01"), ("B<c> não tomado", "T-BR-03"), ("BX por registrador", "T-BR-06"),
+    ("BL + BX LR", "T-BR-07"), ("LDR PC", "T-BR-09"), ("POP {PC}", "T-BR-10"), ("TBB", "T-BR-11"),
+    ("IT + instrução", "T-IT-01"), ("ISB", "T-SYS-02"), ("SVC + retorno (vazio)", "T-DWT-06"),
+    ("Cópia de palavras (por iteração)", "T-COMP-01"), ("CRC-32 bit a bit (por bit)", "T-COMP-02"),
+)
+
+
+def summary(results, figs) -> list[str]:
+    from .renode_notes import NOTES
+    rows = [f"# Resumo do C1 — campanha `{results['plan']['campaign']}`", ""]
+    for title, part in (("Funcional (c1-func)", results["functional"]), ("Layout (c1-layout)", results["layout"])):
+        cnt = Counter(c["verdict"] for c in part["cases"].values())
+        rows += [f"## {title}", "", f"{len(part['cases'])} casos, {part['vectors']} vetores: "
+                 + ", ".join(f"{k} {v}" for k, v in sorted(cnt.items())) + ".", ""]
+        odd = [c for c in part["cases"].values() if c.get("board") and c["board"].startswith(("PLACA", "CONFLITO"))]
+        for c in odd:
+            rows.append(f"- placa: **{c['case']}** — {c['board']}")
+        div = [c for c in part["cases"].values() if c["verdict"] not in ("IGUAL",)]
+        if div:
+            rows += ["", "| Caso | Veredito | O que difere no Renode | Causa provável (código do Renode) |",
+                     "|---|---|---|---|"]
+        for c in div:
+            r = c.get("renode", {}).get("renode", {})
+            what = r.get("why") or ", ".join(r.get("fields", [])[:4]) or "—"
+            rows.append(f"| {c['case']} | {c['verdict']} | {what} | {NOTES.get(c['case'], '—')[:160]} |")
+        rows.append("")
+    vs = results["cycle"]["variants"]
+    rows += ["## Temporal (c1-cycle): custo por unidade", "",
+             "| Classe | Variante | TRM r1p1 | Placa | Renode | Placa × TRM |", "|---|---|---|---|---|---|"]
+    for label, name in REPRESENTATIVE:
+        v = vs.get(name)
+        if v:
+            rows.append(f"| {label} | {name} | {v['trm']} | {fmt_c(v.get('c_hw'))} | {fmt_c(v.get('c_renode'))} | "
+                        f"{v.get('board_vs_trm', v.get('why', '—'))} |")
+    real = {k: v for k, v in vs.items() if not k.startswith("_")}
+    cnt = Counter(v["verdict"] for v in real.values())
+    h_t1 = Counter(v.get("renode_vs_h_t1") for v in real.values() if v.get("renode_vs_h_t1"))
+    trm = Counter(v.get("board_vs_trm") for v in real.values() if v.get("board_vs_trm"))
+    rows += ["", f"{len(real)} variantes: " + ", ".join(f"{k} {n}" for k, n in sorted(cnt.items())) + ".",
+             f"Renode × H-T1: " + ", ".join(f"{k} {n}" for k, n in h_t1.items()) + ".",
+             f"Placa × TRM: " + ", ".join(f"{k} {n}" for k, n in trm.items()) + ".", ""]
+    out_trm = [v for v in real.values() if v.get("board_vs_trm") == "FORA"]
+    if out_trm:
+        rows.append("Fora do intervalo do TRM na placa: " + "; ".join(
+            f"{v['variant']} (TRM {v['trm']}, placa {v['c_hw']})" for v in out_trm) + ".")
+    inval = [v for v in real.values() if v["verdict"] == "EVIDÊNCIA INVÁLIDA"]
+    if inval:
+        rows.append("Sem c publicado (linearidade): " + "; ".join(
+            f"{v['variant']} Δ placa {v['env'].get('hw', {}).get('deltas_warm')}" for v in inval) + ".")
+    trc = results.get("trace", {})
+    for preset, items in trc.items():
+        same = sum(1 for r in items if r.get("same_path"))
+        cmp_ = sum(1 for r in items if "same_path" in r)
+        rows.append(f"Traço {preset}: mesma sequência de PCs em {same} de {cmp_} chamadas.")
+    return rows + [""]
 
 
 # ───────────────────────────── figuras ─────────────────────────────

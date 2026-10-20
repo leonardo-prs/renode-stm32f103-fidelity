@@ -32,14 +32,19 @@ def gdb_script(port: int, reset: str, host: targets.HostBlock, sym: dict[str, in
         f"while (((unsigned int)$pc & ~1) != 0x{done:x})",
         '  printf "CALL %d\\n", $n',
         "  set $k = 0",
-        f"  while ((((unsigned int)$pc & ~1) != 0x{back:x}) && ($k < {STEP_LIMIT}))",
+        # Também para em c1_complete: um caso terminal termina dentro do
+        # tratador de faltas e nunca volta a c1_call_back.
+        f"  while ((((unsigned int)$pc & ~1) != 0x{back:x}) && (((unsigned int)$pc & ~1) != 0x{done:x})"
+        f" && ($k < {STEP_LIMIT}))",
         '    printf "PC %x\\n", $pc',
         "    stepi",
         "    set $k = $k + 1",
         "  end",
         '  printf "END %d\\n", $k',
         "  set $n = $n + 1",
-        "  continue",
+        f"  if (((unsigned int)$pc & ~1) != 0x{done:x})",
+        "    continue",
+        "  end",
         "end",
         'printf "C1_PC=0x%x\\n", $pc',
         'printf "C1_COMPLETE=0x%x\\n", &c1_complete',
