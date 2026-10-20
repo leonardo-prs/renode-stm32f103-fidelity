@@ -60,7 +60,8 @@ depurador a cada sessão e conferida contra o plano: CPUID `0x411FC231`
 `0a0b0200 30301624 32303030`, F_SIZE 128 KiB (atípico para o C8; os binários
 têm menos de 64 KiB). Relógio: **HSI 8 MHz**, sem PLL, flash com 0 estados de
 espera (estado de reset; o C1 não toca no RCC). O fio PA9→PA10 da bancada não
-é tocado: o gate recusa ELF com literal da USART1.
+é tocado: o gate recusa ELF que referencie a USART1 (literal em qualquer seção
+carregada ou par MOVW/MOVT).
 
 **Software** (tudo pelo `flake.nix`, travado no `flake.lock`): GCC Arm 15.3,
 CMake 4 + Ninja, OpenOCD 0.12, Renode 1.17.0, Python 3 com matplotlib.
@@ -194,6 +195,9 @@ warnings) → gate → **plano congelado** (`plan.json`: SHA-256 dos ELFs, hashe
 dos catálogos, lotes, repetições, perfis e hash das plataformas, exemplar,
 ferramentas, revisão) → placa (exemplar conferido; gravação verificada) →
 Renode nos dois perfis (paralelo, `--jobs`) → traço por stepi → análise.
+O ELF executado é copiado para `build/<preset>.elf` da campanha; a análise só
+resolve símbolos e disassembly num ELF com o SHA-256 do plano e recusa se o
+catálogo das fontes não tiver o hash da campanha.
 
 | Opção | Efeito |
 |---|---|
@@ -208,7 +212,7 @@ incompleta; `1` erro de pré-condição, build, gate ou plano.
 
 ```
 data/c1/<campanha>/
-  plan.json  campaign.log  build/
+  plan.json  campaign.log  build/<preset>.elf  build/<preset>.log
   hw/sessions/run-NNN/                 OpenOCD, identificação do exemplar
   <ambiente>/<preset>/bNN/run-NNN/     snapshot.bin, run.json, gdb.log, renode.log
   trace/<ambiente>/<preset>/bNN/       trace.json (PCs por chamada), stepi.log
