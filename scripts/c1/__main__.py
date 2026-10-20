@@ -1,8 +1,10 @@
 """CLI do C1 (ver README).
 
-    python -m c1 gen   --preset P --out DIR          (chamado pelo CMake)
-    python -m c1 run   --env hw|renode|renode-doc --preset P [--batch B]
-                                                     (um run de diagnóstico)
+    python -m c1 campaign --name N --mode pilot|final --board B [...]
+    python -m c1 analyze  --name N                   (refaz a análise)
+    python -m c1 run      --env hw|renode|renode-doc --preset P [--batch B]
+    python -m c1 trace    --env E --preset P [--batch B]     (diagnóstico)
+    python -m c1 gen      --preset P --out DIR       (chamado pelo CMake)
 """
 from __future__ import annotations
 
@@ -102,6 +104,32 @@ def cmd_run(args) -> int:
     return 0 if not problems else 3
 
 
+def cmd_trace(args) -> int:
+    import json as _json
+    from . import abi, gen, targets, trace
+    from .presets import PRESETS, ROOT
+    preset = PRESETS[args.preset]
+    out = ROOT / "data" / "c1" / "diagnostic" / f"trace-{args.env}-{preset.name}-b{args.batch}-{utc()}"
+    out.mkdir(parents=True)
+    build(preset.name, out / "build.log")
+    host = targets.HostBlock(batch=args.batch, iters=0, flags=abi.HOST_TRACE)
+    if args.env == "hw":
+        with targets.Bench(out) as bench:
+            bench.flash(preset.elf, out / "flash.log")
+            calls = trace.trace_hw(bench, preset.elf, out, host, args.timeout)
+    else:
+        calls = trace.trace_renode(preset.elf, out, host, args.env, args.timeout)
+    (out / "trace.json").write_text(_json.dumps(calls))
+    g = gen.generate(preset.name)
+    b = g.batches[args.batch]
+    names = ([g.forms[e.form].name for e in b.entries] if preset.name == "c1-func"
+             else [g.forms[i].name for i in b.variants])
+    for name, c in zip(names, calls):
+        print(f"{name:32} {c['count']:4} {c['sha256']}")
+    print(f"{len(calls)} chamadas; dados: {out}")
+    return 0
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="c1", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -120,8 +148,52 @@ def main(argv=None) -> int:
     r.add_argument("--profile", action="store_true", help="mostra os contadores de perfil do DWT")
     r.add_argument("--dump", action="store_true", help="mostra todos os campos de cada vetor")
     r.add_argument("--out", type=Path, default=None)
+    t = sub.add_parser("trace", help="traço por stepi de um lote (diagnóstico)")
+    t.add_argument("--env", choices=ENVS, required=True)
+    t.add_argument("--preset", choices=("c1-func", "c1-cycle"), required=True)
+    t.add_argument("--batch", type=int, default=0)
+    t.add_argument("--timeout", type=float, default=1800)
+    c = sub.add_parser("campaign", help="campanha completa (placa + Renode + traço + análise)")
+    c.add_argument("--name", required=True)
+    c.add_argument("--mode", choices=("pilot", "final"), required=True)
+    c.add_argument("--board", required=True, help="identidade física do exemplar (etiqueta)")
+    c.add_argument("--board-note", default="")
+    c.add_argument("--env", dest="envs", nargs="+", default=list(ENVS), choices=ENVS)
+    c.add_argument("--pilot-from", default=None, help="campanha piloto cuja decisão de repetições vale")
+    c.add_argument("--reps", type=int, default=None, help="força o número de execuções (diagnóstico)")
+    c.add_argument("--iters", type=int, default=None, help="força as iterações quentes do c1-cycle")
+    c.add_argument("--no-trace", dest="trace", action="store_false")
+    c.add_argument("--jobs", type=int, default=4)
+    c.add_argument("--resume", action="store_true")
+    a = sub.add_parser("analyze", help="(re)gera analysis/ de uma campanha")
+    a.add_argument("--name", required=True)
     args = p.parse_args(argv)
 
+    if args.cmd in ("campaign", "analyze"):
+        import re as _re
+        from . import campaign
+        if not _re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", args.name):
+            p.error("--name: só letras, dígitos, '.', '_' e '-'")
+        try:
+            if args.cmd == "campaign":
+                if args.mode == "pilot" and args.pilot_from:
+                    p.error("--pilot-from só faz sentido no modo final")
+                return campaign.run_campaign(args)
+            from .analysis import analyze
+            root = campaign.DATA / args.name
+            if not (root / "plan.json").exists():
+                raise campaign.CampaignError(f"campanha inexistente: {args.name}")
+            with campaign.Lock(root / ".lock", f"campanha '{args.name}'"):
+                summary = analyze(root, print)
+            return 0 if summary["complete"] else 3
+        except (campaign.CampaignError, OSError, ValueError) as exc:
+            print(f"ERRO: {exc}", file=sys.stderr)
+            return 1
+        except KeyboardInterrupt:
+            print("interrompido: tentativas já gravadas ficam; use --resume", file=sys.stderr)
+            return 130
+    if args.cmd == "trace":
+        return cmd_trace(args)
     if args.cmd == "gen":
         from . import gen
         g = gen.write(args.preset, args.out)

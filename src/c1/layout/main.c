@@ -260,11 +260,10 @@ static void batch_reset(void)
     c1_begin(LAY_LAY_04R);
     put_layout_vars();
     c1_end();
-    c1_begin(LAY_LAY_10);
-    for (uint32_t i = 0U; i < 6U; ++i) {
+    c1_begin(LAY_LAY_10);                      /* padrão e marcador gravados na fase 1 */
+    for (uint32_t i = 0U; i < 5U; ++i) {
         c1_put(lay_keep[i]);
     }
-    c1_put(c1_snapshot.header.reset[22]);      /* contador de boots (.noinit) */
     c1_end();
 }
 

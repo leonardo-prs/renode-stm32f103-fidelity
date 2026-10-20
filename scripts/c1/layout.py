@@ -112,7 +112,7 @@ ITEMS = [
     item("LAY-04R", LAY04, lambda: LAY04_EXP, batch=1, level="N1",
          source="@armlimited2007[Tab. 5-8] @armlimited2021[§B3.2.6]",
          note=".data e .bss depois de SYSRESETREQ, com .bss sujada antes"),
-    item("LAY-10", ("keep0", "keep1", "keep2", "keep3", "keep_magic", "keep_nonce", "boots"),
+    item("LAY-10", ("keep0", "keep1", "keep2", "keep3", "keep_magic"),
          lambda: {}, batch=1, klass="C", level="N3", source="@stmicroelectronics2021[§3.4]",
          note="o RM0008 não define a SRAM depois de um reset de sistema: a placa é o oráculo"),
 ]
