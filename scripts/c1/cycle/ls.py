@@ -129,7 +129,7 @@ VARIANTS += [
 
 # Diagnóstico de T-LS-10.01 (material-base: se a linearidade falha, investigar
 # com K = 16 e 32): a mesma unidade com a base na flash, em tamanhos maiores.
-for k in (16, 32):
+for k in (16, 24, 32):
     VARIANTS.append(Variant(
         f"T-LS-10.01.k{k}", "T-LS-10", "t_ls01k", "ldr r1, [r0] (base na flash)",
         P(1, text="hipótese: igual à SRAM"), F(1), setup="rom", level="N3",
