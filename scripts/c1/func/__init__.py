@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from importlib import import_module
 
-GROUPS = ("fa", "fl", "fs", "fm", "fd", "fq", "fb")
+GROUPS = ("fa", "fl", "fs", "fm", "fd", "fq", "fb", "fc", "fmem", "fal", "fbb", "fex")
 
 FORMS = []
 DERIVED: dict = {}

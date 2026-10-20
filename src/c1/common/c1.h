@@ -257,6 +257,9 @@ void c1_enable_fault_handlers(void);
 _Noreturn void c1_fault_stop(void);
 extern volatile uint32_t c1_terminal;
 
+/** Gancho opcional chamado no início do tratador de faltas (0 = nenhum). */
+extern volatile uint32_t c1_fault_hook;
+
 /** Copia o registro de faltas para o resultado do caso corrente e o zera. */
 void c1_put_fault(void);
 void c1_clear_fault(void);

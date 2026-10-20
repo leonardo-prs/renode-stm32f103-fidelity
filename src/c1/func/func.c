@@ -21,6 +21,14 @@ void func_setup(void)
 
 void func_restore(void)
 {
+    c1_svc_hook = 0U;
+    c1_fault_hook = 0U;
+    if (__get_CONTROL() != 0U) {
+        /* Um caso que mudou CONTROL tem de restaurá-lo (de modo sem
+         * privilégio, só por SVC); se não restaurou, o resto do lote
+         * rodaria em outro estado: o instrumento falhou. */
+        c1_fail(C1_ERR_SETUP);
+    }
     __set_BASEPRI(0U);
     __set_FAULTMASK(0U);
     __set_PRIMASK(0U);

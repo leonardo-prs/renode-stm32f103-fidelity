@@ -162,3 +162,10 @@ ENDF \name
     dsb
     isb
 .endm
+
+@ Rótulo global de aterrissagem <rotina>_land (o host o lê do ELF como valor
+@ esperado de c1_fault.landing quando a falta NÃO deve acontecer).
+.macro LANDING name
+    .global \name\()_land
+\name\()_land:
+.endm

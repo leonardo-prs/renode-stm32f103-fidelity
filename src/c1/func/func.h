@@ -10,6 +10,9 @@
 /** Janela de memória dos casos F_MEM (32 B, alinhada a 16). */
 extern volatile uint32_t c1_scratch[];
 
+/** Gancho do tratador de SVC (svc.S): 0 = tratador vazio. */
+extern volatile uint32_t c1_svc_hook;
+
 /** Grava o estado de referência do SCB (depois de c1_init). */
 void func_setup(void);
 

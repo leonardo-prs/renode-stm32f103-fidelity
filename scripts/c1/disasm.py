@@ -50,15 +50,14 @@ def disassemble(elf: Path) -> dict[int, Decoded]:
     return insns
 
 
-def check_points(elf: Path, points: list[tuple[str, str, str, int, str | None]]) -> list[str]:
-    """points: (dono, rótulo, mnemônico-regex, largura, operandos-regex).
-
-    Devolve a lista de problemas (vazia = ELF aceito)."""
+def check_points(elf: Path, points: list) -> list[str]:
+    """points: (dono, rótulo, Insn). Devolve os problemas (vazia = ELF aceito)."""
     syms = symbols(elf)
     insns = disassemble(elf)
     problems = []
     declared = set()
-    for owner, label, mnem, width, ops in points:
+    for owner, label, insn in points:
+        mnem, width, ops = insn.mnemonic, insn.width, insn.operands
         declared.add(label)
         if label not in syms:
             problems.append(f"{owner}: rótulo {label} ausente no ELF")
@@ -73,6 +72,9 @@ def check_points(elf: Path, points: list[tuple[str, str, str, int, str | None]])
             problems.append(f"{owner}: {label} tem {d.width} bits, esperado {width}")
         if ops is not None and not re.match(ops + r"$", d.operands):
             problems.append(f"{owner}: {label} operandos '{d.operands}', esperado /{ops}/")
+        if insn.align and d.addr % insn.align[0] != insn.align[1]:
+            problems.append(f"{owner}: {label} em 0x{d.addr:08x}, esperado ≡ {insn.align[1]} "
+                            f"(mod {insn.align[0]})")
     orphans = sorted(s for s in syms if re.search(r"_x\d+$", s) and s not in declared
                      and (s.startswith("v_") or s.startswith("t_")))
     if orphans:
@@ -80,17 +82,16 @@ def check_points(elf: Path, points: list[tuple[str, str, str, int, str | None]])
     return problems
 
 
-def func_points(forms) -> list[tuple[str, str, str, int, str | None]]:
+def func_points(forms) -> list:
     points = []
     seen = set()
     for f in forms:
         for insn in f.insns:
             label = f"{f.routine}_x{insn.k}"
-            key = (label, insn.mnemonic, insn.width, insn.operands)
-            if key in seen:
+            if (label, insn) in seen:
                 continue
-            seen.add(key)
-            points.append((f.name, label, insn.mnemonic, insn.width, insn.operands))
+            seen.add((label, insn))
+            points.append((f.name, label, insn))
     return points
 
 

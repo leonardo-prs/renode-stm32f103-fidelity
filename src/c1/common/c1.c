@@ -11,6 +11,7 @@ _Alignas(8) volatile C1Snapshot c1_snapshot;
 volatile C1Host c1_host;
 volatile C1Fault c1_fault;
 volatile uint32_t c1_terminal;
+volatile uint32_t c1_fault_hook;
 
 static volatile uint32_t c1_open;
 

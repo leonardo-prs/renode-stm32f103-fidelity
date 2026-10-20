@@ -26,6 +26,7 @@ MASK32 = 0xFFFF_FFFF
 F_FAULT = 1 << 0        # anexa o registro de faltas (10 palavras) a cada vetor
 F_MEM = 1 << 1          # pré-enche a janela de memória e a anexa (8 palavras)
 F_TERMINAL = 1 << 2     # caso terminal: execução própria, falta sem aterrissagem
+F_ISOLATE = 1 << 3      # lote próprio: um travamento num ambiente não leva os outros vetores
 
 FAULT_FIELDS = ("cfsr", "hfsr", "mmfar", "bfar", "pc", "xpsr", "exc_return",
                 "landing", "ipsr", "count")
@@ -46,6 +47,7 @@ class Insn:
     width: int                # 16 ou 32
     operands: str | None = None   # regex sobre os operandos (None = não confere)
     k: int = 0
+    align: tuple[int, int] | None = None   # (m, r): endereço da instrução ≡ r (mod m)
 
 
 @dataclass
@@ -141,8 +143,9 @@ def make_batches(forms: Sequence[Form], max_words: int, max_records: int) -> lis
 
     Lotes são formados por NÍVEL (N1 primeiro), para que o piloto e uma
     campanha reduzida possam executar só os lotes N1. Uma forma maior que
-    um lote é dividida em trechos contíguos de vetores. Casos terminais
-    ocupam um lote (uma execução) cada.
+    um lote é dividida em trechos contíguos de vetores. Casos terminais e
+    formas isoladas (que podem travar um dos ambientes, ex.: executar em
+    região XN) ocupam um lote (uma execução) cada.
     """
     batches: list[Batch] = []
     for level in ("N1", "N2", "N3"):
@@ -152,6 +155,9 @@ def make_batches(forms: Sequence[Form], max_words: int, max_records: int) -> lis
                 continue
             if form.flags & F_TERMINAL:
                 batches.append(Batch(level, [Entry(idx, 0, form.count)], terminal=True))
+                continue
+            if form.flags & F_ISOLATE:
+                batches.append(Batch(level, [Entry(idx, 0, form.count)]))
                 continue
             per = form.n_words
             remaining, first = form.count, 0

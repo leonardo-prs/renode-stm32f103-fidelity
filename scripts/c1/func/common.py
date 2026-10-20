@@ -122,3 +122,28 @@ def no_fault(landing) -> dict:
     """Nenhuma falta: registro zerado, aterrissagem ainda publicada (não usada)."""
     return {"cfsr": 0, "hfsr": 0, "mmfar": 0, "bfar": 0, "pc": 0, "xpsr": 0,
             "exc_return": 0, "landing": landing, "ipsr": 0, "count": 0}
+
+
+class Mem:
+    """Janela c1_scratch (32 B) no oráculo: pré-enchida com 0xA5 pelo main."""
+
+    def __init__(self, fill: int = 0xA5):
+        self.b = bytearray([fill] * 32)
+
+    def store(self, off: int, value: int, size: int) -> None:
+        self.b[off:off + size] = (value & ((1 << (8 * size)) - 1)).to_bytes(size, "little")
+
+    def load(self, off: int, size: int, signed: bool = False) -> int:
+        v = int.from_bytes(self.b[off:off + size], "little")
+        return arm.sign_extend(v, 8 * size) if signed else v
+
+    def word(self, k: int) -> int:
+        return self.load(4 * k, 4)
+
+    def fields(self) -> dict:
+        return {f"mem{k}": self.word(k) for k in range(8)}
+
+
+def pattern(seed: int, k: int) -> int:
+    """Palavra k do padrão FILLWIN/SEEDREGS: semente + k·0x01010101."""
+    return arm.u32(seed + k * 0x0101_0101)

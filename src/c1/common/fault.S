@@ -22,6 +22,10 @@
  *
  * O tratador só acessa a SRAM e o SCB, que não falham: uma falta dentro do
  * HardFault levaria a lockup (PM0056 §2.4.4).
+ *
+ * Gancho opcional (c1_fault_hook): se não nulo, é chamado ANTES do registro,
+ * no próprio modo Handler da falta. Só um caso o usa (FSY-03 (b): CPSID F
+ * dentro do HardFault); main o zera depois de cada vetor.
  */
     .syntax unified
     .cpu cortex-m3
@@ -32,7 +36,13 @@
     .type c1_fault_entry, %function
     .thumb_func
 c1_fault_entry:
-    mrs     r0, msp                     @ r0 = quadro (casos com falta usam só MSP)
+    ldr     r1, =c1_fault_hook
+    ldr     r1, [r1]
+    cbz     r1, 1f
+    push    {r4, lr}                    @ preserva EXC_RETURN (e o alinhamento)
+    blx     r1
+    pop     {r4, lr}
+1:  mrs     r0, msp                     @ r0 = quadro (casos com falta usam só MSP)
     ldr     r1, =c1_fault
     ldr     r2, =0xE000ED28             @ r2 = &CFSR
     ldr     r3, [r2, #0]
