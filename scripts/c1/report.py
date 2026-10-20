@@ -133,8 +133,11 @@ def functional_section(title, part) -> list[str]:
     detail = [c for c in cases.values() if c["verdict"] != "IGUAL"]
     if detail:
         rows += ["", "### Diferenças, caso a caso", ""]
+    from .renode_notes import NOTES
     for c in detail:
         rows.append(f"**{c['case']}** — {c['verdict']}. Fonte: {c['source']}. {c.get('note', '')}")
+        if c["case"] in NOTES:
+            rows.append(f"- *Explicação no código do Renode 1.17.0 (hipótese, não oráculo):* {NOTES[c['case']]}")
         for env, r in c.get("renode", {}).items():
             if r.get("result") == "IGUAL":
                 continue
@@ -167,14 +170,14 @@ def cycle_section(cyc, figs) -> list[str]:
                     f"{fmt_c(v.get('c_renode'))} | {fmt_c(v.get('delta'))} | {v.get('board_vs_trm', '—')} | "
                     f"{v.get('renode_vs_h_t1', '—')} | {'sim' if cw and all(cw.values()) else ('não' if cw else '—')} | "
                     f"**{v['verdict']}**{(' — ' + v['why']) if v.get('why') else ''} |")
-    rows += ["", "Contadores de perfil do DWT na placa (diagnóstico; o bloco de perfil inclui a chamada, "
-             "comparar com T-DWT-03):", "",
-             "| Variante | CPICNT | LSUCNT | FOLDCNT | EXCCNT |", "|---|---|---|---|---|"]
+    rows += ["", "Contadores de perfil do DWT na placa (diagnóstico, nunca veredito): valores do bloco K "
+             "menos a linha de base do bloco vazio (T-DWT-03), módulo 256; \"volta?\" quando passa de 200.", "",
+             "| Variante | CPICNT | LSUCNT | FOLDCNT | EXCCNT | Observação |", "|---|---|---|---|---|---|"]
     for v in vs.values():
-        prof = v.get("env", {}).get("hw", {}).get("profile")
-        if prof:
-            rows.append(f"| {v['variant']} | {prof['cpicnt']} | {prof['lsucnt']} | {prof['foldcnt']} | "
-                        f"{prof['exccnt']} |")
+        net = v.get("profile_net")
+        if net:
+            rows.append(f"| {v['variant']} | {net['cpicnt']} | {net['lsucnt']} | {net['foldcnt']} | "
+                        f"{net['exccnt']} | {'volta? ' + ', '.join(v['profile_overflow']) if v.get('profile_overflow') else ''} |")
     return rows + [""]
 
 
@@ -187,6 +190,11 @@ def trace_section(trc) -> list[str]:
         compared = sum(1 for r in items if "same_path" in r)
         rows.append(f"- `{preset}`: {same} de {compared} chamadas com a MESMA sequência de PCs na placa "
                     f"e no Renode ({len(items)} chamadas no total).")
+        stat = [r for r in items if "static" in r]
+        if stat:
+            for env in ("hw", "renode"):
+                ok = sum(1 for r in stat if r.get(f"static_ok_{env}"))
+                rows.append(f"  - contagem estática (rotinas em linha reta): {env} confere em {ok} de {len(stat)}")
         diff = [r for r in items if r.get("same_path") is False]
         for r in diff[:20]:
             rows.append(f"  - {r['name']}: placa {r.get('hw')} instruções, Renode {r.get('renode')}")

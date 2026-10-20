@@ -21,7 +21,7 @@ from fractions import Fraction
 from pathlib import Path
 
 from . import abi, disasm, evaluate, gen, timing
-from .catalog import Alt
+from .catalog import F_FAULT, F_TERMINAL, Alt
 from .presets import PRESETS
 
 IGUAL, CONFIG, DIVERGE = "IGUAL", "IGUAL COM CONFIGURAÇÃO", "DIVERGE"
@@ -304,6 +304,7 @@ def cycle(root: Path, plan: dict, log) -> dict:
         if v.name in planned:
             out[v.name] = judge_variant(v, runs.get(v.name, {}), problems.get(v.name, {}), envs)
     dwt_checks(out, runs, variants)
+    profile_flags(out)
     return {"variants": out, "iters": iters,
             "not_planned": sorted({v.case for v in variants if v.name not in planned})}
 
@@ -372,6 +373,26 @@ def judge_variant(v, by_env: dict, probs: dict, envs) -> dict:
     if doc and "problem" not in doc:
         out["renode_doc_same"] = doc["c_warm"] == rn["c_warm"] and doc["o_warm"] == rn["o_warm"]
     return out
+
+
+PROFILE_COUNTERS = ("cpicnt", "exccnt", "sleepcnt", "lsucnt", "foldcnt")
+
+
+def profile_flags(out: dict) -> None:
+    """Contadores de perfil (8 bits): desconta a linha de base do bloco vazio
+    (T-DWT-03) e sinaliza "possível volta" acima de 200 eventos."""
+    base = out.get("T-DWT-03", {}).get("env", {}).get("hw", {}).get("profile")
+    if not base:
+        return
+    for name, v in out.items():
+        prof = v.get("env", {}).get("hw", {}).get("profile")
+        if not prof:
+            continue
+        net = {k: (prof[k] - base[k]) % 256 for k in PROFILE_COUNTERS}
+        v["profile_net"] = net
+        over = [k for k, n in net.items() if n > 200]
+        if over:
+            v["profile_overflow"] = over
 
 
 def dwt_checks(out: dict, runs: dict, variants) -> None:
@@ -484,7 +505,7 @@ def traces(root: Path, plan: dict, cyc: dict | None) -> dict:
         return out
     for preset in ("c1-func", "c1-cycle"):
         g = gen.generate(preset)
-        dis = disasm.disassemble(PRESETS[preset].elf) if preset == "c1-cycle" else None
+        dis = disasm.disassemble(PRESETS[preset].elf)
         syms = disasm.symbols(PRESETS[preset].elf)
         rows = []
         for b in plan["presets"][preset]["batches"]:
@@ -504,11 +525,49 @@ def traces(root: Path, plan: dict, cyc: dict | None) -> dict:
                     row["same_path"] = hw[k]["sha256"] == rn[k]["sha256"]
                 if preset == "c1-cycle" and hw and k < len(hw):
                     row["window"] = window_count(g.forms[batch.variants[k]], hw[k]["pcs"], syms, dis)
+                if preset == "c1-func":
+                    st = static_count(g.forms[batch.entries[k].form], syms, dis)
+                    if st is not None:
+                        row["static"] = st
+                        for env in data:
+                            if row.get(env) is not None:
+                                row[f"static_ok_{env}"] = row[env] == st
                 rows.append(row)
         out[preset] = rows
     if cyc and "c1-cycle" in out:
         h_t1(out["c1-cycle"], cyc)
     return out
+
+
+BRANCHY = ("b", "bl", "blx", "bx", "cbz", "cbnz", "tbb", "tbh", "svc", "udf", "it", "itt", "ite",
+           "ittt", "itte", "itet", "itee", "itttt", "iteee")
+
+
+def static_count(form, syms, dis) -> int | None:
+    """Contagem estática de uma rotina em linha reta: o BLX de c1_call mais as
+    instruções da rotina até o retorno. None se houver desvio, IT, SVC,
+    instrução crua ou se a forma provocar falta (o caminho não é estático)."""
+    if form.flags & (F_FAULT | F_TERMINAL):
+        return None
+    start = syms.get(form.routine)
+    if start is None:
+        return None
+    n = 0
+    for addr in sorted(a for a in dis if a >= (start & ~1)):
+        d = dis[addr]
+        mnem = d.mnemonic.split(".")[0]
+        n += 1
+        if (mnem == "pop" and "pc" in d.operands) or (mnem == "ldmia" and "pc" in d.operands) \
+                or (mnem == "bx" and d.operands == "lr"):
+            return 1 + n
+        base = mnem[:-2] if len(mnem) > 3 and mnem[-2:] in {
+            "eq", "ne", "cs", "cc", "mi", "pl", "vs", "vc", "hi", "ls", "ge", "lt", "gt", "le"} else mnem
+        if base in BRANCHY or mnem in BRANCHY or mnem.startswith(("b", ".")) and mnem not in (
+                "bic", "bics", "bfi", "bfc"):
+            return None
+        if n > 200:
+            return None
+    return None
 
 
 def window_count(v, pcs: list[str], syms, dis) -> int | None:
