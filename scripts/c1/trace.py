@@ -23,7 +23,8 @@ STEP_LIMIT = 4000
 
 
 def gdb_script(port: int, reset: str, host: targets.HostBlock, sym: dict[str, int]) -> str:
-    go, back, done = (sym[s] & ~1 for s in ("c1_call_go", "c1_call_back", "c1_complete"))
+    go, back, fin, done = (sym[s] & ~1 for s in ("c1_call_go", "c1_call_back", "c1_finish",
+                                                 "c1_complete"))
     return "\n".join([
         "set pagination off", "set confirm off", "set remotetimeout 15",
         f"target extended-remote 127.0.0.1:{port}", reset.strip(),
@@ -32,10 +33,11 @@ def gdb_script(port: int, reset: str, host: targets.HostBlock, sym: dict[str, in
         f"while (((unsigned int)$pc & ~1) != 0x{done:x})",
         '  printf "CALL %d\\n", $n',
         "  set $k = 0",
-        # Também para em c1_complete: um caso terminal termina dentro do
-        # tratador de faltas e nunca volta a c1_call_back.
-        f"  while ((((unsigned int)$pc & ~1) != 0x{back:x}) && (((unsigned int)$pc & ~1) != 0x{done:x})"
-        f" && ($k < {STEP_LIMIT}))",
+        # Também para em c1_finish: um caso terminal termina dentro do
+        # tratador de faltas e nunca volta a c1_call_back (o resto, a
+        # varredura da pilha em c1_finish, não é do caso).
+        f"  while ((((unsigned int)$pc & ~1) != 0x{back:x}) && (((unsigned int)$pc & ~1) != 0x{fin:x})"
+        f" && (((unsigned int)$pc & ~1) != 0x{done:x}) && ($k < {STEP_LIMIT}))",
         '    printf "PC %x\\n", $pc',
         "    stepi",
         "    set $k = $k + 1",
