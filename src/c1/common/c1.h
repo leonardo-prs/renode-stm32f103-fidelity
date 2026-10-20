@@ -204,7 +204,8 @@ extern volatile C1ResetCapture c1_reset_capture;
 
 /* Rótulos do .ld (endereços; o conteúdo não importa). */
 extern uint32_t _sidata, _sdata, _edata, _sbss, _ebss, _snoinit, _enoinit;
-extern uint32_t _siramfunc, _sramfunc, _eramfunc, _sram_vectors, _eram_vectors;
+extern uint32_t _siramfunc, _sramfunc, _eramfunc;
+extern uint32_t _sram_vectors[];           /* 512 B em 0x20000000 (LAY-06) */
 extern uint32_t _spsp, _epsp, _sstack, _estack;
 extern const uint32_t c1_vectors[];        /* tabela de vetores da flash */
 

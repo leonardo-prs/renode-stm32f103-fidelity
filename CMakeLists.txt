@@ -103,8 +103,10 @@ if(FIRMWARE MATCHES "^c1-")
         $<$<COMPILE_LANGUAGE:C>:${project_warnings} -ffreestanding -fno-tree-loop-distribute-patterns>
         $<$<COMPILE_LANGUAGE:ASM>:-Wa,--fatal-warnings>
         -ffunction-sections -fdata-sections)
+    # --no-warn-rwx-segments: .ramfunc (código executado da SRAM, LAY-05 e
+    # T-FE-02) divide o segmento de RAM com .data por projeto.
     target_link_options(firmware PRIVATE
-        -nostartfiles -nostdlib
+        -nostartfiles -nostdlib -Wl,--no-warn-rwx-segments
         "-T${CMAKE_SOURCE_DIR}/src/c1/common/c1.ld"
         -Wl,--gc-sections
         "-Wl,-Map=${CMAKE_BINARY_DIR}/firmware.map")

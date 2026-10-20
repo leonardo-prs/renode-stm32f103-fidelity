@@ -156,30 +156,48 @@ def run_gdb(elf: Path, script: str, log: Path, timeout_s: float) -> str:
 
 # ───────────────────────────── protocolo de coleta ─────────────────────────────
 
+HOST_PHASE2 = 1 << 1
+
+
 @dataclass(frozen=True)
 class HostBlock:
-    """O que o host escreve em c1_host ao parar em main."""
+    """O que o host escreve em c1_host ao parar em main.
+
+    reboot = True (lote de reset do c1-layout): o firmware pede SYSRESETREQ;
+    o host para em main de novo e reescreve o bloco com HOST_PHASE2, de modo
+    que o protocolo não dependa de a SRAM sobreviver ao reset."""
     batch: int = 0
     iters: int = 0
     flags: int = 0
     nonce: int = field(default_factory=lambda: secrets.randbits(32))
+    reboot: bool = False
+
+    def gdb_set(self, flags: int) -> str:
+        return (f"set var c1_host.nonce = {self.nonce}\n"
+                f"set var c1_host.batch = {self.batch}\n"
+                f"set var c1_host.iters = {self.iters}\n"
+                f"set var c1_host.flags = {flags}\n"
+                "set var c1_host.magic = 0x54534F48\n")
 
 
 def collect_script(port: int, dump: Path, host: HostBlock, reset: str, extra: str = "") -> str:
     if re.search(r"[\s'\"]", str(dump)):
         raise TargetError(f"caminho de dump com espaço/aspas: {dump}")
+    if host.reboot:
+        # Fase 1 roda com os dois breakpoints; se parar de novo em main, o
+        # reset aconteceu: fase 2. Se parar em c1_complete, não houve reset.
+        middle = (host.gdb_set(host.flags) + "hbreak c1_complete\ncontinue\n"
+                  "if (((unsigned int)$pc & ~1) == ((unsigned int)&main & ~1))\n"
+                  + host.gdb_set(host.flags | HOST_PHASE2) +
+                  "  delete\n  hbreak c1_complete\n  continue\nend\n")
+    else:
+        middle = host.gdb_set(host.flags) + "delete\nhbreak c1_complete\ncontinue\n"
     return (
         "set pagination off\nset confirm off\nset remotetimeout 15\n"
         f"target extended-remote 127.0.0.1:{port}\n"
         f"{reset}"
         "hbreak main\ncontinue\n"
-        f"set var c1_host.nonce = {host.nonce}\n"
-        f"set var c1_host.batch = {host.batch}\n"
-        f"set var c1_host.iters = {host.iters}\n"
-        f"set var c1_host.flags = {host.flags}\n"
-        "set var c1_host.magic = 0x54534F48\n"
-        "delete\n"
-        "hbreak c1_complete\ncontinue\n"
+        f"{middle}"
         'printf "C1_PC=0x%x\\n", $pc\n'
         'printf "C1_COMPLETE=0x%x\\n", &c1_complete\n'
         f"dump binary memory {dump} &c1_snapshot ((char*)&c1_snapshot)+sizeof(c1_snapshot)\n"
@@ -375,10 +393,15 @@ def run_renode(elf: Path, run_dir: Path, host: HostBlock, timeout_s: float,
                        "monitor sysbus.cpu PerformanceInMips\n")),
                 run_dir / "gdb.log", timeout_s)
         except TargetError:
-            abort = re.search(r"CPU abort \[PC=(0x[0-9A-Fa-f]+)\]: (.*)", session.log_text())
+            log = session.log_text()
+            abort = re.search(r"CPU abort \[PC=(0x[0-9A-Fa-f]+)\]: (.*)", log)
             if abort:
                 raise SimulatorAbort(f"Renode abortou a máquina em PC={abort[1]}: {abort[2].strip()}",
                                      int(abort[1], 16)) from None
+            if re.search(r"\[cpu: 0x0\]", log):
+                raise SimulatorAbort("o núcleo simulado passou a executar em 0x00000000 (tabela de "
+                                     "vetores lida de endereço não mapeado) e não voltou a main",
+                                     0) from None
             raise
         check_stopped_at_complete(text)
     extra = renode_notes(session.log_text())

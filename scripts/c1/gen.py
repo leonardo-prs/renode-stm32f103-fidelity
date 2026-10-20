@@ -105,9 +105,18 @@ def gen_func(preset: Preset) -> Generated:
 
 
 def gen_layout(preset: Preset) -> Generated:
-    catalog = HEADER + "#ifndef C1_CATALOG_H\n#define C1_CATALOG_H\n#define C1_N_BATCHES 1U\n#endif\n"
+    from .catalog import Batch, Entry
+    from .layout import ITEMS
+    ids = "".join(f"#define LAY_{f.name.replace('-', '_').replace('.', '').upper()} {k}U\n"
+                  for k, f in enumerate(ITEMS))
+    batches = [Batch(f"N{min(int(f.level[1]) for f in ITEMS if f.batch == b)}",
+                     [Entry(k, 0, 1) for k, f in enumerate(ITEMS) if f.batch == b]) for b in (0, 1)]
+    planned = ", ".join(f"{len(b.entries)}U" for b in batches)
+    catalog = (HEADER + "#ifndef C1_CATALOG_H\n#define C1_CATALOG_H\n#include <stdint.h>\n"
+               + ids + f"#define C1_N_BATCHES {len(batches)}U\n"
+               f"static const uint32_t c1_lay_planned[{len(batches)}] = {{ {planned} }};\n#endif\n")
     h = short_hash(catalog + repr((preset.max_records, preset.max_words)))
-    return Generated(preset, h, _config(preset, h), catalog, [], [])
+    return Generated(preset, h, _config(preset, h), catalog, list(ITEMS), batches)
 
 
 def gen_cycle(preset: Preset) -> Generated:

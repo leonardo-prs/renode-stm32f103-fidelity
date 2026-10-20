@@ -37,7 +37,8 @@ def cmd_run(args) -> int:
     build(preset.name, out / "build.log")
     g = gen.generate(preset.name)
     host = targets.HostBlock(batch=args.batch, iters=args.iters,
-                             flags=abi.HOST_TRACE if args.trace else 0)
+                             flags=abi.HOST_TRACE if args.trace else 0,
+                             reboot=preset.name == "c1-layout" and args.batch == 1)
     if args.env == "hw":
         with targets.Bench(out) as bench:
             print(json.dumps(bench.identify(preset.elf)))
@@ -61,7 +62,7 @@ def cmd_run(args) -> int:
           f"extra {col.extra}")
     for p in problems:
         print(f"  PROBLEMA: {p}")
-    if preset.name == "c1-func" and args.batch < len(g.batches):
+    if preset.name in ("c1-func", "c1-layout") and args.batch < len(g.batches):
         from . import disasm
         syms = disasm.symbols(preset.elf)
         results, probs = evaluate.functional(snap, g.forms, g.batches[args.batch], syms, args.trace)
@@ -75,6 +76,13 @@ def cmd_run(args) -> int:
             diffs = [f"{name}: obs 0x{r.observed[k]:08x} esp {r.expected[k]}"
                      for k, name in enumerate(f.fields) if r.field_ok(k) is False]
             print(f"  ≠ {r.form}[{r.index}] in={[hex(x) for x in r.inputs]} " + "; ".join(diffs))
+        if args.dump:
+            for r in results:
+                f = forms[r.form]
+                print(f"  {r.form}: " + ", ".join(
+                    f"{n}=0x{r.observed[k]:x}{'' if r.field_ok(k) is not False else '≠'}"
+                    f"{('[' + r.alt_label(k) + ']') if r.alt_label(k) else ''}"
+                    for k, n in enumerate(f.fields)))
     if preset.name == "c1-cycle" and args.batch < len(g.batches):
         from . import timing
         runs, probs = timing.parse(snap, g.forms, g.batches[args.batch], args.iters, args.trace)
@@ -110,6 +118,7 @@ def main(argv=None) -> int:
     r.add_argument("--timeout", type=float, default=120)
     r.add_argument("--show", type=int, default=20)
     r.add_argument("--profile", action="store_true", help="mostra os contadores de perfil do DWT")
+    r.add_argument("--dump", action="store_true", help="mostra todos os campos de cada vetor")
     r.add_argument("--out", type=Path, default=None)
     args = p.parse_args(argv)
 
