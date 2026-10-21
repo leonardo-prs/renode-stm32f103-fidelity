@@ -77,6 +77,12 @@ ITEMS = [
     item("FID-07", probes("actlr_", 1), lambda: {}, klass="C", level="N3",
          source="@stmicroelectronics2024[§4.4.1] @yiu2014[§23.11.3] @armlimited2026[616516]",
          note="ACTLR não existe na r1p1: a placa diz o que se lê ali"),
+    item("FID-08", ("flash_acr", "rcc_cr", "rcc_cfgr"),
+         lambda: {"flash_acr": 0x30, "rcc_cr": (0x83, 0xFFFF_00FF), "rcc_cfgr": 0}, level="N1",
+         source="@stmicroelectronics2021[§3.3.3, §7.3.1, §7.3.2]",
+         note="precondição de toda a metade temporal: HSI sem PLL, AHB/APB sem divisão, flash com "
+              "0 estados de espera e pré-busca ligada (RCC_CR[15:8] = HSICAL, de fábrica). Na placa "
+              "é também gate de todo run (abi.clock_checks)"),
     item("LAY-01", ("equal", *probes("w", 2)),
          lambda: {"equal": 64, "w0_value": "_estack", "w0_faulted": 0, "w1_value": "Reset_Handler+1",
                   "w1_faulted": 0},

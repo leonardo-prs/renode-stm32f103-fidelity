@@ -191,3 +191,15 @@ for key, off, size, text in (*((f"strb_{k}", k, 1, f"strb r3, [r2, #{k}]") for k
     FORMS.append(Form(f"FMEM-08.{key}", "FMEM-08", f"v_fmem08_{key}",
                       (rows((0xFFFF_FFFF, 0x0000_0000)), rows((0x0000_005A, 0x1234_A5C3))), ("word",),
                       o8, (ins(text, 16),), source="@armlimited2007[§2.4]"))
+
+# FMEM-09: palavra num registrador de periférico (GPIOB_CRH, APB2). Padrões só
+# com modos de entrada (nibbles 0, 4, 8), com bytes diferentes entre si para
+# expor troca de faixa; o último valor escrito é o de reset.
+CRH_RESET = 0x4444_4444
+FORMS.append(Form("FMEM-09", "FMEM-09", "v_fmem09",
+                  (rows((CRH_RESET, 0x8888_8888, 0x0000_0000, 0x0848_8084, 0x8040_0408)),),
+                  ("value", "restored"), lambda vec: {"value": vec[0], "restored": CRH_RESET},
+                  (ins("str r3, [r2, #4]", 16, 0), ins("ldr r3, [r2, #4]", 16, 1)), level="N1",
+                  klass="B", source="@stmicroelectronics2021[§3.1, §9.1, §9.2.2]",
+                  note="acesso de palavra a periférico (C2: TIM2, C4: USART1); no Renode o caminho "
+                       "é um modelo de periférico, não a memória"))

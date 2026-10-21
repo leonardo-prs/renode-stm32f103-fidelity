@@ -543,3 +543,32 @@ ENDF \name
     .endr
     LANE    v_fmem08_strh_0, strh r3, [r2, #0]
     LANE    v_fmem08_strh_2, strh r3, [r2, #2]
+
+/* ── FMEM-09: escrita e leitura de PALAVRA num registrador de periférico
+ * (GPIOB_CRH, APB2): o caminho núcleo → barramento System → ponte AHB→APB
+ * que TIM2 (C2) e USART1 (C4) usam, e que no Renode passa por um modelo de
+ * periférico (sysbus → IDoubleWordPeripheral), não pela memória.
+ * Só modos de entrada em PB8–PB15 (nibbles 0, 4 e 8, RM0008 §9.2.2):
+ * nenhum pino vira saída. O relógio do GPIOB é ligado antes e o
+ * RCC_APB2ENR é restaurado no fim.  in = {padrão}  out = {lido, restaurado} ── */
+FUNC v_fmem09
+    push    {r4, r5, lr}
+    ldr     r5, =0x40021018         @ RCC_APB2ENR
+    ldr     r4, [r5]
+    orr     r3, r4, #8              @ IOPBEN
+    str     r3, [r5]
+    dsb
+    ldr     r2, =0x40010C00         @ GPIOB
+    ldr     r3, [r0, #0]
+X v_fmem09, 0
+    str     r3, [r2, #4]            @ CRH ← padrão
+X v_fmem09, 1
+    ldr     r3, [r2, #4]
+    str     r3, [r1, #0]
+    mov.w   r3, #0x44444444         @ valor de reset: entradas flutuantes
+    str     r3, [r2, #4]
+    ldr     r3, [r2, #4]
+    str     r3, [r1, #4]
+    str     r4, [r5]                @ RCC_APB2ENR restaurado
+    pop     {r4, r5, pc}
+ENDF v_fmem09

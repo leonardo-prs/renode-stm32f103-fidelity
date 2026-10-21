@@ -259,6 +259,8 @@ REPRESENTATIVE = (
     ("B tomado", "T-BR-01"), ("B<c> não tomado", "T-BR-03"), ("BX por registrador", "T-BR-06"),
     ("BL + BX LR", "T-BR-07"), ("LDR PC", "T-BR-09"), ("POP {PC}", "T-BR-10"), ("TBB", "T-BR-11"),
     ("IT + instrução", "T-IT-01"), ("ISB", "T-SYS-02"), ("SVC + retorno (vazio)", "T-DWT-06"),
+    ("LDR periférico APB2 + ALU", "T-IO-01.apb2"), ("STR periférico (fluxo)", "T-IO-03.apb2"),
+    ("STR periférico + DSB", "T-IO-04.apb2"),
     ("Cópia de palavras (por iteração)", "T-COMP-01"), ("CRC-32 bit a bit (por bit)", "T-COMP-02"),
 )
 

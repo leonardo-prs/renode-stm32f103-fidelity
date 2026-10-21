@@ -77,9 +77,9 @@ CMSIS de `vendor/`, que é congelado).
 
 | Preset | Conteúdo | Lotes |
 |---|---|---|
-| `c1-func` | instruções, memória e exceções síncronas: grupos FA, FL, FS, FM, FD, FQ, FB, FC, FMEM, FAL, FBB, FEX, FSY, FEN — 546 formas, 31 521 vetores | 23 (por nível: N1 primeiro; um terminal, dois isolados) |
-| `c1-layout` | identidade e estado de reset (FID-01..07), layout de memória (LAY-01..10) | 2 (normal; reset por software) |
-| `c1-cycle` | validação do `DWT_CYCCNT` (T-DWT) e custo por classe de instrução (T-ALU … T-COMP) — 227 variantes | 10 |
+| `c1-func` | instruções, memória e exceções síncronas: grupos FA, FL, FS, FM, FD, FQ, FB, FC, FMEM, FAL, FBB, FEX, FSY, FEN — 547 formas, 31 526 vetores | 23 (por nível: N1 primeiro; um terminal, dois isolados) |
+| `c1-layout` | identidade, estado de reset e precondição de relógio (FID-01..08), layout de memória (LAY-01..10) | 2 (normal; reset por software) |
+| `c1-cycle` | validação do `DWT_CYCCNT` (T-DWT) e custo por classe de instrução (T-ALU … T-COMP) e acesso a periféricos (T-IO) — 244 variantes | 11 |
 
 Comum (`src/c1/common/`):
 
@@ -115,7 +115,12 @@ words    saídas BRUTAS (o firmware não compara nada; quem julga é o host)
 O host escreve `c1_host` (nonce aleatório, lote, iterações, flags) quando o
 alvo para em `main`; o nonce copiado no header prova que o snapshot é deste
 run. O decodificador (`scripts/c1/abi.py`) recusa qualquer layout, contagem
-ou estado incoerente.
+ou estado incoerente. Na placa, todo run também passa pelo **gate de relógio**
+(`abi.clock_checks`, FID-08): HSI sem PLL, AHB/APB sem divisão, `FLASH_ACR`
+com 0 estados de espera e pré-busca ligada; fora disso as contagens do TRM
+não valem e o run é inválido. No Renode o gate não se aplica: a plataforma
+não declara a interface da flash (`FLASH_ACR` lê 0), o que é achado de
+FID-08.
 
 ## 5. O catálogo: uma fonte para firmware, oráculo e disassembly
 
@@ -231,6 +236,12 @@ Kalibera & Jones aplicada ao piloto `piloto-01`: as 118 séries do piloto
 Instrumento: 0 runs inválidos; abortos do Renode (FEN-07, e LAY-04/LAY-10 sem
 o alias) contam como observação. Relatório completo:
 `data/c1/final-02/analysis/report.md` (e `resumo.md`, CSVs, figuras).
+
+> **Casos acrescentados depois da `final-02`** (ainda sem campanha): FMEM-09
+> (palavra num registrador de periférico, `GPIOB_CRH`), FID-08 (relógio e
+> flash no reset; também gate da placa) e T-IO-01..06 (custo de acesso ao
+> AHB/APB2 e buffer de escrita, com os mesmos blocos das contrapartes na
+> SRAM). Os números abaixo são da `final-02` e não os incluem.
 
 ### 9.1 Placa × especificação
 

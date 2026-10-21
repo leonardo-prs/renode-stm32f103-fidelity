@@ -358,6 +358,8 @@ def record(run_dir: Path, preset: str, env: str, batch: int, collected, error, a
             snap = abi.decode(collected.snapshot)
             problems = abi.run_checks(snap, p.preset_id, g.catalog_hash, collected.host.nonce,
                                       collected.host.batch)
+            if env == "hw":
+                problems += abi.clock_checks(snap)
         except abi.SnapshotError as exc:
             problems = [f"snapshot inválido: {exc}"]
         rec.update(status="valid" if not problems else "invalid", problems=problems)

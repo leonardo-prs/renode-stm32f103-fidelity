@@ -29,7 +29,7 @@ REG_NAMES = ("r0", "r1", "r2", "r3", "r4", "r8", "r9", "r10", "r11", "r12", "aps
 
 # Preparações de memória (switch em src/c1/cycle/main.c).
 SETUPS = ("none", "cell", "self", "walk", "ls08a", "ls08b", "ls08c", "ls08d", "ldrpc", "pairs",
-          "rom", "alias", "bb3_alias", "bb3_plain", "copy")
+          "rom", "alias", "bb3_alias", "bb3_plain", "copy", "gpio")
 # Setups cujas tabelas/buffers no firmware têm o tamanho de K = 8/16/24.
 TABLE_SETUPS = ("walk", "ldrpc", "pairs", "copy")
 # Flags de variante.
@@ -122,7 +122,7 @@ class Variant:
         return 3 * (1 + R_MAX) * per_call + 6
 
 
-GROUPS = ("dwt", "alu", "ls", "br", "fe")
+GROUPS = ("dwt", "alu", "ls", "br", "fe", "io")
 VARIANTS: list[Variant] = []
 for _g in GROUPS:
     VARIANTS += import_module(f".{_g}", __name__).VARIANTS

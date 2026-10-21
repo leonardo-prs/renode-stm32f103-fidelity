@@ -60,6 +60,8 @@ def cmd_run(args) -> int:
         for p in disasm.gate(preset.name, preset.elf):
             print(f'  GATE: {p}')
     problems = abi.run_checks(snap, preset.preset_id, g.catalog_hash, host.nonce, host.batch)
+    if args.env == "hw":
+        problems += abi.clock_checks(snap)
     print(f"estado {snap.state} {snap.errors}; {len(snap.records)} registros, "
           f"{snap.header['word_count']} palavras; observer {snap.header['observer_ticks']}; "
           f"extra {col.extra}")

@@ -5,7 +5,7 @@
 TCC EA019 (UNICAMP): mapear, para o STM32F103 (Blue Pill, Cortex-M3, HSI
 8 MHz), até onde o **Renode 1.17.0** é fiel ao hardware em três níveis —
 **funcional**, **instrução** e **ciclo** — por recurso e condição. Entrega
-final (2026-10-09) conforme a diretiva `tmp/REQUISITOS-ENTREGA-FINAL-TCC.md`
+final (2026-11-09) conforme a diretiva `tmp/REQUISITOS-ENTREGA-FINAL-TCC.md`
 (manter esse arquivo). **O README.md é a documentação técnica completa** (para
 terceiros); este arquivo só orienta agentes.
 

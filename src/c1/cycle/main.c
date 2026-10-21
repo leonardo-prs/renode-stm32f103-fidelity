@@ -17,6 +17,8 @@
  * Ambiente: interrupções mascaradas (PRIMASK = 1) durante as medições,
  * exceto nas variantes C1_V_PRIMASK0 (T-DWT-06: com PRIMASK = 1 o SVC
  * escalaria para HardFault); nenhuma fonte de interrupção está habilitada.
+ * O único periférico ligado é o GPIOB, só nas variantes T-IO (setup GPIO),
+ * e volta ao estado de reset no fim de cada uma.
  */
 #include "c1.h"
 #include "c1_catalog.h"
@@ -128,6 +130,11 @@ static void setup(const C1Variant *v, uint32_t k)
         regs[0] = (uint32_t)(uintptr_t)c1_dst;
         regs[1] = (uint32_t)(uintptr_t)c1_src;
         break;
+    case C1_SETUP_GPIO:                       /* T-IO: relógio do GPIOB; ODR5 = 0 (PB5 é entrada) */
+        RCC->APB2ENR |= RCC_APB2ENR_IOPBEN;
+        (void)RCC->APB2ENR;
+        GPIOB->BRR = 1U << 5;
+        break;
     default:
         break;
     }
@@ -192,6 +199,10 @@ static void run_variant(uint32_t idx, uint32_t iters, uint32_t trace)
         for (uint32_t k = 0U; k < 5U; ++k) {
             c1_put(prof[k]);
         }
+    }
+    if (v->setup == C1_SETUP_GPIO) {           /* ODR5 e relógio do GPIOB como no reset */
+        GPIOB->BRR = 1U << 5;
+        RCC->APB2ENR &= ~RCC_APB2ENR_IOPBEN;
     }
     if (v->flags & C1_V_PREFOFF) {
         prefetch(1U);

@@ -126,6 +126,29 @@ def decode(raw: bytes) -> Snapshot:
     return Snapshot(h, records, len(raw))
 
 
+# Precondição de relógio e flash (FID-08; RM0008 §3.3.3, §7.3.1, §7.3.2).
+ACR_MASK, ACR_EXPECTED = 0x3F, 0x30          # LATENCY = 0, HLFCYA = 0, PRFTBE = PRFTBS = 1
+CFGR_MASK = 0x3FFF                           # SW, SWS, HPRE, PPRE1, PPRE2 = 0: HSI, sem divisão
+CR_MASK, CR_EXPECTED = 0x0101_0003, 0x3      # HSION = HSIRDY = 1, HSEON = PLLON = 0
+
+
+def clock_checks(snap: Snapshot) -> list[str]:
+    """Precondição temporal NA PLACA: HSI 8 MHz sem PLL, AHB/APB sem divisão,
+    flash com 0 estados de espera e pré-busca ligada. Fora dela as contagens
+    do TRM não valem e o run não é evidência. Não se aplica ao Renode: a
+    plataforma não declara a interface da flash (FLASH_ACR lê 0), o que é
+    achado de FID-08, não falha do instrumento."""
+    h = snap.header
+    problems = []
+    if h["flash_acr"] & ACR_MASK != ACR_EXPECTED:
+        problems.append(f"FLASH_ACR 0x{h['flash_acr']:08x}: esperado LATENCY = 0 e pré-busca ligada")
+    if h["rcc_cfgr"] & CFGR_MASK:
+        problems.append(f"RCC_CFGR 0x{h['rcc_cfgr']:08x}: SYSCLK ≠ HSI ou AHB/APB divididos")
+    if h["rcc_cr"] & CR_MASK != CR_EXPECTED:
+        problems.append(f"RCC_CR 0x{h['rcc_cr']:08x}: esperado HSI pronto, HSE e PLL desligados")
+    return problems
+
+
 def run_checks(snap: Snapshot, preset_id: int, catalog_hash: int, nonce: int | None,
                batch: int | None) -> list[str]:
     """Problemas que invalidam o RUN como instrumento (lista vazia = íntegro)."""

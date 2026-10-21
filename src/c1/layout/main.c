@@ -2,7 +2,7 @@
  * @file    src/c1/layout/main.c
  * @brief   C1 layout: identidade, estado de reset e layout de memória.
  *
- * Lote 0 (execução normal): FID-01..07, LAY-01..03, LAY-04 (do 1º boot),
+ * Lote 0 (execução normal): FID-01..08, LAY-01..03, LAY-04 (do 1º boot),
  * LAY-05..09. Lote 1 (execução com reset por software): na fase 1 suja .data
  * e .bss, grava um marcador em .noinit e pede SYSRESETREQ; o host para em
  * main de novo, reescreve o bloco do host com C1_HOST_PHASE2, e a fase 2
@@ -87,6 +87,7 @@ static void batch_normal(void)
     uint32_t vtor0 = SCB->VTOR;
     static const uint32_t fid03[] = { 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
     static const uint32_t fid04[] = { 0, 1, 2, 3, 4, 5, 6 };
+    static const uint32_t fid08[] = { 19, 20, 21 };   /* FLASH_ACR, RCC_CR, RCC_CFGR */
 
     c1_begin(LAY_FID_01);
     c1_put(SCB->CPUID);
@@ -121,6 +122,10 @@ static void batch_normal(void)
 
     c1_begin(LAY_FID_07);                      /* ACTLR (não existe na r1p1) */
     probe_put(lay_probe32(0xE000E008U));
+    c1_end();
+
+    c1_begin(LAY_FID_08);                      /* relógio e flash no reset */
+    put_reset(fid08, 3U);
     c1_end();
 
     c1_begin(LAY_LAY_01);                      /* alias de boot: 64 palavras */
