@@ -10,6 +10,8 @@ cmake_minimum_required(VERSION 3.22)
 #   vendor/      ST/CMSIS/LL congelados (compilados com -w, nunca editados)
 #   src/c1/      C1: núcleo e memória (startup, .ld e registro próprios)
 #   src/q01/     Q-01: verificação do observador externo (só Renode, oD)
+#   src/q02/     Q-02: ganchos de escrita/exceção e ações do monitor (só Renode)
+#   src/c2/common, src/c2/od   C2 (interrupções): firmware #oD (só Renode)
 #   lib/, inc/   registro FID3 dos cenários C2–C4 (legado deste workspace)
 #   src/c2..c4/  um main por firmware (legado deste workspace)
 # ════════════════════════════════════════════════════════════════════════════
@@ -31,7 +33,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 set(CMAKE_C_FLAGS_DEBUG "-O2 -g3")
 set(CMAKE_ASM_FLAGS_DEBUG "-g3")
 
-set(FIRMWARES c1-func c1-layout c1-cycle q01 c2 c3 c4)
+set(FIRMWARES c1-func c1-layout c1-cycle q01 q02 c2-od c2 c3 c4)
 if(NOT FIRMWARE IN_LIST FIRMWARES)
     message(FATAL_ERROR
         "Defina FIRMWARE (use um preset): ${FIRMWARES}\n"
@@ -133,6 +135,74 @@ elseif(FIRMWARE STREQUAL "q01")
         "-Wl,-Map=${CMAKE_BINARY_DIR}/firmware.map")
     set_target_properties(firmware PROPERTIES
         LINK_DEPENDS ${CMAKE_SOURCE_DIR}/src/q01/q01.ld)
+elseif(FIRMWARE STREQUAL "q02")
+    # ════════════════════════════════════════════════════════════════════
+    # Q-02 — instrumentos genéricos do Renode (03-quadro-comum.typ, família
+    # Q). Firmware em C, só núcleo/SRAM/SCS, independente de C1 e C2; a
+    # especificação em Python (scripts/q02/spec.py) gera q02_spec.h e é
+    # também a referência da análise.
+    # ════════════════════════════════════════════════════════════════════
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    set(q02_gen_dir ${CMAKE_BINARY_DIR}/gen)
+    file(GLOB q02_py CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/scripts/q02/*.py)
+    add_custom_command(
+        OUTPUT ${q02_gen_dir}/q02_spec.h
+        COMMAND ${CMAKE_COMMAND} -E env PYTHONPATH=${CMAKE_SOURCE_DIR}/scripts
+                ${Python3_EXECUTABLE} -B -m q02 gen --out ${q02_gen_dir}
+        DEPENDS ${q02_py}
+        COMMENT "especificação do Q-02 → q02/gen/q02_spec.h"
+        VERBATIM)
+    add_executable(firmware src/q02/q02.c ${q02_gen_dir}/q02_spec.h)
+    target_link_libraries(firmware PRIVATE vendor_headers)
+    target_include_directories(firmware PRIVATE ${q02_gen_dir})
+    set_source_files_properties(src/q02/q02.c PROPERTIES OBJECT_DEPENDS ${q02_gen_dir}/q02_spec.h)
+    target_compile_options(firmware PRIVATE
+        ${project_warnings} -Werror -ffreestanding -fno-tree-loop-distribute-patterns
+        -ffunction-sections -fdata-sections)
+    target_link_options(firmware PRIVATE
+        -nostartfiles -nostdlib
+        "-T${CMAKE_SOURCE_DIR}/src/q02/q02.ld"
+        -Wl,--gc-sections -Wl,--fatal-warnings
+        "-Wl,-Map=${CMAKE_BINARY_DIR}/firmware.map")
+    set_target_properties(firmware PROPERTIES
+        LINK_DEPENDS ${CMAKE_SOURCE_DIR}/src/q02/q02.ld)
+elseif(FIRMWARE MATCHES "^c2-")
+    # ════════════════════════════════════════════════════════════════════
+    # C2 — interrupções (04-c2.typ). Startup, .ld e main comuns em C
+    # (src/c2/common, sem assembly escrito); casos em src/c2/<preset>/.
+    # O catálogo em Python (scripts/c2) gera c2_catalog.h e é também o
+    # oráculo: firmware e host leem a mesma fonte.
+    # ════════════════════════════════════════════════════════════════════
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    string(REPLACE "c2-" "" c2_preset "${FIRMWARE}")
+    set(c2_gen_dir ${CMAKE_BINARY_DIR}/gen)
+    file(GLOB_RECURSE c2_py CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/scripts/c2/*.py)
+    add_custom_command(
+        OUTPUT ${c2_gen_dir}/c2_catalog.h
+        COMMAND ${CMAKE_COMMAND} -E env PYTHONPATH=${CMAKE_SOURCE_DIR}/scripts
+                ${Python3_EXECUTABLE} -B -m c2 gen --out ${c2_gen_dir}
+        DEPENDS ${c2_py}
+        COMMENT "catálogo do C2 → ${FIRMWARE}/gen/c2_catalog.h"
+        VERBATIM)
+    file(GLOB c2_common_sources CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/c2/common/*.c)
+    file(GLOB c2_preset_sources CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/c2/${c2_preset}/*.c)
+    add_executable(firmware ${c2_common_sources} ${c2_preset_sources} ${c2_gen_dir}/c2_catalog.h)
+    target_link_libraries(firmware PRIVATE vendor_headers)
+    target_include_directories(firmware PRIVATE ${CMAKE_SOURCE_DIR}/src/c2/common ${c2_gen_dir})
+    set_source_files_properties(${c2_common_sources} ${c2_preset_sources}
+        PROPERTIES OBJECT_DEPENDS ${c2_gen_dir}/c2_catalog.h)
+    # -ffreestanding/-fno-tree-loop-distribute-patterns: os laços do
+    # Reset_Handler não viram chamadas a memcpy/memset (não há libc).
+    target_compile_options(firmware PRIVATE
+        ${project_warnings} -Werror -ffreestanding -fno-tree-loop-distribute-patterns
+        -ffunction-sections -fdata-sections)
+    target_link_options(firmware PRIVATE
+        -nostartfiles -nostdlib
+        "-T${CMAKE_SOURCE_DIR}/src/c2/common/c2.ld"
+        -Wl,--gc-sections -Wl,--fatal-warnings
+        "-Wl,-Map=${CMAKE_BINARY_DIR}/firmware.map")
+    set_target_properties(firmware PROPERTIES
+        LINK_DEPENDS ${CMAKE_SOURCE_DIR}/src/c2/common/c2.ld)
 else()
     # ── legado C2–C4: startup/.ld do vendor + registro FID3 (lib/, inc/) ──
     add_library(vendor_ll OBJECT

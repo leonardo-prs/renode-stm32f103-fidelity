@@ -45,6 +45,22 @@
       }
     },
     {
+      "name": "q02",
+      "inherits": "base",
+      "displayName": "q02 — Q-02 instrumentos genéricos do Renode (ganchos de escrita/exceção, monitor)",
+      "cacheVariables": {
+        "FIRMWARE": "q02"
+      }
+    },
+    {
+      "name": "c2-od",
+      "inherits": "base",
+      "displayName": "c2-od — C2 interrupções, firmware #oD (só Renode; caso e pontos gravados pelo monitor)",
+      "cacheVariables": {
+        "FIRMWARE": "c2-od"
+      }
+    },
+    {
       "name": "c2",
       "inherits": "base",
       "displayName": "c2 — C2 timers TIM2/TIM3/TIM1 e IRQ de update",
@@ -85,6 +101,14 @@
     {
       "name": "q01",
       "configurePreset": "q01"
+    },
+    {
+      "name": "q02",
+      "configurePreset": "q02"
+    },
+    {
+      "name": "c2-od",
+      "configurePreset": "c2-od"
     },
     {
       "name": "c2",
@@ -149,6 +173,32 @@
         {
           "type": "build",
           "name": "q01"
+        }
+      ]
+    },
+    {
+      "name": "q02",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "q02"
+        },
+        {
+          "type": "build",
+          "name": "q02"
+        }
+      ]
+    },
+    {
+      "name": "c2-od",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "c2-od"
+        },
+        {
+          "type": "build",
+          "name": "c2-od"
         }
       ]
     },

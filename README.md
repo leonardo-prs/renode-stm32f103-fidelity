@@ -1,4 +1,137 @@
-# Renode × STM32F103 — Cenário C1: núcleo e memória (TCC EA019, UNICAMP)
+# Renode × STM32F103 — workspace C2: interrupções (TCC EA019, UNICAMP)
+
+Código e simulação do **Cenário C2** do TCC *"Análise quantitativa da
+fidelidade funcional e temporal do Renode em relação ao hardware no
+STM32F103"*: pendência, prioridade, preempção, máscaras, entrada e saída de
+exceção, encadeamento, chegada tardia, coalescência, `WFI` e o efeito do
+quantum. A especificação é a fundamentação (`tcc/documentacao/fundamentacao/`,
+cap. `04-c2.typ` e `03-quadro-comum.typ`); as decisões de implementação e os
+resultados ficam em `tcc/documentacao/desenvolvimento/c2.typ`. Este README
+documenta o código e como reproduzi-lo.
+
+A Parte II, mais abaixo, é a documentação do **C1 herdado** da base deste
+workspace (código `c1-*`); o C1 será redesenhado no workspace `cenario1`.
+
+## C2.1 Início rápido
+
+```
+nix develop                                   # ou direnv
+scripts/c2.sh check                           # build do zero do c2-od + gate estático
+scripts/c2.sh run --case C2-09 --name piloto-01
+# relatório: data/c2/C2-09/piloto-01/analysis/report.md
+scripts/c2.sh analyze --case C2-09 --name piloto-01      # refaz só a análise
+PYTHONPATH=scripts python3 -m unittest discover -s scripts/c2/tests -t scripts
+
+scripts/q02.sh check                          # Q-02: build do zero do q02 + gate
+scripts/q02.sh run --name piloto-01           # relatório: data/q02/piloto-01/analysis/report.md
+PYTHONPATH=scripts python3 -m unittest discover -s scripts/q02/tests -t scripts
+```
+
+Saída do `run`/`analyze`: 0 = veredito emitido (IGUAL, DIVERGE ou NÃO
+DETERMINÍSTICO; no Q-02, IGUAL, REPROVADO ou NÃO DETERMINÍSTICO), 3 =
+EVIDÊNCIA INVÁLIDA, 1 = erro de pré-condição.
+
+## C2.2 Estado
+
+| Caso | Oráculo | Estado | Última campanha |
+|---|---|---|---|
+| `Q-01` (tempo virtual nos ganchos de endereço) | família Q | IGUAL | `data/q01/piloto-02` (`scripts/q01.sh`) |
+| `Q-02` (ganchos de escrita e de exceção, monitor) | família Q | IGUAL, 25/25 critérios | `data/q02/piloto-01` (`scripts/q02.sh`) |
+| `C2-09` (desabilitada, pendente, habilitada) | #oD | IGUAL, 30/30 pontos | `data/c2/C2-09/piloto-01` |
+| demais `C2-*` | — | não implementados | — |
+
+## C2.3 Firmware `c2-od` (casos #oD, só Renode)
+
+Um único ELF para todos os casos #oD: o caso e os pontos são gravados pelo
+monitor do Renode num bloco de parâmetros (`c2_param`, seção `.noinit`) com a
+simulação parada, antes da partida. Uma campanha usa assim um só SHA-256.
+
+- `src/c2/common/` — startup **em C** (tabela de vetores, `Reset_Handler`),
+  `.ld`, `main` comum (grava VTOR, `PRIGROUP` = 0, `BASEPRI` = 0, `FAULTMASK`
+  = `PRIMASK` = 0 explicitamente), tratador único das linhas livres
+  (`c2_irq_handler`, conta atendimentos por linha), `c2_point(id)` (ponto
+  marcado; o gancho lê o id em R0) e `c2_done`.
+- `src/c2/od/` — despachante (`cases.c`) e um arquivo por caso (`c2_09.c`).
+- `scripts/c2/catalog.py` — fonte única: ABI host ↔ firmware, linhas livres,
+  pontos de cada caso e o oráculo documental. Gera
+  `build/c2-od/gen/c2_catalog.h` no configure/build.
+- `scripts/c2/gate.py` — gate estático do ELF: vetores, VTOR explícito,
+  `c2_param` em `.noinit`, tamanhos das estruturas = catálogo, `c2_point`
+  vazia e chamada, sem `LDREX/STREX/CLREX/BKPT`, sem literal de bit-band ou
+  da USART1.
+
+**Linhas livres** (estímulo por software, `STIR` ou `ISPR`): IRQ 0–5, 18–22,
+35, 36, 41, 42 — linhas da família medium-density a que a plataforma
+`renode/stm32f103_hsi8.repl` não liga nenhuma fonte (conferido por teste).
+
+## C2.4 Observação no Renode
+
+`scripts/c2/collect.py` gera um `.resc` por execução (perfil R1: 8 MIPS,
+quantum 125 ns) e roda o Renode com `--port -1`. Três variantes: `bare` (só o
+gancho de fim, que lê a memória do firmware), `hooks` (observador externo) e
+`full` (observador + traço de execução). O observador registra em
+`events.txt`: pontos marcados com o estado do NVIC, primeira instrução de cada
+tratador (com o IPSR), início e fim de interrupção, escritas de palavra nos
+registradores do NVIC/SCB e `c2_fault`. Formato das linhas no docstring de
+`collect.py`.
+
+A análise (`scripts/c2/analysis.py`) primeiro valida o observador — pontos na
+sequência esperada, cada início de interrupção seguido do tratador na mesma
+instrução, cada fim fechando o tratador aberto, tick = instrução nos ganchos
+de endereço e, na variante `full`, o PC de cada evento igual ao do traço na
+posição dada pelo contador de instruções — e depois o determinismo e a não
+intrusão (o que o firmware vê é igual nas três variantes). Só então compara
+com o oráculo.
+
+Comportamento dos ganchos no Renode 1.17.0 (caracterizado no piloto do
+C2-09 e verificado no Q-02, abaixo): o gancho de início de interrupção
+entrega um índice interno (5), não o número da exceção — o número vem do
+IPSR lido na primeira instrução do tratador; o tempo virtual nos ganchos de
+início e de fim fica um tick atrás das instruções contadas; o gancho de
+escrita dispara com o PC da própria instrução de escrita e tick = instrução.
+
+## C2.4a Q-02 — instrumentos genéricos do Renode (família Q)
+
+Verificação, isolada de qualquer periférico, dos instrumentos que os casos
+#oD usam (`03-quadro-comum.typ`, §Verificação dos instrumentos do Renode).
+O firmware (`src/q02/q02.c`, preset `q02`) só usa núcleo, SRAM e SCS (o
+gate recusa literais de periférico) e não é julgado: produz eventos
+conhecidos e registra o que viu. Segmentos: escritas de palavra numa palavra
+vigiada (e numa vizinha não vigiada); PendSV e SysTick pedidos pelo ICSR —
+simples, encadeados, aninhados e mascarados por `PRIMASK`; um gancho de
+endereço que grava na SRAM; o monitor lendo e gravando a SRAM em duas pausas
+(`emulation RunFor` + comando `python` do monitor).
+
+A análise (`scripts/q02/analysis.py`) confere cada instrumento contra o
+traço, o registro do firmware e a especificação (`scripts/q02/spec.py`, que
+também gera `q02_spec.h`) em 25 critérios agrupados por instrumento
+(escrita, exceção, monitor, não intrusão). Veredito: IGUAL, REPROVADO (o
+instrumento não serve aos casos que dependem dele), NÃO DETERMINÍSTICO ou
+EVIDÊNCIA INVÁLIDA. Os testes de sensibilidade (`scripts/q02/tests/`)
+alteram uma execução real (fixture do `piloto-01`) um aspecto por vez.
+
+## C2.5 Estrutura
+
+```
+src/c2/common/   startup.c c2.c c2.h c2.ld
+src/c2/od/       cases.c c2_09.c
+src/q02/         q02.c q02.ld
+scripts/obs/     elf.py renode.py — comuns à observação externa (Q-02 e C2)
+scripts/c2/      catalog.py gen.py gate.py collect.py analysis.py
+                 report.py campaign.py __main__.py tests/
+scripts/q02/     spec.py gen.py gate.py collect.py analysis.py
+                 report.py campaign.py __main__.py tests/ (com fixture)
+scripts/c2.sh scripts/q02.sh   CLIs com o ambiente do projeto
+data/c2/<caso>/<campanha>/   plan.json, <variante>-<rep>/ (brutos), analysis/
+data/q02/<campanha>/         idem
+```
+
+O legado do plano anterior (`src/c2/timers.c`, preset `c2`, `src/c3`,
+`src/c4`, `lib/`, `inc/`, `scripts/fidelity*`) não faz parte do C2 vigente.
+
+---
+
+# Parte II — Cenário C1 herdado: núcleo e memória
 
 Código, plataforma de simulação e campanha automática do **Cenário C1** do TCC
 *"Análise quantitativa da fidelidade funcional e temporal do Renode em relação

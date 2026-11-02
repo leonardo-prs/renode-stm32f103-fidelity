@@ -21,11 +21,11 @@ arquivo).
 jj workspace list        # nome → diretório irmão em ~/projects/
 ```
 
-| Workspace | Dir | Cenário | Estado (2026-11-02) |
+| Workspace | Dir | Cenário | Estado (2026-11-03) |
 |---|---|---|---|
 | `default` | `../renode-stm32f103-fidelity` | histórico (C1–C4 antigos) | só referência; não desenvolver aqui |
 | `cenario1` | `../cenario1` | **C1** núcleo e acesso ao chip | implementado (presets `c1-*`, campanha `final-02`), **mas não é o definitivo**: o desenho do C1 será refeito conforme `tcc/documentacao/fundamentacao/03a-c1-auditoria.typ` e `03b-c1.typ` (o C1 fica por último, para cobrir o que C2–C4 usam — critério K1) |
-| `c2` | `.` (`../c2`) | **C2** interrupções | iniciando; nasceu de `cenario1` (mesma base `discussao-cenarios`), então herda o código do C1 atual. **`Q-01` (pré-requisito dos casos #oD temporais) em piloto**: preset `q01`, `src/q01/`, `scripts/q01/`, `scripts/q01.sh`; `data/q01/piloto-02` = IGUAL (35/35 segmentos) |
+| `c2` | `.` (`../c2`) | **C2** interrupções + família Q | em desenvolvimento; nasceu de `cenario1` (herda o código do C1 atual). Família Q (instrumentos do Renode, `03-quadro-comum.typ` §família Q): `Q-01` IGUAL (`data/q01/piloto-02`), **`Q-02` IGUAL 25/25** (`src/q02`, `scripts/q02/`, `data/q02/piloto-01`). Infra comum de observação em `scripts/obs/`. Firmware #oD único `c2-od` (`src/c2/common`, `src/c2/od`, `scripts/c2/`, `scripts/c2.sh`): **`C2-09` IGUAL 30/30** (`data/c2/C2-09/piloto-01`). Próximo: `C2-05a`, `C2-06`, `C2-08` |
 | `c3` | — | **C3** interface física | a criar |
 | `c4` | — | **C4** comunicação serial | não iniciado |
 
@@ -164,6 +164,28 @@ tcc/
   scripts/q01.sh analyze --name <n>
   PYTHONPATH=scripts python3 -m unittest discover -s scripts/q01/tests -t scripts
   ```
+- C2 #oD (preset `c2-od`, só Renode; caso e pontos gravados pelo monitor):
+  ```
+  scripts/c2.sh check                                   # build do zero + gate do ELF
+  scripts/c2.sh run --case C2-09 --name <n> [--reps 2] [--no-build]
+  scripts/c2.sh analyze --case C2-09 --name <n>
+  PYTHONPATH=scripts python3 -m unittest discover -s scripts/c2/tests -t scripts
+  ```
+- Q-02 (instrumentos genéricos do Renode: escrita, exceção, monitor; só Renode):
+  ```
+  scripts/q02.sh check                                  # build do zero + gate do ELF
+  scripts/q02.sh run --name <n> [--reps 2] [--no-build]
+  scripts/q02.sh analyze --name <n>
+  PYTHONPATH=scripts python3 -m unittest discover -s scripts/q02/tests -t scripts
+  ```
+  Família Q = verificação de instrumentos (concordância, sem oráculo; veredito
+  IGUAL/REPROVADO). Instrumentos presos a periférico ficam nos cenários;
+  nos casos #oD, estímulo e observação vão para as "bordas genéricas"
+  (escrita do firmware, entrada em tratador, valor lido) — ver
+  `03-quadro-comum.typ` §Verificação dos instrumentos do Renode.
+  Caso novo do C2: pontos e oráculo em `scripts/c2/catalog.py`, firmware em
+  `src/c2/od/c2_NN.c` + `cases.c`, avaliação em `scripts/c2/analysis.py`
+  (com teste de sensibilidade em `scripts/c2/tests/`).
 - Renode: `renode/<cenário>.resc` + perfis `renode` (`stm32f103_hsi8.repl`,
   a plataforma do projeto) e `renode-doc` (só correções documentadas).
   8 MIPS, quantum 125 ns (o efeito do quantum é objeto de estudo no C2,
