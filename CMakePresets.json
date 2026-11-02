@@ -37,6 +37,14 @@
       }
     },
     {
+      "name": "q01",
+      "inherits": "base",
+      "displayName": "q01 — Q-01 verificação do observador externo (Renode: gancho × DWT_CYCCNT × traço)",
+      "cacheVariables": {
+        "FIRMWARE": "q01"
+      }
+    },
+    {
       "name": "c2",
       "inherits": "base",
       "displayName": "c2 — C2 timers TIM2/TIM3/TIM1 e IRQ de update",
@@ -73,6 +81,10 @@
     {
       "name": "c1-cycle",
       "configurePreset": "c1-cycle"
+    },
+    {
+      "name": "q01",
+      "configurePreset": "q01"
     },
     {
       "name": "c2",
@@ -124,6 +136,19 @@
         {
           "type": "build",
           "name": "c1-cycle"
+        }
+      ]
+    },
+    {
+      "name": "q01",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "q01"
+        },
+        {
+          "type": "build",
+          "name": "q01"
         }
       ]
     },

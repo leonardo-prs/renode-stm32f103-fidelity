@@ -9,6 +9,7 @@ cmake_minimum_required(VERSION 3.22)
 #
 #   vendor/      ST/CMSIS/LL congelados (compilados com -w, nunca editados)
 #   src/c1/      C1: núcleo e memória (startup, .ld e registro próprios)
+#   src/q01/     Q-01: verificação do observador externo (só Renode, oD)
 #   lib/, inc/   registro FID3 dos cenários C2–C4 (legado deste workspace)
 #   src/c2..c4/  um main por firmware (legado deste workspace)
 # ════════════════════════════════════════════════════════════════════════════
@@ -30,7 +31,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 set(CMAKE_C_FLAGS_DEBUG "-O2 -g3")
 set(CMAKE_ASM_FLAGS_DEBUG "-g3")
 
-set(FIRMWARES c1-func c1-layout c1-cycle c2 c3 c4)
+set(FIRMWARES c1-func c1-layout c1-cycle q01 c2 c3 c4)
 if(NOT FIRMWARE IN_LIST FIRMWARES)
     message(FATAL_ERROR
         "Defina FIRMWARE (use um preset): ${FIRMWARES}\n"
@@ -113,6 +114,25 @@ if(FIRMWARE MATCHES "^c1-")
     target_link_libraries(firmware PRIVATE gcc)
     set_target_properties(firmware PROPERTIES
         LINK_DEPENDS ${CMAKE_SOURCE_DIR}/src/c1/common/c1.ld)
+elseif(FIRMWARE STREQUAL "q01")
+    # ════════════════════════════════════════════════════════════════════
+    # Q-01 — verificação do observador externo (03-quadro-comum.typ).
+    # Firmware mínimo e independente do C1: startup, .ld e sequência
+    # medida próprios; do vendor só os headers CMSIS.
+    # ════════════════════════════════════════════════════════════════════
+    add_executable(firmware src/q01/startup.S src/q01/q01.S src/q01/main.c)
+    target_link_libraries(firmware PRIVATE vendor_headers)
+    target_compile_options(firmware PRIVATE
+        $<$<COMPILE_LANGUAGE:C>:${project_warnings} -ffreestanding>
+        $<$<COMPILE_LANGUAGE:ASM>:-Wa,--fatal-warnings>
+        -ffunction-sections -fdata-sections)
+    target_link_options(firmware PRIVATE
+        -nostartfiles -nostdlib
+        "-T${CMAKE_SOURCE_DIR}/src/q01/q01.ld"
+        -Wl,--gc-sections
+        "-Wl,-Map=${CMAKE_BINARY_DIR}/firmware.map")
+    set_target_properties(firmware PROPERTIES
+        LINK_DEPENDS ${CMAKE_SOURCE_DIR}/src/q01/q01.ld)
 else()
     # ── legado C2–C4: startup/.ld do vendor + registro FID3 (lib/, inc/) ──
     add_library(vendor_ll OBJECT

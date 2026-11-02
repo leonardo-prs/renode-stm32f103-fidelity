@@ -1,77 +1,201 @@
-# AGENTS.md — contexto do projeto para agentes LLM (local, gitignored)
+# AGENTS.md — contexto do projeto para agentes LLM
+
+Vale para **todos os workspaces jj** deste repositório (um por cenário).
+É agnóstico ao cenário: o que é específico de um workspace fica na tabela
+de estado abaixo — **mantê-la atualizada** ao abrir, avançar ou fechar um
+workspace. O `README.md` de cada workspace é a documentação técnica do
+cenário implementado nele (para terceiros); este arquivo só orienta agentes.
 
 ## Resumo
 
-TCC EA019 (UNICAMP): mapear, para o STM32F103 (Blue Pill, Cortex-M3, HSI
-8 MHz), até onde o **Renode 1.17.0** é fiel ao hardware em três níveis —
+TCC EA019 (UNICAMP): mapear, para o STM32F103 (Blue Pill, Cortex-M3 r1p1,
+HSI 8 MHz), até onde o **Renode 1.17.0** é fiel ao hardware em três níveis —
 **funcional**, **instrução** e **ciclo** — por recurso e condição. Entrega
-final (2026-11-09) conforme a diretiva `tmp/REQUISITOS-ENTREGA-FINAL-TCC.md`
-(manter esse arquivo). **O README.md é a documentação técnica completa** (para
-terceiros); este arquivo só orienta agentes.
+final: 2026-11-09, conforme `tmp/REQUISITOS-ENTREGA-FINAL-TCC.md` (gitignored;
+a cópia existe no workspace `cenario1`: `../cenario1/tmp/` — manter esse
+arquivo).
 
-## Separação de ambientes — código vs. TCC escrito
+## Workspaces e estado (atualizar sempre)
 
-> **Este repositório é somente código e simulação.** Toda documentação,
-> contexto/bibliografia e desenvolvimento dos textos entregáveis do TCC vive
-> em **`D:\tcc`** (WSL: `/mnt/d/tcc`).
-> Acesso liberado via `.opencode/opencode.jsonc` (`external_directory` restrito a
-> `/mnt/d/tcc/**` — nada além disso em `D:\`). Não criar
-> `docs/` ou `context/` aqui; usar o `tcc/` do Windows.
+```
+jj workspace list        # nome → diretório irmão em ~/projects/
+```
 
-- **Fica aqui (Nix, versionado):** `src/`, `inc/`, `lib/`, `vendor/`, `renode/`,
-  `scripts/`, `cmake/`, `.vscode/`, `CMakePresets.json`, `CMakeLists.txt`,
-  `flake.nix`, `.editorconfig`.
-- **Fica em `tcc/` (Windows, fora do Nix):** `docs/` (justificativa, plano),
-  `context/` (bibliography, renode-docs, technical-literature), `contexto/`,
-  `referencias/`, `latex/`, `normas/`, `_arquivo/`, monografia.
-- **Referências (Zotero, coleção do TCC):** `tcc/zotero/` —
-  `references.bib` (citekeys) e `artefacts/<citekey>.pdf` + `<citekey>.md`.
-  Todo PDF da coleção tem o `.md` com o texto **na íntegra** (OCR via
-  `ocr2md`; `sync_ocr2md.py`). Para ler/citar uma referência, preferir o
-  `.md`; usar o PDF só para conferir figuras/tabelas.
-- `docs/` e `context/` foram **removidos deste repo** em 2025-08-31 após port verificado (hashes `b60a48cd` / `629a59c1`, `12M` idêntico, 44 arquivos).
+| Workspace | Dir | Cenário | Estado (2026-11-02) |
+|---|---|---|---|
+| `default` | `../renode-stm32f103-fidelity` | histórico (C1–C4 antigos) | só referência; não desenvolver aqui |
+| `cenario1` | `../cenario1` | **C1** núcleo e acesso ao chip | implementado (presets `c1-*`, campanha `final-02`), **mas não é o definitivo**: o desenho do C1 será refeito conforme `tcc/documentacao/fundamentacao/03a-c1-auditoria.typ` e `03b-c1.typ` (o C1 fica por último, para cobrir o que C2–C4 usam — critério K1) |
+| `c2` | `.` (`../c2`) | **C2** interrupções | iniciando; nasceu de `cenario1` (mesma base `discussao-cenarios`), então herda o código do C1 atual. **`Q-01` (pré-requisito dos casos #oD temporais) em piloto**: preset `q01`, `src/q01/`, `scripts/q01/`, `scripts/q01.sh`; `data/q01/piloto-02` = IGUAL (35/35 segmentos) |
+| `c3` | — | **C3** interface física | a criar |
+| `c4` | — | **C4** comunicação serial | não iniciado |
 
-## Estrutura e fluxo — novo C1 (workspace jj `cenario1`)
+Consequências práticas:
 
-Especificação: `tcc/material-base/main.typ` (+ `c1/*.typ`). Este workspace
-reimplementa o C1 do zero; C2–C4 (`src/c2..c4`, `lib/`, `inc/`,
-`scripts/fidelity*`, `renode/fidelity.resc`) ficam só como contexto e serão
-removidos pelo autor no fim.
+- Num workspace novo, o código de outros cenários herdado da base é
+  **contexto**, não especificação. Reaproveitar infraestrutura do C1
+  (startup, registro de resultados, CLI, catálogo, gate) é desejável, mas
+  sabendo que o C1 ainda vai mudar — não acoplar C2/C3 a detalhes do C1 que
+  o redesenho pode remover.
+- Os nomes antigos não batem com a reestruturação: os presets/fontes
+  `c2`/`c3`/`c4` (`src/c2/timers.c`, `src/c3/nvic.c`, `src/c4/usart.c`,
+  `lib/`, `inc/`, `scripts/fidelity*`, `renode/fidelity.resc`) são do plano
+  **anterior** (C2 = timers, C3 = NVIC, C4 = USART1 loopback). O escopo
+  vigente é o da tabela acima; esse código legado será removido pelo autor.
+- Antes de editar, confirmar em qual workspace se está (`jj workspace list`,
+  `jj log`) — cada workspace tem o seu `@`.
 
-- Firmwares (um preset cada, `-O2 -g3`, sem HAL/LL, só headers CMSIS):
-  `c1-func` (vetores funcionais em lotes), `c1-layout` (FID/LAY, 2 lotes: normal
-  e reset por software), `c1-cycle` (T-DWT e microbenchmarks diferenciais).
-  `src/c1/common/`: startup próprio (captura do reset), `c1.ld`, registro
-  C1S1 (`c1.h`), falta-e-retoma (`fault.S`), `call.S` (rótulos do stepi).
-- Catálogo = fonte única (`scripts/c1/`): `func/<grupo>.py` ↔
-  `src/c1/func/<grupo>.S`, `cycle/*.py` ↔ `src/c1/cycle/*.S`, `layout.py`.
-  O CMake gera `build/<preset>/gen/c1_{config,catalog}.h` (`python -m c1 gen`);
-  o hash do catálogo vai para o snapshot. Oráculo: `arm.py` (testes em
-  `scripts/c1/tests`). Gate: `disasm.py` confere cada rótulo `_x<k>`.
-- CLI: `scripts/c1.sh {campaign,analyze,run,trace,check}`. Dados em
-  `data/c1/<campanha>/` (gitignored); análise em `analysis/report.md`.
-- Renode: `renode/c1.resc` + perfis `renode` (`stm32f103_hsi8.repl`, a
-  plataforma do projeto) e `renode-doc` (`c1_doc.repl`: só correções
-  documentadas). 8 MIPS, quantum 125 ns.
-- Fonte do Renode instalado: `/nix/store/*renode-1.17.0/lib/renode/src/`.
-- Build: `cmake --workflow --preset <preset>` (zero warnings é política).
+## Parte escrita: `tcc/` (symlink → `/mnt/d/tcc`)
+
+> **Este repositório é somente código e simulação.** Monografia,
+> documentação do projeto e bibliografia vivem em `tcc/` (Windows `D:\tcc`,
+> um repositório jj/git próprio, com seu `AGENTS.md` — ler antes de editar
+> lá). Não criar `docs/` ou `context/` aqui. Acesso externo restrito a
+> `/mnt/d/tcc/**`.
+
+```
+tcc/
+├── monografia/                   # texto final (template FEEC) — só mediante pedido do autor
+├── documentacao/
+│   ├── fundamentacao/            # ESPECIFICAÇÃO C1–C4 — somente leitura para agentes
+│   ├── desenvolvimento/          # REGISTRO do que foi construído — agentes mantêm
+│   └── legado/c1/                # material-base do C1 antigo — congelado, histórico
+└── zotero/                       # references.bib + artefacts/<citekey>.pdf/.md
+```
+
+### `tcc/documentacao/fundamentacao/` — especificação (não alterar)
+
+- `main.typ` (+ `main.pdf`; variantes `main-noite`/`main-sepia`) e capítulos
+  `.typ`: `03-quadro-comum` (classes A/B/C/X, perguntas F/T/L, oráculo
+  único D/P, vereditos, bancada), `03a`/`03b` (C1 revisto), `04-c2`,
+  `05-c3`, `06-c4`, `07-integracao` (dependências entre cenários),
+  `08-limites`. **É a especificação de C1–C4** e prevalece sobre o plano
+  antigo. Identificadores de caso (`C2-05`, `C3-04`…) são estáveis e devem
+  aparecer igual no firmware, nos dados, na análise e no desenvolvimento.
+- Ler o `.typ` (texto); usar o PDF só para conferir figuras/tabelas.
+- **Agentes não alteram a fundamentação por decisão própria — nunca.** Se
+  encontrar erro, inconsistência com o hardware/manual, ou perceber que o
+  autor está mudando uma premissa (no código, na conversa ou nos dados), o
+  máximo permitido é **apontar o problema e oferecer** a reescrita do trecho;
+  editar só com **autorização explícita** do autor para aquela mudança.
+  Enquanto não houver autorização, a divergência é registrada no
+  desenvolvimento (ver abaixo), não corrigida na fundamentação.
+
+### `tcc/documentacao/desenvolvimento/` — registro (agentes mantêm)
+
+- Documenta **o que foi construído e por quê**, naquilo que a fundamentação
+  não decidiu: decisões de implementação e seus motivos (e alternativas
+  descartadas), convenções (nomes, layout de memória, formato de registro,
+  CLI), instrumentos e sua validação, pré-requisitos (ex.: `Q-01`),
+  campanhas executadas (nome, ELF/SHA, ambiente, data), resultados e
+  vereditos por caso, problemas encontrados e como foram resolvidos,
+  divergências percebidas em relação à fundamentação.
+- **Não é cópia do código.** Não colar fonte nem pseudocódigo do que já
+  está implementado aqui; referenciar o arquivo/símbolo
+  (`src/q01/…`, `scripts/q01/…`, preset, campanha em `data/<cN>/<n>/`) e
+  explicar a decisão. Trecho curto só quando ele é o próprio objeto da
+  decisão (ex.: a sequência de instruções que define um estímulo).
+- **Manter atualizado de forma automática, sem pedir confirmação**: ao
+  concluir uma decisão, um instrumento, uma campanha ou uma análise neste
+  workspace, registrar no desenvolvimento na mesma sessão. Fatos verificados
+  (com caminho/ID), não planos; o que for hipótese aparece como tal.
+- Organização: um arquivo `.typ` por frente (ex.: `comum.typ`,
+  `q01.typ`, `c2.typ`, …), incluído em `main.typ`; cada workspace edita
+  principalmente a sua frente. Usar o `lib.typ` local (etiquetas de caso
+  `clA`…`clX`, `qF`/`qT`/`qL`, `oD`/`oP` da fundamentação). Após editar,
+  compilar sem erro:
+  `cd /mnt/d/tcc && typst compile --font-path /mnt/c/Windows/Fonts --root . documentacao/desenvolvimento/main.typ`
+  (o typst é snap: não grava em `/tmp`). Não commitar no jj do `tcc/` sem
+  pedido do autor.
+- O `README.md` de cada workspace continua sendo a documentação técnica de
+  uso do código (para terceiros); o desenvolvimento é o registro de
+  decisões e resultados para o TCC.
+
+### Demais
+
+- `tcc/documentacao/legado/c1/` — material-base do C1 antigo (campanha
+  `final-02` já executada): especificação do código `c1-*` atual, só
+  histórico; não alterar (não compila mais: citekey removido do `.bib`).
+- **Referências (Zotero, coleção do TCC):** `tcc/zotero/references.bib`
+  (citekeys) e `tcc/zotero/artefacts/<citekey>.pdf` + `<citekey>.md`. Todo
+  PDF tem o `.md` com o texto **na íntegra** (OCR via `ocr2md`;
+  `sync_ocr2md.py`). Para fundamentar uma escolha de implementação, citar
+  pelo citekey + localização (ex.: `stmicroelectronics2021` §27.3.5),
+  lendo o `.md`. Os citekeys da documentação e da monografia são os mesmos.
+- Outros: `tcc/tmp/docs/` (justificativa, plano de execução antigo),
+  `tcc/tmp/reports/` (relatório intermediário, `hardware.md`).
+
+## Princípios de método (de `documentacao/fundamentacao/`)
+
+- **Renode como caixa-preta**: expectativas sobre o Renode vêm só da
+  documentação pública e dos resultados do C1, nunca do código-fonte (o
+  fonte instalado, `/nix/store/*renode-1.17.0/lib/renode/src/`, serve para
+  diagnosticar, não para justificar expectativas).
+- **Um oráculo por caso**: `oD` (documento → roda só no Renode, estímulo
+  exato, varredura completa) ou `oP` (placa → mesmo binário nos dois
+  ambientes). Instrumento falho = EVIDÊNCIA INVÁLIDA, nunca divergência.
+- "Ciclo" = HCLK 8 MHz; "tick" = unidade de contador (`DWT_CYCCNT`,
+  `TIMx_CNT`).
+
+## Build e fluxo (comum a todos os workspaces)
+
+- Ambiente: `nix develop` (ou direnv, `.envrc` = `use flake`).
+- Um preset CMake por firmware, `-O2 -g3`, sem HAL/LL, só headers CMSIS:
+  `cmake --workflow --preset <preset>` → `build/<preset>/`. **Zero warnings
+  é política.** Presets em `CMakePresets.json`; o `.clangd` é gerado no
+  configure.
+- Padrão do C1 (modelo para os demais): catálogo Python como fonte única
+  (`scripts/<cN>/`) que gera headers em `build/<preset>/gen/`; oráculo no
+  host com testes unitários; gate estático do ELF (disassembly × catálogo,
+  literais proibidos); CLI `scripts/<cN>.sh`; dados em `data/<cN>/<campanha>/`
+  (gitignored), relatório em `analysis/report.md`.
+- C1 (workspace `cenario1`/`c2`):
+  ```
+  scripts/c1.sh check                     # build do zero dos presets c1-* + gate
+  scripts/c1.sh run --env hw|renode|renode-doc --preset c1-func --batch 0
+  scripts/c1.sh trace --env hw --preset c1-func --batch 4
+  scripts/c1.sh campaign --name <n> --mode pilot|final --board "stm32f103c8-st-tcc" [--pilot-from <piloto>]
+  scripts/c1.sh analyze --name <n>
+  PYTHONPATH=scripts python3 -m unittest discover -s scripts/c1/tests -t scripts
+  PYTHONPATH=scripts python3 -m unittest c1.tests.test_arm   # um módulo de teste
+  ```
+- Q-01 (observador externo, só Renode; independe do C1):
+  ```
+  scripts/q01.sh run --name <n> [--reps 2] [--no-build]   # build + 3 variantes × reps + análise
+  scripts/q01.sh analyze --name <n>
+  PYTHONPATH=scripts python3 -m unittest discover -s scripts/q01/tests -t scripts
+  ```
+- Renode: `renode/<cenário>.resc` + perfis `renode` (`stm32f103_hsi8.repl`,
+  a plataforma do projeto) e `renode-doc` (só correções documentadas).
+  8 MIPS, quantum 125 ns (o efeito do quantum é objeto de estudo no C2,
+  `04-c2.typ` §"O efeito do quantum").
 
 ## Regras
 
 - `vendor/` congelado (nunca editar; SHA-256 em `vendor/README.md`).
-- Bancada: fio PA9→PA10 permanente — só o C4 toca USART1/PA9/PA10 (o gate
-  verifica literais no ELF). OpenOCD próprio na :3333 (porta ocupada = erro;
-  nunca `pkill`/kill global). Renode em portas ≥ 3336 (debug: 3334).
+- Bancada (placa única, ver identidade abaixo). Fios conforme
+  `03-quadro-comum.typ` §Bancada: **J1 PA2→PB11** (C4), **J2 PA6→PA0**
+  (C3); J0 PA9→PA10 continua soldado mas **não é usado** — nenhum firmware
+  aciona USART1/PA9/PA10 (o gate do C1 verifica literais da USART1 no ELF).
+  Segurança elétrica: nunca duas saídas push-pull no mesmo fio; pinos dos
+  fios ficam como entrada até o caso configurá-los; fios só com a placa
+  desligada. Confirmar com o autor quais fios estão montados antes de um
+  caso `oP`.
+- OpenOCD próprio na :3333 (porta ocupada = erro; nunca `pkill`/kill
+  global). Renode em portas ≥ 3336 (debug: 3334). Workspaces diferentes
+  compartilham a mesma placa e as mesmas portas — nunca rodar campanhas
+  de dois workspaces ao mesmo tempo.
 - Renode com `-e` + `--port N` só executa quando um cliente telnet conecta →
   usar `--port -1`; em erro de comando o Renode fica parado (sempre timeout).
 - Placa do TCC (única): STM32F103C8T6 ST original (marcação `991KA 93 /
-  MYS 809`), CPUID 0x411FC231 (Cortex-M3 r1p1), IDCODE 0x20036410 (DEV 0x410,
-  rev Y/X), ROM table JEP106 0x20 (ST), UID `0a0b0200 30301624 32303030`,
-  F_SIZE informa 128 KiB (atípico p/ C8; irrelevante — binários < 64 KiB).
+  MYS 809`), CPUID 0x411FC231 (Cortex-M3 r1p1), IDCODE 0x20036410 (DEV
+  0x410, rev Y/X), ROM table JEP106 0x20 (ST), UID `0a0b0200 30301624
+  32303030`, F_SIZE informa 128 KiB (atípico p/ C8; irrelevante — binários
+  < 64 KiB).
 - Nunca rebuildar presets durante uma campanha: o Renode carrega o ELF de
   `build/` e cada run registra o SHA-256 do ELF.
-- Sem `printf`/UART fora do C4; variáveis compartilhadas com ISR `volatile` e
-  com um único escritor; todo handler com protótipo.
+- Sem `printf`/UART como canal de log (a USART é objeto de estudo do C4,
+  não instrumento); variáveis compartilhadas com ISR `volatile` e com um
+  único escritor; todo handler com protótipo.
 
 ## Extensões (VS Code Marketplace — fonte migrada em 2026-10-05)
 
@@ -127,5 +251,7 @@ build/<cenario>/firmware.elf` + `build/<cenario>/firmware.map`.
 
 ## Cross-references
 
-- `README.md` — escopo, bancada, campanha, ABI, oráculos, critérios, validações
-- `D:\tcc\` — plano de trabalho, bibliografia, monografia (fora do repo)
+- `README.md` — documentação técnica do cenário deste workspace
+- `tcc/AGENTS.md` — orientação para o repositório do TCC escrito
+- `tcc/documentacao/fundamentacao/main.typ` — especificação vigente de C2–C4 (e do C1 revisto); não alterar sem autorização
+- `tcc/documentacao/desenvolvimento/main.typ` — registro de decisões e resultados; agentes mantêm
