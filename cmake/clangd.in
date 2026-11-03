@@ -16,3 +16,6 @@
 
 CompileFlags:
   CompilationDatabase: @CMAKE_BINARY_DIR@
+  # `noipa` é atributo do GCC (o compilador real); o clang do clangd não o
+  # conhece. Só silencia o aviso no editor — o build continua com -Werror.
+  Add: [-Wno-unknown-attributes]
