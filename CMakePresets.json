@@ -27,6 +27,14 @@
       "cacheVariables": {
         "FIRMWARE": "c2-sw"
       }
+    },
+    {
+      "name": "c2-mon",
+      "inherits": "base",
+      "displayName": "c2-mon — C2 etapa 3: pedidos pelo monitor (C2-07–C2-09; só Renode)",
+      "cacheVariables": {
+        "FIRMWARE": "c2-mon"
+      }
     }
   ],
   "buildPresets": [
@@ -37,6 +45,10 @@
     {
       "name": "c2-sw",
       "configurePreset": "c2-sw"
+    },
+    {
+      "name": "c2-mon",
+      "configurePreset": "c2-mon"
     }
   ],
   "workflowPresets": [
@@ -63,6 +75,19 @@
         {
           "type": "build",
           "name": "c2-sw"
+        }
+      ]
+    },
+    {
+      "name": "c2-mon",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "c2-mon"
+        },
+        {
+          "type": "build",
+          "name": "c2-mon"
         }
       ]
     }

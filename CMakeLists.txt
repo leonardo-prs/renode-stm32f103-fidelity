@@ -10,7 +10,7 @@ cmake_minimum_required(VERSION 3.22)
 #   vendor/      ST/CMSIS congelados (só headers; nunca editados)
 #   src/q/       caso Q-01: verificação dos instrumentos do Renode (só Renode)
 #   src/c2/      C2, interrupções: c2.c comum + um arquivo por firmware
-#                (sw.c: etapas 1–2)
+#                (sw.c: etapas 1–2; mon.c: etapa 3)
 # ════════════════════════════════════════════════════════════════════════════
 
 set(CMAKE_C_STANDARD 17)
@@ -30,7 +30,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 set(CMAKE_C_FLAGS_DEBUG "-O2 -g3")
 set(CMAKE_ASM_FLAGS_DEBUG "-g3")
 
-set(FIRMWARES q c2-sw)
+set(FIRMWARES q c2-sw c2-mon)
 if(NOT FIRMWARE IN_LIST FIRMWARES)
     message(FATAL_ERROR
         "Defina FIRMWARE (use um preset): ${FIRMWARES}\n"
@@ -79,7 +79,8 @@ if(FIRMWARE STREQUAL "q")
 elseif(FIRMWARE MATCHES "^c2-")
     # ════════════════════════════════════════════════════════════════════
     # C2 — interrupções (04-c2.typ), casos #oD, só Renode. Um firmware por
-    # etapa (c2-sw: etapas 1–2), com vetores e partida em src/c2/c2.c.
+    # etapa (c2-sw: etapas 1–2; c2-mon: etapa 3), com vetores e partida em
+    # src/c2/c2.c.
     # ════════════════════════════════════════════════════════════════════
     string(REPLACE "c2-" "" C2_FW "${FIRMWARE}")
     add_executable(firmware src/c2/c2.c src/c2/${C2_FW}.c)
