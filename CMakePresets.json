@@ -35,6 +35,14 @@
       "cacheVariables": {
         "FIRMWARE": "c2-mon"
       }
+    },
+    {
+      "name": "c2-tim",
+      "inherits": "base",
+      "displayName": "c2-tim — C2 etapa 4: timers como fonte (C2-10–C2-12; só Renode)",
+      "cacheVariables": {
+        "FIRMWARE": "c2-tim"
+      }
     }
   ],
   "buildPresets": [
@@ -49,6 +57,10 @@
     {
       "name": "c2-mon",
       "configurePreset": "c2-mon"
+    },
+    {
+      "name": "c2-tim",
+      "configurePreset": "c2-tim"
     }
   ],
   "workflowPresets": [
@@ -88,6 +100,19 @@
         {
           "type": "build",
           "name": "c2-mon"
+        }
+      ]
+    },
+    {
+      "name": "c2-tim",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "c2-tim"
+        },
+        {
+          "type": "build",
+          "name": "c2-tim"
         }
       ]
     }
