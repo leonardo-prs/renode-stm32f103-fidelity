@@ -36,11 +36,11 @@ Consequências práticas:
   (startup, registro de resultados, CLI, catálogo, gate) é desejável, mas
   sabendo que o C1 ainda vai mudar — não acoplar C2/C3 a detalhes do C1 que
   o redesenho pode remover.
-- Os nomes antigos não batem com a reestruturação: os presets/fontes
-  `c2`/`c3`/`c4` (`src/c2/timers.c`, `src/c3/nvic.c`, `src/c4/usart.c`,
-  `lib/`, `inc/`, `scripts/fidelity*`, `renode/fidelity.resc`) são do plano
-  **anterior** (C2 = timers, C3 = NVIC, C4 = USART1 loopback). O escopo
-  vigente é o da tabela acima; esse código legado será removido pelo autor.
+- O código do plano **anterior** (C2 = timers, C3 = NVIC, C4 = USART1
+  loopback: `src/c2/timers.c`, `src/c3`, `src/c4`, `lib/`, `inc/`,
+  `scripts/fidelity*`, `renode/fidelity.resc`) foi removido no workspace
+  `c2` (revisão "chore: remove o legado…"); se precisar, está no histórico
+  do jj.
 - Antes de editar, confirmar em qual workspace se está (`jj workspace list`,
   `jj log`) — cada workspace tem o seu `@`.
 

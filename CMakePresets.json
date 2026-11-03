@@ -59,30 +59,6 @@
       "cacheVariables": {
         "FIRMWARE": "c2-od"
       }
-    },
-    {
-      "name": "c2",
-      "inherits": "base",
-      "displayName": "c2 — C2 timers TIM2/TIM3/TIM1 e IRQ de update",
-      "cacheVariables": {
-        "FIRMWARE": "c2"
-      }
-    },
-    {
-      "name": "c3",
-      "inherits": "base",
-      "displayName": "c3 — C3 NVIC — arbitragem, preempção, máscaras, encadeamento",
-      "cacheVariables": {
-        "FIRMWARE": "c3"
-      }
-    },
-    {
-      "name": "c4",
-      "inherits": "base",
-      "displayName": "c4 — C4 USART1 em loopback PA9→PA10 (polling)",
-      "cacheVariables": {
-        "FIRMWARE": "c4"
-      }
     }
   ],
   "buildPresets": [
@@ -109,18 +85,6 @@
     {
       "name": "c2-od",
       "configurePreset": "c2-od"
-    },
-    {
-      "name": "c2",
-      "configurePreset": "c2"
-    },
-    {
-      "name": "c3",
-      "configurePreset": "c3"
-    },
-    {
-      "name": "c4",
-      "configurePreset": "c4"
     }
   ],
   "workflowPresets": [
@@ -199,45 +163,6 @@
         {
           "type": "build",
           "name": "c2-od"
-        }
-      ]
-    },
-    {
-      "name": "c2",
-      "steps": [
-        {
-          "type": "configure",
-          "name": "c2"
-        },
-        {
-          "type": "build",
-          "name": "c2"
-        }
-      ]
-    },
-    {
-      "name": "c3",
-      "steps": [
-        {
-          "type": "configure",
-          "name": "c3"
-        },
-        {
-          "type": "build",
-          "name": "c3"
-        }
-      ]
-    },
-    {
-      "name": "c4",
-      "steps": [
-        {
-          "type": "configure",
-          "name": "c4"
-        },
-        {
-          "type": "build",
-          "name": "c4"
         }
       ]
     }

@@ -194,7 +194,7 @@
         # >= 3336 (campanha). :3333 fica reservada para o OpenOCD/placa.
         renode
 
-        # Análise: python3 + numpy/matplotlib para scripts/fidelity (campanha,
+        # Análise: python3 + numpy/matplotlib para scripts/ (campanha,
         # estatística, figuras). `clang-tools` é o meta-pacote que produz
         # os binários `clangd`, `clang-tidy`, `clang-format` etc. (o LSP
         # que o VSCode usa consome o `compile_commands.json` que nosso

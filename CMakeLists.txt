@@ -7,13 +7,11 @@ cmake_minimum_required(VERSION 3.22)
 #   cmake --workflow --preset c1-func
 # O MESMO ELF é gravado na placa e carregado no Renode.
 #
-#   vendor/      ST/CMSIS/LL congelados (compilados com -w, nunca editados)
+#   vendor/      ST/CMSIS congelados (só headers; nunca editados)
 #   src/c1/      C1: núcleo e memória (startup, .ld e registro próprios)
 #   src/q01/     Q-01: verificação do observador externo (só Renode, oD)
 #   src/q02/     Q-02: ganchos de escrita/exceção e ações do monitor (só Renode)
 #   src/c2/common, src/c2/od   C2 (interrupções): firmware #oD (só Renode)
-#   lib/, inc/   registro FID3 dos cenários C2–C4 (legado deste workspace)
-#   src/c2..c4/  um main por firmware (legado deste workspace)
 # ════════════════════════════════════════════════════════════════════════════
 
 set(CMAKE_C_STANDARD 17)
@@ -33,7 +31,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 set(CMAKE_C_FLAGS_DEBUG "-O2 -g3")
 set(CMAKE_ASM_FLAGS_DEBUG "-g3")
 
-set(FIRMWARES c1-func c1-layout c1-cycle q01 q02 c2-od c2 c3 c4)
+set(FIRMWARES c1-func c1-layout c1-cycle q01 q02 c2-od)
 if(NOT FIRMWARE IN_LIST FIRMWARES)
     message(FATAL_ERROR
         "Defina FIRMWARE (use um preset): ${FIRMWARES}\n"
@@ -203,47 +201,6 @@ elseif(FIRMWARE MATCHES "^c2-")
         "-Wl,-Map=${CMAKE_BINARY_DIR}/firmware.map")
     set_target_properties(firmware PROPERTIES
         LINK_DEPENDS ${CMAKE_SOURCE_DIR}/src/c2/common/c2.ld)
-else()
-    # ── legado C2–C4: startup/.ld do vendor + registro FID3 (lib/, inc/) ──
-    add_library(vendor_ll OBJECT
-        vendor/system_stm32f1xx.c
-        vendor/sysmem.c
-        vendor/syscalls.c
-        vendor/startup_stm32f103xb.s
-        vendor/stm32f1xx_ll/src/stm32f1xx_ll_gpio.c
-        vendor/stm32f1xx_ll/src/stm32f1xx_ll_rcc.c
-        vendor/stm32f1xx_ll/src/stm32f1xx_ll_utils.c
-    )
-    target_link_libraries(vendor_ll PUBLIC vendor_headers)
-    target_compile_options(vendor_ll PRIVATE -w)
-
-    if(FIRMWARE STREQUAL "c2")
-        set(fw_sources src/c2/timers.c)
-        set(fw_defs FID_MAX_CASES=64U FID_MAX_WORDS=768U FID_RING=128U)
-    elseif(FIRMWARE STREQUAL "c3")
-        set(fw_sources src/c3/nvic.c)
-        set(fw_defs FID_MAX_CASES=32U FID_MAX_WORDS=512U FID_RING=128U)
-    elseif(FIRMWARE STREQUAL "c4")
-        set(fw_sources src/c4/usart.c)
-        set(fw_defs FID_MAX_CASES=32U FID_MAX_WORDS=1024U FID_RING=64U)
-    endif()
-
-    add_executable(firmware
-        ${fw_sources}
-        lib/board.c
-        lib/fidelity.c
-        lib/fidelity_measure.S
-    )
-    target_link_libraries(firmware PRIVATE vendor_ll vendor_headers m)
-    target_include_directories(firmware PRIVATE ${CMAKE_SOURCE_DIR}/lib ${CMAKE_SOURCE_DIR}/inc)
-    target_compile_definitions(firmware PRIVATE ${fw_defs})
-    target_compile_options(firmware PRIVATE
-        $<$<COMPILE_LANGUAGE:C>:${project_warnings}>
-        -ffunction-sections -fdata-sections)
-    target_link_options(firmware PRIVATE
-        "-T${CMAKE_SOURCE_DIR}/vendor/STM32F103XX_FLASH.ld"
-        -Wl,--gc-sections
-        "-Wl,-Map=${CMAKE_BINARY_DIR}/firmware.map")
 endif()
 
 set_target_properties(firmware PROPERTIES

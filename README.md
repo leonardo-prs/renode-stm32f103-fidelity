@@ -126,8 +126,8 @@ data/c2/<caso>/<campanha>/   plan.json, <variante>-<rep>/ (brutos), analysis/
 data/q02/<campanha>/         idem
 ```
 
-O legado do plano anterior (`src/c2/timers.c`, preset `c2`, `src/c3`,
-`src/c4`, `lib/`, `inc/`, `scripts/fidelity*`) não faz parte do C2 vigente.
+O legado do plano anterior (C2 = timers, C3 = NVIC, C4 = USART1) foi removido;
+está no histórico do jj.
 
 ---
 
@@ -158,10 +158,7 @@ nos três níveis de fidelidade do TCC:
 | **Instrução** | a mesma sequência dinâmica de instruções é executada? | traço por `stepi` na placa e no Renode (mesmo script GDB) |
 | **Ciclo** | o custo em ciclos de cada operação é igual? | `DWT_CYCCNT` em microbenchmarks diferenciais, com teste de linearidade exato (`c1-cycle`) |
 
-> **Workspace.** Este workspace (jj `cenario1`) reimplementa o C1. As pastas
-> dos cenários C2–C4 (`src/c2..c4`, `lib/`, `inc/`, `scripts/fidelity*`,
-> `renode/fidelity.resc`) continuam aqui só como contexto e não fazem parte do
-> C1.
+> **Workspace.** Este workspace (jj `cenario1`) reimplementa o C1.
 
 ---
 
