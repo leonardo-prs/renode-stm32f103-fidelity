@@ -22,21 +22,20 @@ scripts/c2.sh run --case C2-09 --name piloto-01
 scripts/c2.sh analyze --case C2-09 --name piloto-01      # refaz só a análise
 PYTHONPATH=scripts python3 -m unittest discover -s scripts/c2/tests -t scripts
 
-scripts/q02.sh check                          # Q-02: build do zero do q02 + gate
-scripts/q02.sh run --name piloto-01           # relatório: data/q02/piloto-01/analysis/report.md
-PYTHONPATH=scripts python3 -m unittest discover -s scripts/q02/tests -t scripts
+python3 scripts/q.py --name piloto-01            # Q-01: build do zero, execuções, resultado
+python3 scripts/q.py --name piloto-01 --analyze  # refaz só o resultado
+# resultado: data/q/piloto-01/resultado.md
 ```
 
-Saída do `run`/`analyze`: 0 = veredito emitido (IGUAL, DIVERGE ou NÃO
-DETERMINÍSTICO; no Q-02, IGUAL, REPROVADO ou NÃO DETERMINÍSTICO), 3 =
-EVIDÊNCIA INVÁLIDA, 1 = erro de pré-condição.
+Saída do `c2.sh run`/`analyze`: 0 = veredito emitido (IGUAL, DIVERGE ou NÃO
+DETERMINÍSTICO), 3 = EVIDÊNCIA INVÁLIDA, 1 = erro de pré-condição. Saída do
+`q.py`: 0 = IGUAL, 1 = REPROVADO.
 
 ## C2.2 Estado
 
 | Caso | Oráculo | Estado | Última campanha |
 |---|---|---|---|
-| `Q-01` (tempo virtual nos ganchos de endereço) | família Q | IGUAL | `data/q01/piloto-02` (`scripts/q01.sh`) |
-| `Q-02` (ganchos de escrita e de exceção, monitor) | família Q | IGUAL, 25/25 critérios | `data/q02/piloto-01` (`scripts/q02.sh`) |
+| `Q-01` (instrumentos do Renode) | — (verificação) | IGUAL, 17/17 critérios | `data/q/piloto-01` (`scripts/q.py`) |
 | `C2-09` (desabilitada, pendente, habilitada) | #oD | IGUAL, 30/30 pontos | `data/c2/C2-09/piloto-01` |
 | demais `C2-*` | — | não implementados | — |
 
@@ -84,46 +83,49 @@ intrusão (o que o firmware vê é igual nas três variantes). Só então compar
 com o oráculo.
 
 Comportamento dos ganchos no Renode 1.17.0 (caracterizado no piloto do
-C2-09 e verificado no Q-02, abaixo): o gancho de início de interrupção
+C2-09 e verificado no Q-01, abaixo): o gancho de início de interrupção
 entrega um índice interno (5), não o número da exceção — o número vem do
 IPSR lido na primeira instrução do tratador; o tempo virtual nos ganchos de
 início e de fim fica um tick atrás das instruções contadas; o gancho de
 escrita dispara com o PC da própria instrução de escrita e tick = instrução.
 
-## C2.4a Q-02 — instrumentos genéricos do Renode (família Q)
+## C2.4a Q-01 — instrumentos do Renode
 
 Verificação, isolada de qualquer periférico, dos instrumentos que os casos
 #oD usam (`03-quadro-comum.typ`, §Verificação dos instrumentos do Renode).
-O firmware (`src/q02/q02.c`, preset `q02`) só usa núcleo, SRAM e SCS (o
-gate recusa literais de periférico) e não é julgado: produz eventos
-conhecidos e registra o que viu. Segmentos: escritas de palavra numa palavra
-vigiada (e numa vizinha não vigiada); PendSV e SysTick pedidos pelo ICSR —
-simples, encadeados, aninhados e mascarados por `PRIMASK`; um gancho de
-endereço que grava na SRAM; o monitor lendo e gravando a SRAM em duas pausas
-(`emulation RunFor` + comando `python` do monitor).
+Não há oráculo: cada instrumento é conferido contra uma referência
+independente dele. Veredito IGUAL ou REPROVADO.
 
-A análise (`scripts/q02/analysis.py`) confere cada instrumento contra o
-traço, o registro do firmware e a especificação (`scripts/q02/spec.py`, que
-também gera `q02_spec.h`) em 25 critérios agrupados por instrumento
-(escrita, exceção, monitor, não intrusão). Veredito: IGUAL, REPROVADO (o
-instrumento não serve aos casos que dependem dele), NÃO DETERMINÍSTICO ou
-EVIDÊNCIA INVÁLIDA. Os testes de sensibilidade (`scripts/q02/tests/`)
-alteram uma execução real (fixture do `piloto-01`) um aspecto por vez.
+- `src/q/q.c` (preset `q`) — firmware em C, só núcleo, SRAM e SCS/DWT, em
+  duas passagens: pontos marcados (`q_mark` grava o `DWT_CYCCNT`), escritas
+  por `q_store` (`str` + `bx lr`) numa palavra da SRAM e no ICSR, PendSV e
+  SysTick pedidos pelo ICSR (simples, encadeados, aninhados), um gancho que
+  grava na SRAM (`q_trigger`) e duas esperas por valores que o monitor
+  grava em pausas. O que o firmware viu fica em `q_rec`.
+- `scripts/q.py` — gera o `.resc` de cada execução, roda duas variantes
+  (`bare`: só estímulos; `full`: ganchos de endereço, de escrita, de início
+  e fim de exceção e traço) × 2 repetições e escreve `resultado.md` com os
+  17 critérios (tempo virtual × instruções × `DWT_CYCCNT` × traço; escrita
+  na instrução do store, com R0/R1; uma passagem por entrada em tratador;
+  monitor e gancho que gravam; não intrusão; repetições idênticas).
+- `scripts/sim.py` — comum: máquina do projeto (perfil R1), execução do
+  Renode (`--port -1`), símbolos do ELF e registro do ambiente (SHA-256,
+  versão do Renode, revisão, data).
 
 ## C2.5 Estrutura
 
 ```
 src/c2/common/   startup.c c2.c c2.h c2.ld
 src/c2/od/       cases.c c2_09.c
-src/q02/         q02.c q02.ld
-scripts/obs/     elf.py renode.py — comuns à observação externa (Q-02 e C2)
+src/q/           q.c q.ld
+scripts/sim.py   comum: Renode, símbolos, ambiente (Q-01; o C2 migra na reescrita)
+scripts/q.py     caso Q-01
+scripts/obs/     elf.py renode.py — usados pelo C2 atual
 scripts/c2/      catalog.py gen.py gate.py collect.py analysis.py
                  report.py campaign.py __main__.py tests/
-scripts/q02/     spec.py gen.py gate.py collect.py analysis.py
-                 report.py campaign.py __main__.py tests/ (com fixture)
-scripts/c2.sh scripts/q02.sh   CLIs com o ambiente do projeto
+scripts/c2.sh    CLI do C2 com o ambiente do projeto
 data/c2/<caso>/<campanha>/   plan.json, <variante>-<rep>/ (brutos), analysis/
-data/q02/<campanha>/         idem
+data/q/<campanha>/           ambiente.json, <variante>-<rep>/ (brutos), resultado.md
 ```
 
 O legado do plano anterior (C2 = timers, C3 = NVIC, C4 = USART1) foi removido;

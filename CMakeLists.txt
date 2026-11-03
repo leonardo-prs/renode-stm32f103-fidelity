@@ -9,8 +9,7 @@ cmake_minimum_required(VERSION 3.22)
 #
 #   vendor/      ST/CMSIS congelados (só headers; nunca editados)
 #   src/c1/      C1: núcleo e memória (startup, .ld e registro próprios)
-#   src/q01/     Q-01: verificação do observador externo (só Renode, oD)
-#   src/q02/     Q-02: ganchos de escrita/exceção e ações do monitor (só Renode)
+#   src/q/       caso Q-01: verificação dos instrumentos do Renode (só Renode)
 #   src/c2/common, src/c2/od   C2 (interrupções): firmware #oD (só Renode)
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -31,7 +30,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 set(CMAKE_C_FLAGS_DEBUG "-O2 -g3")
 set(CMAKE_ASM_FLAGS_DEBUG "-g3")
 
-set(FIRMWARES c1-func c1-layout c1-cycle q01 q02 c2-od)
+set(FIRMWARES c1-func c1-layout c1-cycle q c2-od)
 if(NOT FIRMWARE IN_LIST FIRMWARES)
     message(FATAL_ERROR
         "Defina FIRMWARE (use um preset): ${FIRMWARES}\n"
@@ -114,56 +113,23 @@ if(FIRMWARE MATCHES "^c1-")
     target_link_libraries(firmware PRIVATE gcc)
     set_target_properties(firmware PROPERTIES
         LINK_DEPENDS ${CMAKE_SOURCE_DIR}/src/c1/common/c1.ld)
-elseif(FIRMWARE STREQUAL "q01")
+elseif(FIRMWARE STREQUAL "q")
     # ════════════════════════════════════════════════════════════════════
-    # Q-01 — verificação do observador externo (03-quadro-comum.typ).
-    # Firmware mínimo e independente do C1: startup, .ld e sequência
-    # medida próprios; do vendor só os headers CMSIS.
+    # Caso Q-01 — instrumentos do Renode (03-quadro-comum.typ, família Q).
+    # Um arquivo em C, só núcleo/SRAM/SCS; do vendor só os headers CMSIS.
     # ════════════════════════════════════════════════════════════════════
-    add_executable(firmware src/q01/startup.S src/q01/q01.S src/q01/main.c)
+    add_executable(firmware src/q/q.c)
     target_link_libraries(firmware PRIVATE vendor_headers)
-    target_compile_options(firmware PRIVATE
-        $<$<COMPILE_LANGUAGE:C>:${project_warnings} -ffreestanding>
-        $<$<COMPILE_LANGUAGE:ASM>:-Wa,--fatal-warnings>
-        -ffunction-sections -fdata-sections)
-    target_link_options(firmware PRIVATE
-        -nostartfiles -nostdlib
-        "-T${CMAKE_SOURCE_DIR}/src/q01/q01.ld"
-        -Wl,--gc-sections
-        "-Wl,-Map=${CMAKE_BINARY_DIR}/firmware.map")
-    set_target_properties(firmware PROPERTIES
-        LINK_DEPENDS ${CMAKE_SOURCE_DIR}/src/q01/q01.ld)
-elseif(FIRMWARE STREQUAL "q02")
-    # ════════════════════════════════════════════════════════════════════
-    # Q-02 — instrumentos genéricos do Renode (03-quadro-comum.typ, família
-    # Q). Firmware em C, só núcleo/SRAM/SCS, independente de C1 e C2; a
-    # especificação em Python (scripts/q02/spec.py) gera q02_spec.h e é
-    # também a referência da análise.
-    # ════════════════════════════════════════════════════════════════════
-    find_package(Python3 REQUIRED COMPONENTS Interpreter)
-    set(q02_gen_dir ${CMAKE_BINARY_DIR}/gen)
-    file(GLOB q02_py CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/scripts/q02/*.py)
-    add_custom_command(
-        OUTPUT ${q02_gen_dir}/q02_spec.h
-        COMMAND ${CMAKE_COMMAND} -E env PYTHONPATH=${CMAKE_SOURCE_DIR}/scripts
-                ${Python3_EXECUTABLE} -B -m q02 gen --out ${q02_gen_dir}
-        DEPENDS ${q02_py}
-        COMMENT "especificação do Q-02 → q02/gen/q02_spec.h"
-        VERBATIM)
-    add_executable(firmware src/q02/q02.c ${q02_gen_dir}/q02_spec.h)
-    target_link_libraries(firmware PRIVATE vendor_headers)
-    target_include_directories(firmware PRIVATE ${q02_gen_dir})
-    set_source_files_properties(src/q02/q02.c PROPERTIES OBJECT_DEPENDS ${q02_gen_dir}/q02_spec.h)
     target_compile_options(firmware PRIVATE
         ${project_warnings} -Werror -ffreestanding -fno-tree-loop-distribute-patterns
         -ffunction-sections -fdata-sections)
     target_link_options(firmware PRIVATE
         -nostartfiles -nostdlib
-        "-T${CMAKE_SOURCE_DIR}/src/q02/q02.ld"
+        "-T${CMAKE_SOURCE_DIR}/src/q/q.ld"
         -Wl,--gc-sections -Wl,--fatal-warnings
         "-Wl,-Map=${CMAKE_BINARY_DIR}/firmware.map")
     set_target_properties(firmware PROPERTIES
-        LINK_DEPENDS ${CMAKE_SOURCE_DIR}/src/q02/q02.ld)
+        LINK_DEPENDS ${CMAKE_SOURCE_DIR}/src/q/q.ld)
 elseif(FIRMWARE MATCHES "^c2-")
     # ════════════════════════════════════════════════════════════════════
     # C2 — interrupções (04-c2.typ). Startup, .ld e main comuns em C

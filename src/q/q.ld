@@ -1,10 +1,12 @@
 /*
- * src/q01/q01.ld — Q-01 (verificação do observador externo, só Renode).
+ * src/q/q.ld — caso Q-01 (03-quadro-comum.typ, família Q).
  *
- * Mínimo: vetores + código + constantes na flash; .data/.bss na SRAM; pilha
- * no topo da SRAM. Independente do .ld do C1 (que ainda será redesenhado).
- * As seções NOLOAD têm LMA = VMA (AT> RAM) para o `sysbus LoadELF` não
- * gravar zeros na flash (mesma razão documentada em src/c1/common/c1.ld).
+ * Vetores + código + constantes na flash; .data/.bss/.noinit na SRAM; pilha
+ * no topo da SRAM. Independente dos cenários (mesmo leiaute de src/c2/common/c2.ld).
+ * .noinit guarda o que o Reset_Handler não pode zerar (q_magic, gravado
+ * pelo monitor antes da partida, e q_sink, vigiado). As seções NOLOAD têm LMA = VMA
+ * (AT> RAM) para o `sysbus LoadELF` não gravar zeros na flash (mesma razão
+ * documentada em src/c1/common/c1.ld).
  */
 ENTRY(Reset_Handler)
 
@@ -40,6 +42,13 @@ SECTIONS
         _ebss = .;
     } >RAM AT> RAM
 
-    ASSERT(_estack - _ebss >= 0x400, "Q-01: SRAM insuficiente para a pilha")
+    .noinit (NOLOAD) : ALIGN(4)
+    {
+        *(.noinit .noinit.*)
+        . = ALIGN(4);
+        _enoinit = .;
+    } >RAM AT> RAM
+
+    ASSERT(_estack - _enoinit >= 0x400, "Q: SRAM insuficiente para a pilha")
     .ARM.attributes 0 : { *(.ARM.attributes) }
 }

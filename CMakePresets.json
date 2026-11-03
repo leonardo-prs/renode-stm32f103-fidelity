@@ -37,19 +37,11 @@
       }
     },
     {
-      "name": "q01",
+      "name": "q",
       "inherits": "base",
-      "displayName": "q01 — Q-01 verificação do observador externo (Renode: gancho × DWT_CYCCNT × traço)",
+      "displayName": "q — caso Q-01: instrumentos do Renode (ganchos, traço, monitor; só Renode)",
       "cacheVariables": {
-        "FIRMWARE": "q01"
-      }
-    },
-    {
-      "name": "q02",
-      "inherits": "base",
-      "displayName": "q02 — Q-02 instrumentos genéricos do Renode (ganchos de escrita/exceção, monitor)",
-      "cacheVariables": {
-        "FIRMWARE": "q02"
+        "FIRMWARE": "q"
       }
     },
     {
@@ -75,12 +67,8 @@
       "configurePreset": "c1-cycle"
     },
     {
-      "name": "q01",
-      "configurePreset": "q01"
-    },
-    {
-      "name": "q02",
-      "configurePreset": "q02"
+      "name": "q",
+      "configurePreset": "q"
     },
     {
       "name": "c2-od",
@@ -128,28 +116,15 @@
       ]
     },
     {
-      "name": "q01",
+      "name": "q",
       "steps": [
         {
           "type": "configure",
-          "name": "q01"
+          "name": "q"
         },
         {
           "type": "build",
-          "name": "q01"
-        }
-      ]
-    },
-    {
-      "name": "q02",
-      "steps": [
-        {
-          "type": "configure",
-          "name": "q02"
-        },
-        {
-          "type": "build",
-          "name": "q02"
+          "name": "q"
         }
       ]
     },
