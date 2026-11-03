@@ -25,7 +25,7 @@ jj workspace list        # nome → diretório irmão em ~/projects/
 |---|---|---|---|
 | `default` | `../renode-stm32f103-fidelity` | histórico (C1–C4 antigos) | só referência; não desenvolver aqui |
 | `cenario1` | `../cenario1` | **C1** núcleo e acesso ao chip | implementado (presets `c1-*`, campanha `final-02`), **mas não é o definitivo**: o desenho do C1 será refeito conforme `tcc/documentacao/fundamentacao/03a-c1-auditoria.typ` e `03b-c1.typ` (o C1 fica por último, para cobrir o que C2–C4 usam — critério K1) |
-| `c2` | `.` (`../c2`) | **C2** interrupções + caso Q | em desenvolvimento; nasceu de `cenario1`. **Limpo em 2026-11-03**: só o que vai para o produto final; C1 herdado, primeira implementação do C2, Q antigos e plano anterior em `tmp/legado/` (não versionado, índice em `tmp/legado/README.md`). Caso único de verificação dos instrumentos do Renode, **`Q-01` IGUAL 17/17** (reescrito e simplificado em 2026-11-03: `src/q/q.c`, `scripts/q.py`, `scripts/sim.py`, `data/q/piloto-01`; substitui o Q-01 antigo e o Q-02). **C2 redesenhado na fundamentação em 2026-11-03** (`04-c2.typ`): 16 casos em 5 etapas (1 regras `C2-01`–`04`, 2 tempo do núcleo `05`–`06`, 3 janelas por monitor `07`–`09`, 4 timers `10`–`12`, 5 placa #oP `13`–`16`), um firmware por etapa (etapas 1–2 compartilham). A primeira implementação (numeração antiga; o `C2-09` pilotado, IGUAL 30/30, é o `C2-01` novo) está em `tmp/legado/c2-primeira-implementacao/`. Próximo: etapas 1–2 do C2 nos moldes do Q-01 |
+| `c2` | `.` (`../c2`) | **C2** interrupções + caso Q | em desenvolvimento; nasceu de `cenario1`. **Limpo em 2026-11-03**: só o que vai para o produto final; C1 herdado, primeira implementação do C2, Q antigos e plano anterior em `tmp/legado/` (não versionado, índice em `tmp/legado/README.md`). Caso único de verificação dos instrumentos do Renode, **`Q-01` IGUAL 17/17** (`src/q/q.c`, `scripts/q.py`, `scripts/sim.py`, `data/q/piloto-01`). **C2 etapas 1–4 implementadas e com campanha `piloto-01` em 2026-11-03** (`src/c2/{c2,sw,mon,tim}.c`, presets `c2-sw`/`c2-mon`/`c2-tim`, `scripts/c2_comum.py` + `c2_sw.py`/`c2_mon.py`/`c2_tim.py`, `data/c2/<firmware>/piloto-01`): IGUAL `C2-01`–`03`, `08`, `09`, `11`, `12`; DIVERGE `C2-04` (leitura de BASEPRI), `05`, `06` (#qT), `07`, `10`. Registro em `tcc/documentacao/desenvolvimento/c2.typ`. Próximo: etapa 5 (#oP, placa, `C2-13`–`16`) |
 | `c3` | — | **C3** interface física | a criar |
 | `c4` | — | **C4** comunicação serial | não iniciado |
 
@@ -194,8 +194,13 @@ tcc/
   verificou (escrita do firmware, entrada em tratador, valor lido) — ver
   `03-quadro-comum.typ` §Verificação dos instrumentos do Renode.
 - C2: 16 casos em 5 etapas (`04-c2.typ` §Como o C2 está organizado), um
-  firmware por etapa (etapas 1–2 compartilham); a implementar no molde
-  acima.
+  firmware por etapa (etapas 1–2 compartilham). Etapas 1–4 (#oD):
+  ```
+  python3 scripts/c2_sw.py|c2_mon.py|c2_tim.py --name <n> [--casos C2-04 …] [--reps 3] [--no-build] [--analyze]
+  ```
+  Ganchos do Renode chamados milhares de vezes: o comando do gancho tem de
+  fechar o arquivo que lê (`with open(…) as h: exec(h.read())`, em
+  `scripts/c2_comum.py`); `exec(open(…).read())` derruba o Renode.
 - Renode: plataforma `renode/stm32f103_hsi8.repl`, perfil R1 (8 MIPS,
   quantum 125 ns) em todos os casos; `renode/debug.resc` só para depuração
   no VS Code (`scripts/renode_start.sh <preset>`, GDB em :3334).
