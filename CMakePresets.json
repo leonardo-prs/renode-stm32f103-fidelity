@@ -19,12 +19,24 @@
       "cacheVariables": {
         "FIRMWARE": "q"
       }
+    },
+    {
+      "name": "c2-sw",
+      "inherits": "base",
+      "displayName": "c2-sw — C2 etapas 1–2: pedidos por software (C2-01–C2-06; só Renode)",
+      "cacheVariables": {
+        "FIRMWARE": "c2-sw"
+      }
     }
   ],
   "buildPresets": [
     {
       "name": "q",
       "configurePreset": "q"
+    },
+    {
+      "name": "c2-sw",
+      "configurePreset": "c2-sw"
     }
   ],
   "workflowPresets": [
@@ -38,6 +50,19 @@
         {
           "type": "build",
           "name": "q"
+        }
+      ]
+    },
+    {
+      "name": "c2-sw",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "c2-sw"
+        },
+        {
+          "type": "build",
+          "name": "c2-sw"
         }
       ]
     }
