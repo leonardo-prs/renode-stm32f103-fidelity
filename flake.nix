@@ -143,19 +143,6 @@
         system = "x86_64-linux";
       };
 
-      trace-processor = pkgs.stdenv.mkDerivation {
-        pname = "trace-processor-shell";
-        version = "58.2";
-        src = pkgs.fetchurl {
-          url = "https://commondatastorage.googleapis.com/perfetto-luci-artifacts/v58.2/linux-amd64/trace_processor_shell";
-          sha256 = "58042408e6cc861fb1a731c26bb082dc222285561eaa4e12a48a8b2b90dca7b9";
-        };
-        dontUnpack = true;
-        nativeBuildInputs = [ pkgs.autoPatchelfHook ];
-        buildInputs = [ pkgs.stdenv.cc.cc.lib ];
-        installPhase = "install -Dm755 $src $out/bin/trace_processor_shell";
-      };
-
       # ── Lista de ferramentas (em ordem: toolchain, build, debug, sim) ──
       # `with pkgs; [ ... ]` é um atalho: cada nome dentro do `[ ... ]` é
       # resolvido como `pkgs.nome`. Equivale a `using namespace` em C++.
@@ -194,22 +181,16 @@
         # >= 3336 (campanha). :3333 fica reservada para o OpenOCD/placa.
         renode
 
-        # Análise: python3 + numpy/matplotlib para scripts/ (campanha,
-        # estatística, figuras). `clang-tools` é o meta-pacote que produz
+        # Análise: python3 só com a biblioteca padrão (scripts/sim.py e os
+        # scripts dos casos). `clang-tools` é o meta-pacote que produz
         # os binários `clangd`, `clang-tidy`, `clang-format` etc. (o LSP
         # que o VSCode usa consome o `compile_commands.json` que nosso
         # CMake gera).
         # Em nixpkgs-unstable, `clang-tools` (não `clang-tools-extra`
         # como em versões mais antigas) é o path correto dentro de
         # `llvmPackages_latest`.
-        (python3.withPackages (ps: [ ps.numpy ps.matplotlib ]))
+        python3
         llvmPackages_latest.clang-tools
-
-        # Validação dos traces exportados (Chrome JSON → Perfetto): binário
-        # oficial `trace_processor_shell` v58.2 (mesma URL/SHA-256 do script
-        # get.perfetto.dev/trace_processor). O pacote `perfetto` do nixpkgs
-        # compila do fonte e falhou (abseil) — por isso o prebuilt fixado.
-        trace-processor
 
         # NOTE (2026-09): `stm32cubemx` REMOVIDO de propósito — pesado
         # (~1.5 GB), proprietário, e o `.ioc` está congelado pós-regen.
@@ -242,6 +223,15 @@
           name = "stm32-renode-fidelity";
 
           packages = tools;
+
+          # clangd (LSP) com os cabeçalhos do toolchain ARM, não os do host.
+          # O wrapper do nixpkgs injeta a glibc x86_64 (C_INCLUDE_PATH) a
+          # menos que receba --query-driver; com ele, o clangd pergunta ao
+          # arm-none-eabi-gcc do compile_commands.json quais são o target e
+          # os includes de sistema (newlib). O clangd e o wrapper leem
+          # CLANGD_FLAGS do ambiente, então vale para qualquer editor/agente
+          # que herde este shell.
+          CLANGD_FLAGS = "--query-driver=${pkgs.gcc-arm-embedded}/bin/arm-none-eabi-gcc";
 
           # Sem banner: o uso está no README (e o direnv carrega este shell).
 

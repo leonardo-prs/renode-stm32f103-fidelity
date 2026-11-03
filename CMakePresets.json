@@ -13,109 +13,22 @@
       }
     },
     {
-      "name": "c1-func",
-      "inherits": "base",
-      "displayName": "c1-func — C1 funcional: instruções, memória e exceções síncronas (vetores em lotes)",
-      "cacheVariables": {
-        "FIRMWARE": "c1-func"
-      }
-    },
-    {
-      "name": "c1-layout",
-      "inherits": "base",
-      "displayName": "c1-layout — C1 funcional: estado de reset, identidade e layout de memória",
-      "cacheVariables": {
-        "FIRMWARE": "c1-layout"
-      }
-    },
-    {
-      "name": "c1-cycle",
-      "inherits": "base",
-      "displayName": "c1-cycle — C1 temporal: validação do DWT_CYCCNT e microbenchmarks diferenciais",
-      "cacheVariables": {
-        "FIRMWARE": "c1-cycle"
-      }
-    },
-    {
       "name": "q",
       "inherits": "base",
       "displayName": "q — caso Q-01: instrumentos do Renode (ganchos, traço, monitor; só Renode)",
       "cacheVariables": {
         "FIRMWARE": "q"
       }
-    },
-    {
-      "name": "c2-od",
-      "inherits": "base",
-      "displayName": "c2-od — C2 interrupções, firmware #oD (só Renode; caso e pontos gravados pelo monitor)",
-      "cacheVariables": {
-        "FIRMWARE": "c2-od"
-      }
     }
   ],
   "buildPresets": [
     {
-      "name": "c1-func",
-      "configurePreset": "c1-func"
-    },
-    {
-      "name": "c1-layout",
-      "configurePreset": "c1-layout"
-    },
-    {
-      "name": "c1-cycle",
-      "configurePreset": "c1-cycle"
-    },
-    {
       "name": "q",
       "configurePreset": "q"
-    },
-    {
-      "name": "c2-od",
-      "configurePreset": "c2-od"
     }
   ],
   "workflowPresets": [
     {
-      "name": "c1-func",
-      "steps": [
-        {
-          "type": "configure",
-          "name": "c1-func"
-        },
-        {
-          "type": "build",
-          "name": "c1-func"
-        }
-      ]
-    },
-    {
-      "name": "c1-layout",
-      "steps": [
-        {
-          "type": "configure",
-          "name": "c1-layout"
-        },
-        {
-          "type": "build",
-          "name": "c1-layout"
-        }
-      ]
-    },
-    {
-      "name": "c1-cycle",
-      "steps": [
-        {
-          "type": "configure",
-          "name": "c1-cycle"
-        },
-        {
-          "type": "build",
-          "name": "c1-cycle"
-        }
-      ]
-    },
-    {
       "name": "q",
       "steps": [
         {
@@ -125,19 +38,6 @@
         {
           "type": "build",
           "name": "q"
-        }
-      ]
-    },
-    {
-      "name": "c2-od",
-      "steps": [
-        {
-          "type": "configure",
-          "name": "c2-od"
-        },
-        {
-          "type": "build",
-          "name": "c2-od"
         }
       ]
     }

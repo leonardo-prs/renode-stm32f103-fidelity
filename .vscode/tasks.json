@@ -1,195 +1,31 @@
-// .vscode/tasks.json — build e debug dos firmwares do C1 (conveniência:
-// a campanha não depende do editor; ver README). Tudo roda via
-// scripts/direnv_exec.sh (ambiente Nix mesmo sem direnv no editor).
+// .vscode/tasks.json — build e depuração (conveniência: as campanhas não
+// dependem do editor; ver README). Tudo roda via scripts/direnv_exec.sh
+// (ambiente Nix mesmo sem direnv no editor). Ao criar um firmware novo,
+// acrescentar um par "Build"/"Debug: prep" com o preset dele.
 {
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Build: c1-func",
+      "label": "Build: q",
       "type": "shell",
       "command": "scripts/direnv_exec.sh",
-      "args": [
-        ".",
-        "cmake",
-        "--workflow",
-        "--preset",
-        "c1-func"
-      ],
-      "problemMatcher": [
-        "$gcc"
-      ],
+      "args": [".", "cmake", "--workflow", "--preset", "q"],
+      "problemMatcher": ["$gcc"],
       "group": "build"
     },
     {
-      "label": "Build: c1-layout",
+      "label": "Debug: prep q",
       "type": "shell",
       "command": "scripts/direnv_exec.sh",
-      "args": [
-        ".",
-        "cmake",
-        "--workflow",
-        "--preset",
-        "c1-layout"
-      ],
-      "problemMatcher": [
-        "$gcc"
-      ],
-      "group": "build"
-    },
-    {
-      "label": "Build: c1-cycle",
-      "type": "shell",
-      "command": "scripts/direnv_exec.sh",
-      "args": [
-        ".",
-        "cmake",
-        "--workflow",
-        "--preset",
-        "c1-cycle"
-      ],
-      "problemMatcher": [
-        "$gcc"
-      ],
-      "group": "build"
-    },
-    {
-      "label": "Debug: prep c1-func renode",
-      "type": "shell",
-      "command": "scripts/direnv_exec.sh",
-      "args": [
-        ".",
-        "scripts/renode_start.sh",
-        "c1-func",
-        "renode"
-      ],
-      "problemMatcher": [
-        "$gcc"
-      ],
-      "presentation": {
-        "reveal": "always"
-      }
-    },
-    {
-      "label": "Debug: prep c1-func renode-doc",
-      "type": "shell",
-      "command": "scripts/direnv_exec.sh",
-      "args": [
-        ".",
-        "scripts/renode_start.sh",
-        "c1-func",
-        "renode-doc"
-      ],
-      "problemMatcher": [
-        "$gcc"
-      ],
-      "presentation": {
-        "reveal": "always"
-      }
-    },
-    {
-      "label": "Debug: prep c1-layout renode",
-      "type": "shell",
-      "command": "scripts/direnv_exec.sh",
-      "args": [
-        ".",
-        "scripts/renode_start.sh",
-        "c1-layout",
-        "renode"
-      ],
-      "problemMatcher": [
-        "$gcc"
-      ],
-      "presentation": {
-        "reveal": "always"
-      }
-    },
-    {
-      "label": "Debug: prep c1-layout renode-doc",
-      "type": "shell",
-      "command": "scripts/direnv_exec.sh",
-      "args": [
-        ".",
-        "scripts/renode_start.sh",
-        "c1-layout",
-        "renode-doc"
-      ],
-      "problemMatcher": [
-        "$gcc"
-      ],
-      "presentation": {
-        "reveal": "always"
-      }
-    },
-    {
-      "label": "Debug: prep c1-cycle renode",
-      "type": "shell",
-      "command": "scripts/direnv_exec.sh",
-      "args": [
-        ".",
-        "scripts/renode_start.sh",
-        "c1-cycle",
-        "renode"
-      ],
-      "problemMatcher": [
-        "$gcc"
-      ],
-      "presentation": {
-        "reveal": "always"
-      }
-    },
-    {
-      "label": "Debug: prep c1-cycle renode-doc",
-      "type": "shell",
-      "command": "scripts/direnv_exec.sh",
-      "args": [
-        ".",
-        "scripts/renode_start.sh",
-        "c1-cycle",
-        "renode-doc"
-      ],
-      "problemMatcher": [
-        "$gcc"
-      ],
-      "presentation": {
-        "reveal": "always"
-      }
+      "args": [".", "scripts/renode_start.sh", "q"],
+      "problemMatcher": ["$gcc"],
+      "presentation": { "reveal": "always" }
     },
     {
       "label": "Renode: stop",
       "type": "shell",
       "command": "scripts/renode_stop.sh",
       "problemMatcher": []
-    },
-    {
-      "label": "C1: testes do oráculo",
-      "type": "shell",
-      "command": "scripts/direnv_exec.sh",
-      "args": [
-        ".",
-        "python3",
-        "-B",
-        "-m",
-        "unittest",
-        "discover",
-        "-s",
-        "scripts/c1/tests",
-        "-t",
-        "scripts"
-      ],
-      "problemMatcher": []
-    },
-    {
-      "label": "C1: check (build + gate)",
-      "type": "shell",
-      "command": "scripts/direnv_exec.sh",
-      "args": [
-        ".",
-        "scripts/c1.sh",
-        "check"
-      ],
-      "problemMatcher": [
-        "$gcc"
-      ]
     }
   ]
 }

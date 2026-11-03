@@ -1,19 +1,13 @@
 #!/usr/bin/env bash
-# renode_start.sh <preset> [renode|renode-doc] — build + Renode headless com GDB
-# em :3334 (depuração no VS Code), com o MESMO script e as mesmas plataformas da
-# campanha (renode/c1.resc). Encerra só uma instância anterior iniciada por
-# este script (PID em build/renode.pid).
+# renode_start.sh <preset> — build + Renode headless com GDB em :3334
+# (depuração no VS Code), com a máquina das campanhas (renode/debug.resc).
+# Encerra só uma instância anterior iniciada por este script (PID em
+# build/renode.pid).
 set -euo pipefail
-fw="${1:?uso: renode_start.sh <c1-func|c1-layout|c1-cycle> [renode|renode-doc]}"
-profile="${2:-renode}"
-case "$profile" in
-    renode) repl=renode/stm32f103_hsi8.repl ;;
-    renode-doc) repl=renode/c1_doc.repl ;;
-    *) echo "perfil desconhecido: $profile" >&2; exit 1 ;;
-esac
+fw="${1:?uso: renode_start.sh <preset>   (ex.: q)}"
 cd "$(dirname "$0")/.."
-mkdir -p build data/c1
-exec 9>data/c1/.build.lock
+mkdir -p build
+exec 9>build/.build.lock
 flock -n 9 || { echo "ERRO: build em uso por outra execução (campanha?)." >&2; exit 1; }
 cmake --workflow --preset "$fw"
 "$(dirname "$0")/renode_stop.sh" >/dev/null
@@ -23,7 +17,7 @@ if (exec 3<>/dev/tcp/127.0.0.1/3334) 2>/dev/null; then
 fi
 trap '"$(dirname "$0")/renode_stop.sh" >/dev/null' EXIT
 nohup renode --disable-xwt --plain --port -1 --pid-file build/renode.pid \
-    -e "\$elf=@build/$fw/firmware.elf; \$gdb_port=3334; \$platform=@$repl; i @renode/c1.resc" \
+    -e "\$elf=@build/$fw/firmware.elf; \$gdb_port=3334; i @renode/debug.resc" \
     > build/renode.log 2>&1 9>&- &
 child_pid=$!
 for _ in $(seq 1 120); do
@@ -45,7 +39,7 @@ for _ in $(seq 1 120); do
             echo "ERRO: servidor sem identificação de processo próprio." >&2
             exit 1
         fi
-        echo ">>> Renode ($profile) pronto: GDB em :3334 (log build/renode.log)"
+        echo ">>> Renode pronto: GDB em :3334 (log build/renode.log)"
         trap - EXIT
         exit 0
     fi

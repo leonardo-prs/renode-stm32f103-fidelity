@@ -1,0 +1,18 @@
+# renode/debug.resc — depuração no VS Code (scripts/renode_start.sh).
+#
+# Mesma máquina das campanhas (scripts/sim.py: plataforma do projeto,
+# 8 MIPS, quantum de 125 ns), com o servidor GDB em $gdb_port. Não é usado
+# pelas campanhas, que geram o próprio .resc.
+#
+#   renode -e '$elf=@build/q/firmware.elf; i @renode/debug.resc'
+
+$elf ?= @build/q/firmware.elf
+$gdb_port ?= 3334
+
+mach create "stm32f103"
+machine LoadPlatformDescription @renode/stm32f103_hsi8.repl
+emulation SetGlobalQuantum "0.000000125"
+sysbus.cpu PerformanceInMips 8
+
+sysbus LoadELF $elf
+machine StartGdbServer $gdb_port

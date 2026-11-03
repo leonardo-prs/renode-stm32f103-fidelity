@@ -25,22 +25,19 @@ jj workspace list        # nome → diretório irmão em ~/projects/
 |---|---|---|---|
 | `default` | `../renode-stm32f103-fidelity` | histórico (C1–C4 antigos) | só referência; não desenvolver aqui |
 | `cenario1` | `../cenario1` | **C1** núcleo e acesso ao chip | implementado (presets `c1-*`, campanha `final-02`), **mas não é o definitivo**: o desenho do C1 será refeito conforme `tcc/documentacao/fundamentacao/03a-c1-auditoria.typ` e `03b-c1.typ` (o C1 fica por último, para cobrir o que C2–C4 usam — critério K1) |
-| `c2` | `.` (`../c2`) | **C2** interrupções + família Q | em desenvolvimento; nasceu de `cenario1` (herda o código do C1 atual). Caso único de verificação dos instrumentos do Renode, **`Q-01` IGUAL 17/17** (reescrito e simplificado em 2026-11-03: `src/q/q.c`, `scripts/q.py`, `scripts/sim.py`, `data/q/piloto-01`; substitui o Q-01 antigo e o Q-02). **C2 redesenhado na fundamentação em 2026-11-03** (`04-c2.typ`): 16 casos em 5 etapas (1 regras `C2-01`–`04`, 2 tempo do núcleo `05`–`06`, 3 janelas por monitor `07`–`09`, 4 timers `10`–`12`, 5 placa #oP `13`–`16`), um firmware por etapa (etapas 1–2 compartilham). Código atual (`src/c2/`, `scripts/c2/`, `scripts/obs/`, `scripts/c2.sh`) é da primeira implementação, com a **numeração antiga** (o `C2-09` pilotado, IGUAL 30/30 em `data/c2/C2-09/piloto-01`, é o `C2-01` novo; correspondência em `desenvolvimento/c2.typ`) — será reescrito nos moldes do Q-01, depois da limpeza do workspace |
+| `c2` | `.` (`../c2`) | **C2** interrupções + caso Q | em desenvolvimento; nasceu de `cenario1`. **Limpo em 2026-11-03**: só o que vai para o produto final; C1 herdado, primeira implementação do C2, Q antigos e plano anterior em `tmp/legado/` (não versionado, índice em `tmp/legado/README.md`). Caso único de verificação dos instrumentos do Renode, **`Q-01` IGUAL 17/17** (reescrito e simplificado em 2026-11-03: `src/q/q.c`, `scripts/q.py`, `scripts/sim.py`, `data/q/piloto-01`; substitui o Q-01 antigo e o Q-02). **C2 redesenhado na fundamentação em 2026-11-03** (`04-c2.typ`): 16 casos em 5 etapas (1 regras `C2-01`–`04`, 2 tempo do núcleo `05`–`06`, 3 janelas por monitor `07`–`09`, 4 timers `10`–`12`, 5 placa #oP `13`–`16`), um firmware por etapa (etapas 1–2 compartilham). A primeira implementação (numeração antiga; o `C2-09` pilotado, IGUAL 30/30, é o `C2-01` novo) está em `tmp/legado/c2-primeira-implementacao/`. Próximo: etapas 1–2 do C2 nos moldes do Q-01 |
 | `c3` | — | **C3** interface física | a criar |
 | `c4` | — | **C4** comunicação serial | não iniciado |
 
 Consequências práticas:
 
-- Num workspace novo, o código de outros cenários herdado da base é
-  **contexto**, não especificação. Reaproveitar infraestrutura do C1
-  (startup, registro de resultados, CLI, catálogo, gate) é desejável, mas
-  sabendo que o C1 ainda vai mudar — não acoplar C2/C3 a detalhes do C1 que
-  o redesenho pode remover.
-- O código do plano **anterior** (C2 = timers, C3 = NVIC, C4 = USART1
-  loopback: `src/c2/timers.c`, `src/c3`, `src/c4`, `lib/`, `inc/`,
-  `scripts/fidelity*`, `renode/fidelity.resc`) foi removido no workspace
-  `c2` (revisão "chore: remove o legado…"); se precisar, está no histórico
-  do jj.
+- O workspace contém só o que vai para o produto final. Material antigo
+  (C1 herdado, primeira implementação do C2, versões anteriores do caso Q,
+  plano anterior com C2 = timers/C3 = NVIC/C4 = USART1) fica em
+  `tmp/legado/`, **não versionado e não apagado**: é contexto, não
+  especificação. Manter essa pasta organizada (uma subpasta por origem,
+  índice em `tmp/legado/README.md`); o que for retirado do workspace vai
+  para lá, nunca para a lixeira. Tudo também está no histórico do jj.
 - Antes de editar, confirmar em qual workspace se está (`jj workspace list`,
   `jj log`) — cada workspace tem o seu `@`.
 
@@ -180,46 +177,28 @@ tcc/
   `cmake --workflow --preset <preset>` → `build/<preset>/`. **Zero warnings
   é política.** Presets em `CMakePresets.json`; o `.clangd` é gerado no
   configure.
-- Padrão do C1 (modelo para os demais): catálogo Python como fonte única
-  (`scripts/<cN>/`) que gera headers em `build/<preset>/gen/`; oráculo no
-  host com testes unitários; gate estático do ELF (disassembly × catálogo,
-  literais proibidos); CLI `scripts/<cN>.sh`; dados em `data/<cN>/<campanha>/`
-  (gitignored), relatório em `analysis/report.md`.
-- C1 (workspace `cenario1`/`c2`):
-  ```
-  scripts/c1.sh check                     # build do zero dos presets c1-* + gate
-  scripts/c1.sh run --env hw|renode|renode-doc --preset c1-func --batch 0
-  scripts/c1.sh trace --env hw --preset c1-func --batch 4
-  scripts/c1.sh campaign --name <n> --mode pilot|final --board "stm32f103c8-st-tcc" [--pilot-from <piloto>]
-  scripts/c1.sh analyze --name <n>
-  PYTHONPATH=scripts python3 -m unittest discover -s scripts/c1/tests -t scripts
-  PYTHONPATH=scripts python3 -m unittest c1.tests.test_arm   # um módulo de teste
-  ```
-- Q-01 (instrumentos do Renode, só Renode; independe dos cenários). Modelo
-  do pipeline final enxuto (critério método × desenvolvimento):
+- Molde de um caso (critério método × desenvolvimento): um firmware em C
+  (`src/<caso>/`, preset próprio) e um script Python só com a biblioteca
+  padrão (`scripts/<caso>.py`) que gera o `.resc` de cada execução, roda o
+  Renode por `scripts/sim.py`, compara com a referência do caso e escreve
+  `data/<caso>/<campanha>/resultado.md` com o ambiente. Sem gerador de
+  header, gate ou testes no pipeline final; verificações de
+  desenvolvimento ficam fora dele.
+- Q-01 (instrumentos do Renode, só Renode):
   ```
   python3 scripts/q.py --name <n> [--reps 2] [--no-build]   # build do zero + bare/full × reps + resultado.md
   python3 scripts/q.py --name <n> --analyze
   ```
-  Firmware `src/q/q.c` (preset `q`); comum a todos os casos: `scripts/sim.py`.
   Instrumentos presos a periférico ficam nos cenários; nos casos #oD,
   estímulo e observação vão, sempre que possível, para eventos que o Q-01
   verificou (escrita do firmware, entrada em tratador, valor lido) — ver
   `03-quadro-comum.typ` §Verificação dos instrumentos do Renode.
-- C2 #oD (preset `c2-od`, só Renode; caso e pontos gravados pelo monitor):
-  ```
-  scripts/c2.sh check                                   # build do zero + gate do ELF
-  scripts/c2.sh run --case C2-09 --name <n> [--reps 2] [--no-build]
-  scripts/c2.sh analyze --case C2-09 --name <n>
-  PYTHONPATH=scripts python3 -m unittest discover -s scripts/c2/tests -t scripts
-  ```
-  Caso novo do C2 (desenho atual, a ser substituído na reescrita): pontos e oráculo em `scripts/c2/catalog.py`, firmware em
-  `src/c2/od/c2_NN.c` + `cases.c`, avaliação em `scripts/c2/analysis.py`
-  (com teste de sensibilidade em `scripts/c2/tests/`).
-- Renode: `renode/<cenário>.resc` + perfis `renode` (`stm32f103_hsi8.repl`,
-  a plataforma do projeto) e `renode-doc` (só correções documentadas).
-  8 MIPS, quantum 125 ns (o efeito do quantum é objeto de estudo no C2,
-  `04-c2.typ` §"O efeito do quantum").
+- C2: 16 casos em 5 etapas (`04-c2.typ` §Como o C2 está organizado), um
+  firmware por etapa (etapas 1–2 compartilham); a implementar no molde
+  acima.
+- Renode: plataforma `renode/stm32f103_hsi8.repl`, perfil R1 (8 MIPS,
+  quantum 125 ns) em todos os casos; `renode/debug.resc` só para depuração
+  no VS Code (`scripts/renode_start.sh <preset>`, GDB em :3334).
 
 ## Regras
 
@@ -227,7 +206,7 @@ tcc/
 - Bancada (placa única, ver identidade abaixo). Fios conforme
   `03-quadro-comum.typ` §Bancada: **J1 PA2→PB11** (C4), **J2 PA6→PA0**
   (C3); J0 PA9→PA10 continua soldado mas **não é usado** — nenhum firmware
-  aciona USART1/PA9/PA10 (o gate do C1 verifica literais da USART1 no ELF).
+  aciona USART1/PA9/PA10.
   Segurança elétrica: nunca duas saídas push-pull no mesmo fio; pinos dos
   fios ficam como entrada até o caso configurá-los; fios só com a placa
   desligada. Confirmar com o autor quais fios estão montados antes de um
