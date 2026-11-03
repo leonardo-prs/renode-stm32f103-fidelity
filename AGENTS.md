@@ -44,6 +44,43 @@ Consequências práticas:
 - Antes de editar, confirmar em qual workspace se está (`jj workspace list`,
   `jj log`) — cada workspace tem o seu `@`.
 
+## Versionamento e publicação
+
+- **Workspaces e branches de trabalho são processo de desenvolvimento.**
+  Neles o agente commita livremente (uma revisão por mudança coerente,
+  mensagem descritiva); commits intermediários não são publicados.
+- **`main` é o produto público.** O repositório GitHub ficará público só
+  com a `main`, que hoje está limpa. No fim, o autor faz um único merge do
+  produto final na `main`, com release e tag git dessa versão. Agentes
+  **nunca** movem, mesclam ou dão push na `main` (nem em tags) sem pedido
+  explícito do autor.
+- Isso vale para este repositório de código. No jj do `tcc/` continua
+  valendo: não commitar sem pedido do autor.
+
+## Método × desenvolvimento (o que vai para o trabalho final)
+
+O código e o texto finais devem ser **defensáveis pelo autor diante da
+banca** (TCC, não mestrado): só o que ele consegue explicar linha a linha.
+Critério para cada mecanismo: *se for retirado, algum veredito ou número do
+trabalho muda ou fica sem sustentação?*
+
+- **Sim → método:** fica no produto final, na forma mais simples possível
+  (oráculo legível com citação, comparação, registro da campanha — SHA do
+  ELF, versão do Renode, data —, repetições, e a verificação mínima dos
+  instrumentos da família Q de que um resultado depende).
+- **Não → desenvolvimento:** verificações que só pegam erro de construção
+  (gate do ELF, testes de sensibilidade, regressão byte a byte, pyright,
+  geradores de header) podem e devem ser usadas para confiança interna,
+  mas ficam **separadas** do pipeline final (ex.: `scripts/dev/`) e fora da
+  monografia (no máximo uma frase dizendo que existiram).
+- Verificação de desenvolvimento **só pode abortar** ("pare e conserte");
+  nunca filtra, corrige ou reclassifica dados. Se algo descarta ou muda um
+  resultado, é método e tem de estar declarado.
+- Firmware em C compilado é aceito sem demérito (ELF publicado com
+  SHA-256); assembly só onde a instrução é o próprio objeto (nível de
+  ciclo/instrução do C1), e aí o apêndice traz a listagem do `objdump`.
+- Não acrescentar sofisticação ao pipeline final por iniciativa própria.
+
 ## Parte escrita: `tcc/` (symlink → `/mnt/d/tcc`)
 
 > **Este repositório é somente código e simulação.** Monografia,
