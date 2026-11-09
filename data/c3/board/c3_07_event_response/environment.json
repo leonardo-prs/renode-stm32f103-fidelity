@@ -1,0 +1,12 @@
+{
+  "elf": "build/c3/firmware.elf",
+  "elf_sha256": "9e321ec3a0d5891bfbd554b86e05f138ee2691167488ffa5c192675959edc2c1",
+  "symbols": {
+    "selected_case": 536889364,
+    "record_complete": 134217932,
+    "unexpected_exception": 134217792,
+    "record_length": 536870912,
+    "record": 536870932
+  },
+  "reps": 3
+}

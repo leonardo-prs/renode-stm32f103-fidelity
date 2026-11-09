@@ -1,0 +1,31 @@
+ [INFO] System bus created.
+ [INFO] sysbus: Loading block of 8568 bytes length at 0x8000000.
+ [INFO] sysbus: Loading block of 18456 bytes length at 0x20000000.
+ [INFO] cpu: Guessing VectorTableOffset value to be 0x8000000.
+ [INFO] cpu: Setting initial values: PC = 0x8000045, SP = 0x20005000.
+ [INFO] stm32f103: Machine started.
+ [WARNING] sysbus: [cpu: 0x8001238] ReadDoubleWord from non existing peripheral at 0x40021004.
+ [WARNING] sysbus: [cpu: 0x8001240] WriteDoubleWord to non existing peripheral at 0x40021004, value 0x0.
+ [WARNING] sysbus: [cpu: 0x8001242] ReadDoubleWord from non existing peripheral at 0x40021004.
+ [WARNING] sysbus: [cpu: 0x8001248] WriteDoubleWord to non existing peripheral at 0x40021004, value 0x0.
+ [WARNING] sysbus: [cpu: 0x800124A] ReadDoubleWord from non existing peripheral at 0x40021004.
+ [WARNING] sysbus: [cpu: 0x8001250] WriteDoubleWord to non existing peripheral at 0x40021004, value 0x0.
+ [WARNING] sysbus: [cpu: 0x8001252] ReadDoubleWord from non existing peripheral at 0x40021004.
+ [WARNING] sysbus: [cpu: 0x8001258] WriteDoubleWord to non existing peripheral at 0x40021004, value 0x0.
+ [WARNING] sysbus: [cpu: 0x800125A] ReadDoubleWord from non existing peripheral at 0x40022000.
+ [WARNING] sysbus: [cpu: 0x8001260] WriteDoubleWord to non existing peripheral at 0x40022000, value 0x0.
+ [WARNING] sysbus: [cpu: 0x8001262] ReadDoubleWord from non existing peripheral at 0x40022000.
+ [WARNING] sysbus: [cpu: 0x8001268] WriteDoubleWord to non existing peripheral at 0x40022000, value 0x10.
+ [WARNING] sysbus: [cpu: 0x800126A] ReadDoubleWord from non existing peripheral at 0x40021018.
+ [WARNING] sysbus: [cpu: 0x8001270] WriteDoubleWord to non existing peripheral at 0x40021018, value 0xD.
+ [WARNING] sysbus: [cpu: 0x8001272] ReadDoubleWord from non existing peripheral at 0x40021018.
+ [WARNING] sysbus: [cpu: 0x800127C] ReadDoubleWord from non existing peripheral at 0x4002101C.
+ [WARNING] sysbus: [cpu: 0x8001282] WriteDoubleWord to non existing peripheral at 0x4002101C, value 0x3.
+ [WARNING] sysbus: [cpu: 0x8001284] ReadDoubleWord from non existing peripheral at 0x4002101C.
+ [WARNING] gpioPortA: Trying to set the state of the input pin #6
+ [WARNING] gpioPortA: Trying to set the state of the input pin #5
+ [INFO] cpu: EVENT RECORD time_ns=1403875 instructions=11231 words=1,0,0,1,1,1,0,0,1,1,0,0
+ [INFO] stm32f103: Machine paused.
+ [INFO] stm32f103: Machine resumed.
+ [INFO] stm32f103: Machine paused.
+ [INFO] stm32f103: Disposed.

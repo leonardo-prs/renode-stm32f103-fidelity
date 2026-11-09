@@ -1,0 +1,20 @@
+ [INFO] System bus created.
+ [INFO] sysbus: Loading block of 1268 bytes length at 0x8000000.
+ [INFO] sysbus: Loading block of 18504 bytes length at 0x20000000.
+ [INFO] cpu: Guessing VectorTableOffset value to be 0x8000000.
+ [INFO] cpu: Setting initial values: PC = 0x8000049, SP = 0x20005000.
+ [INFO] stm32f103: Machine started.
+ [INFO] stm32f103: Machine paused.
+ [INFO] cpu: EVENT MONITOR_PAUSE time_ns=20000000 instructions=160000 words=13,3,81,104,140,186,242,260,338,361,397,443,499,41170
+ [INFO] stm32f103: Machine resumed.
+ [INFO] stm32f103: Machine paused.
+ [INFO] cpu: EVENT MONITOR_PAUSE time_ns=25000000 instructions=200000 words=13,3,81,104,140,186,242,260,338,361,397,443,499,41170
+ [INFO] stm32f103: Machine resumed.
+ [INFO] stm32f103: Machine paused.
+ [INFO] cpu: EVENT MONITOR_PAUSE time_ns=30000000 instructions=240000 words=13,3,81,104,140,186,242,260,338,361,397,443,499,41170
+ [INFO] stm32f103: Machine resumed.
+ [INFO] cpu: EVENT RECORD time_ns=30019375 instructions=240155 words=3,81,104,140,186,242,260,338,361,397,443,499,41170,239936,3235774465,3237998081,195887105,195887106,195887107,29681,9992,15,9,6
+ [INFO] stm32f103: Machine paused.
+ [INFO] stm32f103: Machine resumed.
+ [INFO] stm32f103: Machine paused.
+ [INFO] stm32f103: Disposed.

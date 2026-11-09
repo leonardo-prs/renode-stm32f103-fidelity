@@ -1,0 +1,24 @@
+{
+  "elf": "build/instruments/firmware.elf",
+  "elf_sha256": "e9c8fda01af65627f8d15593078a954d91c9295d6b1609895029668d1d65e36f",
+  "renode": "Renode v1.17.0",
+  "symbols": {
+    "selected_case": 536889408,
+    "record": 536870976,
+    "record_length": 536870912,
+    "record_complete": 134217936,
+    "unexpected_exception": 134217796,
+    "mark": 134217952,
+    "store": 134217964,
+    "trigger": 134218232,
+    "stress": 134218236,
+    "phase_mark": 134218240,
+    "sink": 536889412,
+    "mailbox": 536870968,
+    "hook_mailbox": 536870972,
+    "PendSV_Handler": 134218124,
+    "SysTick_Handler": 134218044,
+    "External_Handler": 134218084
+  },
+  "reps": 3
+}

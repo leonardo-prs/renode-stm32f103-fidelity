@@ -1,0 +1,14 @@
+{
+  "elf": "build/c4/firmware.elf",
+  "elf_sha256": "19c173e15a2fecf32a529acd2328af710a8fb2f1d76d9d3778abac487fd968a3",
+  "renode": "Renode v1.17.0",
+  "symbols": {
+    "selected_case": 536889644,
+    "record_complete": 134218092,
+    "unexpected_exception": 134217952,
+    "record_length": 536870912,
+    "record": 536871212
+  },
+  "reps": 3,
+  "hub": "UH-E (StrictMode)"
+}

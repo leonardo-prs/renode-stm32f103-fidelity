@@ -1,0 +1,24 @@
+ [INFO] System bus created.
+ [INFO] sysbus: Loading block of 7916 bytes length at 0x8000000.
+ [INFO] sysbus: Loading block of 8 bytes length at 0x8001EEC.
+ [INFO] sysbus: Loading block of 18540 bytes length at 0x20000008.
+ [INFO] cpu: Guessing VectorTableOffset value to be 0x8000000.
+ [INFO] cpu: Setting initial values: PC = 0x8000045, SP = 0x20005000.
+ [INFO] stm32f103: Machine started.
+ [WARNING] sysbus: [cpu: 0x8001484] ReadDoubleWord from non existing peripheral at 0x40021004.
+ [WARNING] sysbus: [cpu: 0x800148A] WriteDoubleWord to non existing peripheral at 0x40021004, value 0x0.
+ [WARNING] sysbus: [cpu: 0x800148C] ReadDoubleWord from non existing peripheral at 0x40021004.
+ [WARNING] sysbus: [cpu: 0x8001492] WriteDoubleWord to non existing peripheral at 0x40021004, value 0x0.
+ [WARNING] sysbus: [cpu: 0x8001494] ReadDoubleWord from non existing peripheral at 0x40021004.
+ [WARNING] sysbus: [cpu: 0x800149A] WriteDoubleWord to non existing peripheral at 0x40021004, value 0x0.
+ [WARNING] sysbus: [cpu: 0x800149C] ReadDoubleWord from non existing peripheral at 0x40021004.
+ [WARNING] sysbus: [cpu: 0x80014A2] WriteDoubleWord to non existing peripheral at 0x40021004, value 0x0.
+ [WARNING] sysbus: [cpu: 0x80014A4] ReadDoubleWord from non existing peripheral at 0x40022000.
+ [WARNING] sysbus: [cpu: 0x80014AA] WriteDoubleWord to non existing peripheral at 0x40022000, value 0x0.
+ [WARNING] sysbus: [cpu: 0x80014AC] ReadDoubleWord from non existing peripheral at 0x40022000.
+ [WARNING] sysbus: [cpu: 0x80014B2] WriteDoubleWord to non existing peripheral at 0x40022000, value 0x10.
+ [INFO] cpu: EVENT RECORD time_ns=136875 instructions=1095 words=127,127,127,127,4294967168,128,128,128,4294967295,255,22271,22271,4294967295,255,32767,32767,0,0,4294934528,32768,1,1,4294934529,32769,127,127,4294967168,128,4294967295,255,4294934528,32768,32767,32767,4294967168,4294945741,2147483648,10906,536870912,5542,2684354560,10646,0,5802,805306368,10598,2415919104,5722,1610612736,9893
+ [INFO] stm32f103: Machine paused.
+ [INFO] stm32f103: Machine resumed.
+ [INFO] stm32f103: Machine paused.
+ [INFO] stm32f103: Disposed.

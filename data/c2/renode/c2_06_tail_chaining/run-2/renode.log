@@ -1,0 +1,47 @@
+ [INFO] System bus created.
+ [INFO] sysbus: Loading block of 10156 bytes length at 0x8000000.
+ [INFO] sysbus: Loading block of 19300 bytes length at 0x20000000.
+ [INFO] cpu: Guessing VectorTableOffset value to be 0x8000000.
+ [INFO] cpu: Setting initial values: PC = 0x8000045, SP = 0x20005000.
+ [INFO] stm32f103: Machine started.
+ [WARNING] sysbus: [cpu: 0x8001726] ReadDoubleWord from non existing peripheral at 0x40021004.
+ [WARNING] sysbus: [cpu: 0x800172E] WriteDoubleWord to non existing peripheral at 0x40021004, value 0x0.
+ [WARNING] sysbus: [cpu: 0x8001730] ReadDoubleWord from non existing peripheral at 0x40021004.
+ [WARNING] sysbus: [cpu: 0x800173A] WriteDoubleWord to non existing peripheral at 0x40021004, value 0x0.
+ [WARNING] sysbus: [cpu: 0x800173C] ReadDoubleWord from non existing peripheral at 0x40021004.
+ [WARNING] sysbus: [cpu: 0x8001744] WriteDoubleWord to non existing peripheral at 0x40021004, value 0x0.
+ [WARNING] sysbus: [cpu: 0x8001746] ReadDoubleWord from non existing peripheral at 0x40021004.
+ [WARNING] sysbus: [cpu: 0x800174C] WriteDoubleWord to non existing peripheral at 0x40021004, value 0x0.
+ [WARNING] sysbus: [cpu: 0x800174E] ReadDoubleWord from non existing peripheral at 0x40022000.
+ [WARNING] sysbus: [cpu: 0x8001758] WriteDoubleWord to non existing peripheral at 0x40022000, value 0x0.
+ [WARNING] sysbus: [cpu: 0x800175A] ReadDoubleWord from non existing peripheral at 0x40022000.
+ [WARNING] sysbus: [cpu: 0x8001764] WriteDoubleWord to non existing peripheral at 0x40022000, value 0x10.
+ [INFO] cpu: EVENT EXCEPTION_ENTRY time_ns=124000 instructions=993 pc=0x8000590 xpsr=0x61000000
+ [INFO] cpu: EVENT ADDRESS pc=0x80009e0 time_ns=124125 instructions=993 r0=0xe000e100 r1=0x8002724 xpsr=0x6100003a
+ [INFO] cpu: EVENT EXCEPTION_EXIT time_ns=125750 instructions=1007 pc=0xfffffff9 xpsr=0x100003a
+ [INFO] cpu: EVENT EXCEPTION_ENTRY time_ns=125750 instructions=1007 pc=0x8000590 xpsr=0x61000000
+ [INFO] cpu: EVENT ADDRESS pc=0x80009e0 time_ns=125875 instructions=1007 r0=0xe000e100 r1=0x8002724 xpsr=0x61000033
+ [INFO] cpu: EVENT EXCEPTION_EXIT time_ns=127500 instructions=1021 pc=0xfffffff9 xpsr=0x1000033
+ [INFO] cpu: EVENT EXCEPTION_ENTRY time_ns=127500 instructions=1021 pc=0x8000590 xpsr=0x61000000
+ [INFO] cpu: EVENT ADDRESS pc=0x80009e0 time_ns=127625 instructions=1021 r0=0xe000e100 r1=0x8002724 xpsr=0x61000024
+ [INFO] cpu: EVENT EXCEPTION_EXIT time_ns=129250 instructions=1035 pc=0xfffffff9 xpsr=0x1000024
+ [INFO] cpu: EVENT EXCEPTION_ENTRY time_ns=129250 instructions=1035 pc=0x8000590 xpsr=0x61000000
+ [INFO] cpu: EVENT ADDRESS pc=0x80009e0 time_ns=129375 instructions=1035 r0=0xe000e100 r1=0x8002724 xpsr=0x61000010
+ [INFO] cpu: EVENT EXCEPTION_EXIT time_ns=131000 instructions=1049 pc=0xfffffff9 xpsr=0x1000010
+ [INFO] cpu: EVENT EXCEPTION_ENTRY time_ns=171250 instructions=1371 pc=0x8000590 xpsr=0x61000000
+ [INFO] cpu: EVENT ADDRESS pc=0x80009e0 time_ns=171375 instructions=1371 r0=0xe000e100 r1=0x8002724 xpsr=0x61000010
+ [INFO] cpu: EVENT EXCEPTION_EXIT time_ns=173000 instructions=1385 pc=0xfffffff9 xpsr=0x1000010
+ [INFO] cpu: EVENT EXCEPTION_ENTRY time_ns=173000 instructions=1385 pc=0x8000590 xpsr=0x61000000
+ [INFO] cpu: EVENT ADDRESS pc=0x80009e0 time_ns=173125 instructions=1385 r0=0xe000e100 r1=0x8002724 xpsr=0x61000024
+ [INFO] cpu: EVENT EXCEPTION_EXIT time_ns=174750 instructions=1399 pc=0xfffffff9 xpsr=0x1000024
+ [INFO] cpu: EVENT EXCEPTION_ENTRY time_ns=174750 instructions=1399 pc=0x8000590 xpsr=0x61000000
+ [INFO] cpu: EVENT ADDRESS pc=0x80009e0 time_ns=174875 instructions=1399 r0=0xe000e100 r1=0x8002724 xpsr=0x61000033
+ [INFO] cpu: EVENT EXCEPTION_EXIT time_ns=176500 instructions=1413 pc=0xfffffff9 xpsr=0x1000033
+ [INFO] cpu: EVENT EXCEPTION_ENTRY time_ns=176500 instructions=1413 pc=0x8000590 xpsr=0x61000000
+ [INFO] cpu: EVENT ADDRESS pc=0x80009e0 time_ns=176625 instructions=1413 r0=0xe000e100 r1=0x8002724 xpsr=0x6100003a
+ [INFO] cpu: EVENT EXCEPTION_EXIT time_ns=178250 instructions=1427 pc=0xfffffff9 xpsr=0x100003a
+ [INFO] cpu: EVENT RECORD time_ns=194000 instructions=1552 words=58,51,36,16,16,36,51,58
+ [INFO] stm32f103: Machine paused.
+ [INFO] stm32f103: Machine resumed.
+ [INFO] stm32f103: Machine paused.
+ [INFO] stm32f103: Disposed.

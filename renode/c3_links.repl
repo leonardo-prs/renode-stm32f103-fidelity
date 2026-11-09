@@ -1,0 +1,8 @@
+// c3_links.repl — the links of the C3 bench, loaded by robot/c3.robot over
+// renode/stm32f103_hsi8.repl (the common platform is not changed). A GPIO link `->`
+// is the connection the Renode documentation offers between pins. A source pin keeps
+// its timer links of the platform: a new entry for a pin replaces the old one.
+gpioPortA:
+    5 -> gpioPortB@0                        // L4: PA5 → PB0
+    6 -> timer3@0 | gpioPortA@0             // L2: PA6 → PA0
+    7 -> timer1@0 | timer3@1 | gpioPortA@1  // L3: PA7 → PA1

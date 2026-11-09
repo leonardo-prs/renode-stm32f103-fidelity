@@ -1,0 +1,17 @@
+{
+  "elf": "build/c2/firmware.elf",
+  "elf_sha256": "2a6154534ff8f804c4e0e6b727cf7b37ec7645b18b0d93e9b5b49aead061b23c",
+  "renode": "Renode v1.17.0",
+  "symbols": {
+    "selected_case": 536890208,
+    "record_complete": 134217932,
+    "unexpected_exception": 134217792,
+    "record_length": 536870912,
+    "record": 536871776,
+    "note_service_handler": 134220256,
+    "timer_service_handler": 134220836,
+    "service_count": 536871504,
+    "round_ready": 536871500
+  },
+  "reps": 3
+}

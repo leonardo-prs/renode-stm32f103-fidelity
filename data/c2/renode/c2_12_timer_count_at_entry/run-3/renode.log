@@ -1,0 +1,34 @@
+ [INFO] System bus created.
+ [INFO] sysbus: Loading block of 10156 bytes length at 0x8000000.
+ [INFO] sysbus: Loading block of 19300 bytes length at 0x20000000.
+ [INFO] cpu: Guessing VectorTableOffset value to be 0x8000000.
+ [INFO] cpu: Setting initial values: PC = 0x8000045, SP = 0x20005000.
+ [INFO] stm32f103: Machine started.
+ [WARNING] sysbus: [cpu: 0x8001726] ReadDoubleWord from non existing peripheral at 0x40021004.
+ [WARNING] sysbus: [cpu: 0x800172E] WriteDoubleWord to non existing peripheral at 0x40021004, value 0x0.
+ [WARNING] sysbus: [cpu: 0x8001730] ReadDoubleWord from non existing peripheral at 0x40021004.
+ [WARNING] sysbus: [cpu: 0x800173A] WriteDoubleWord to non existing peripheral at 0x40021004, value 0x0.
+ [WARNING] sysbus: [cpu: 0x800173C] ReadDoubleWord from non existing peripheral at 0x40021004.
+ [WARNING] sysbus: [cpu: 0x8001744] WriteDoubleWord to non existing peripheral at 0x40021004, value 0x0.
+ [WARNING] sysbus: [cpu: 0x8001746] ReadDoubleWord from non existing peripheral at 0x40021004.
+ [WARNING] sysbus: [cpu: 0x800174C] WriteDoubleWord to non existing peripheral at 0x40021004, value 0x0.
+ [WARNING] sysbus: [cpu: 0x800174E] ReadDoubleWord from non existing peripheral at 0x40022000.
+ [WARNING] sysbus: [cpu: 0x8001758] WriteDoubleWord to non existing peripheral at 0x40022000, value 0x0.
+ [WARNING] sysbus: [cpu: 0x800175A] ReadDoubleWord from non existing peripheral at 0x40022000.
+ [WARNING] sysbus: [cpu: 0x8001764] WriteDoubleWord to non existing peripheral at 0x40022000, value 0x10.
+ [WARNING] sysbus: [cpu: 0x8001038] ReadDoubleWord from non existing peripheral at 0x4002101C.
+ [WARNING] sysbus: [cpu: 0x8001040] WriteDoubleWord to non existing peripheral at 0x4002101C, value 0x1.
+ [WARNING] sysbus: [cpu: 0x8001042] ReadDoubleWord from non existing peripheral at 0x4002101C.
+ [WARNING] dma1: DMA peripheral request on channel 2 ignored - channel is disabled or has data count set to 0
+ [WARNING] dma1: DMA peripheral request on channel 2 ignored - channel is disabled or has data count set to 0
+ [WARNING] dma1: DMA peripheral request on channel 2 ignored - channel is disabled or has data count set to 0
+ [WARNING] dma1: DMA peripheral request on channel 2 ignored - channel is disabled or has data count set to 0
+ [WARNING] dma1: DMA peripheral request on channel 2 ignored - channel is disabled or has data count set to 0
+ [WARNING] dma1: DMA peripheral request on channel 2 ignored - channel is disabled or has data count set to 0
+ [WARNING] dma1: DMA peripheral request on channel 2 ignored - channel is disabled or has data count set to 0
+ [WARNING] dma1: DMA peripheral request on channel 2 ignored - channel is disabled or has data count set to 0
+ [INFO] cpu: EVENT RECORD time_ns=1147125 instructions=9177 words=1039,1130,2040,2131,3038,3129,4036,4127,5037,5128,6035,6126,7033,7124,8034,8125,8,1,1074,1,2073,1,3072,1,4071,1,5070,1,6069,1,7068,1,8067
+ [INFO] stm32f103: Machine paused.
+ [INFO] stm32f103: Machine resumed.
+ [INFO] stm32f103: Machine paused.
+ [INFO] stm32f103: Disposed.

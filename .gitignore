@@ -1,0 +1,26 @@
+# Build tree: only each firmware's ELF is versioned, so the SHA-256 recorded in data/ can be
+# checked against the binary that produced it.
+build/*
+!build/*/
+build/*/*
+!build/*/firmware.elf
+/compile_commands.json
+
+# Environment and tool caches
+.direnv/
+__pycache__/
+*.pyc
+.cache/
+
+# Editor and OS files
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# Run outputs that are not data: Robot output, the uncompressed Renode trace (kept as
+# trace.txt.xz) and the OpenOCD transcripts.
+/data/**/_robot/
+/data/**/trace.txt
+/data/**/openocd.log
+/data/**/flash.log

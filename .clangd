@@ -1,0 +1,5 @@
+# clangd (LSP) settings; the compilation database is build/compile_commands.json,
+# which clangd finds by itself. `noipa` is a GCC attribute (the real compiler)
+# unknown to clang: this only silences that warning in the LSP.
+CompileFlags:
+  Add: [-Wno-unknown-attributes]

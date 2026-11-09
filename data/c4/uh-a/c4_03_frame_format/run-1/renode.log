@@ -1,0 +1,34 @@
+ [INFO] System bus created.
+ [INFO] sysbus: Loading block of 2428 bytes length at 0x8000000.
+ [INFO] sysbus: Loading block of 18736 bytes length at 0x20000000.
+ [INFO] cpu: Guessing VectorTableOffset value to be 0x8000000.
+ [INFO] cpu: Setting initial values: PC = 0x80000E5, SP = 0x20005000.
+ [INFO] stm32f103: Machine started.
+ [WARNING] sysbus: [cpu: 0x80004C8] ReadDoubleWord from non existing peripheral at 0x40021004.
+ [WARNING] sysbus: [cpu: 0x80004D0] WriteDoubleWord to non existing peripheral at 0x40021004, value 0x0.
+ [WARNING] sysbus: [cpu: 0x80004D2] ReadDoubleWord from non existing peripheral at 0x40021004.
+ [WARNING] sysbus: [cpu: 0x80004DC] WriteDoubleWord to non existing peripheral at 0x40021004, value 0x0.
+ [WARNING] sysbus: [cpu: 0x80004DE] ReadDoubleWord from non existing peripheral at 0x40021004.
+ [WARNING] sysbus: [cpu: 0x80004E6] WriteDoubleWord to non existing peripheral at 0x40021004, value 0x0.
+ [WARNING] sysbus: [cpu: 0x80004E8] ReadDoubleWord from non existing peripheral at 0x40021004.
+ [WARNING] sysbus: [cpu: 0x80004F0] WriteDoubleWord to non existing peripheral at 0x40021004, value 0x0.
+ [WARNING] sysbus: [cpu: 0x80004F2] ReadDoubleWord from non existing peripheral at 0x40022000.
+ [WARNING] sysbus: [cpu: 0x80004FA] WriteDoubleWord to non existing peripheral at 0x40022000, value 0x0.
+ [WARNING] sysbus: [cpu: 0x80004FC] ReadDoubleWord from non existing peripheral at 0x40022000.
+ [WARNING] sysbus: [cpu: 0x8000502] WriteDoubleWord to non existing peripheral at 0x40022000, value 0x10.
+ [WARNING] sysbus: [cpu: 0x8000504] ReadDoubleWord from non existing peripheral at 0x40021018.
+ [WARNING] sysbus: [cpu: 0x800050A] WriteDoubleWord to non existing peripheral at 0x40021018, value 0xC.
+ [WARNING] sysbus: [cpu: 0x800050C] ReadDoubleWord from non existing peripheral at 0x40021018.
+ [WARNING] sysbus: [cpu: 0x8000516] ReadDoubleWord from non existing peripheral at 0x4002101C.
+ [WARNING] sysbus: [cpu: 0x800051C] WriteDoubleWord to non existing peripheral at 0x4002101C, value 0x60000.
+ [WARNING] sysbus: [cpu: 0x800051E] ReadDoubleWord from non existing peripheral at 0x4002101C.
+ [WARNING] usart2: 9-bit word mode is not implemented
+ [WARNING] usart3: 9-bit word mode is not implemented
+ [INFO] Pseudorandom Number Generator was created with seed: 1147132410
+ [WARNING] usart2: 9-bit word mode is not implemented
+ [WARNING] usart3: 9-bit word mode is not implemented
+ [INFO] cpu: EVENT RECORD time_ns=4533250 instructions=36266 words=8,3249,12583333,3299,12583077,3349,12583258,3399,12583002,3957,1088422053,4647,1088422053,5337,1088421978,6027,1088421978,8,12220,12583077,12270,12583333,12320,12583335,12370,12583079,12928,1088422053,13618,1088422053,14308,1088422055,14998,1088422055,8,21191,12583077,21241,12582949,21291,12582951,21341,12583079,21899,1088422053,22589,1088421925,23279,1088421927,23969,1088422055,8,30162,12583077,30212,12583079,30262,12583002,30312,12582912,30870,1088422053,31560,1088422055,32250,1088421978,32940,1088421888
+ [INFO] stm32f103: Machine paused.
+ [INFO] stm32f103: Machine resumed.
+ [INFO] stm32f103: Machine paused.
+ [INFO] stm32f103: Disposed.
